@@ -1,0 +1,22 @@
+# Expo
+.expo/
+dist/
+web-build/
+
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# React Native
+/android/build/
+/android/app/build/
+/android/.gradle/
+/ios/Pods/
+/ios/build/
+*.apk
+*.aab
+
+# OS
+.DS_Store
+Thumbs.db

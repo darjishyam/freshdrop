@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "380193662825",
+    "project_id": "freshdrop-d3c24",
+    "storage_bucket": "freshdrop-d3c24.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:380193662825:android:deb8fb38a2f27848a73ff8",
+        "android_client_info": {
+          "package_name": "com.freshdrop.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPzYJxe4RXMrl9d1XJqji1Pcmy_ON5JWk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

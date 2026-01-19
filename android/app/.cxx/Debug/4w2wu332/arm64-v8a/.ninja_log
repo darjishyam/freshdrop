@@ -1,0 +1,6 @@
+# ninja log v5
+46	438	0	C:/Users/jayra/OneDrive/Desktop/Delivery App/myApp/android/app/.cxx/Debug/4w2wu332/arm64-v8a/CMakeFiles/cmake.verify_globs	4522ba29f7b984d3
+134	34336	7905188536746463	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/react/renderer/components/rnasyncstorage/States.cpp.o	a800baea8d3d7e84
+347	35525	7905188548656803	lottiereactnative_autolinked_build/CMakeFiles/react_codegen_lottiereactnative.dir/react/renderer/components/lottiereactnative/States.cpp.o	53b394b6c06f514
+72	38821	7905188579746905	rnasyncstorage_autolinked_build/CMakeFiles/react_codegen_rnasyncstorage.dir/react/renderer/components/rnasyncstorage/EventEmitters.cpp.o	80ab6e1072389290
+393	39345	7905188586201760	rngesturehandler_codegen_autolinked_build/CMakeFiles/react_codegen_rngesturehandler_codegen.dir/bac033cd950586cef66695376748dd33/EventEmitters.cpp.o	30d9232f5a20637e
