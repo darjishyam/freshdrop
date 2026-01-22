@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { persistenceMiddleware } from "./middleware/persistenceMiddleware";
 import authReducer from "./slices/authSlice";
 import cartReducer from "./slices/cartSlice";
+import dataReducer from "./slices/dataSlice";
 import ordersReducer from "./slices/ordersSlice";
 import reviewsReducer from "./slices/reviewsSlice";
 import stockReducer from "./slices/stockSlice";
@@ -12,6 +13,7 @@ export const store = configureStore({
     user: userReducer,
     cart: cartReducer,
     auth: authReducer,
+    data: dataReducer,
     orders: ordersReducer,
     stock: stockReducer,
     reviews: reviewsReducer,

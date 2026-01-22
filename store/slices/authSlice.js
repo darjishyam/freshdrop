@@ -52,9 +52,13 @@ export const signup = createAsyncThunk(
  */
 export const requestOTP = createAsyncThunk(
   "auth/requestOTP",
-  async (phone, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const result = await sendOTP(phone);
+      // payload can be string (phone) or object { phone, password }
+      const phone = typeof payload === 'string' ? payload : payload.phone;
+      const password = typeof payload === 'object' ? payload.password : null;
+
+      const result = await sendOTP(phone, password);
       return result;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -95,6 +99,22 @@ export const updateProfile = createAsyncThunk(
   async ({ phone, updates }, { rejectWithValue }) => {
     try {
       const result = await updateUserProfile(phone, updates);
+      return result.user;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+/**
+ * Google Sign-In
+ */
+export const googleSignIn = createAsyncThunk(
+  "auth/googleSignIn",
+  async ({ token, action }, { rejectWithValue }) => {
+    try {
+      const { googleAuth } = require("../../services/authService");
+      const result = await googleAuth(token, action);
       return result.user;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -205,6 +225,21 @@ const authSlice = createSlice({
         state.user = action.payload;
       })
       .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+
+      // Google Sign-In
+      .addCase(googleSignIn.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(googleSignIn.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+        state.isAuthenticated = true;
+      })
+      .addCase(googleSignIn.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       });

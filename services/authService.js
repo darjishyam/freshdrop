@@ -234,6 +234,63 @@ export const updateUserProfile = async (phone, updates) => {
   }
 };
 
+/**
+ * Google Authentication
+ * POST /api/auth/google
+ */
+export const googleAuth = async (token, action = 'signup') => {
+  try {
+    console.log(`[authService] Calling /auth/google with action: ${action}`);
+    const response = await fetch(`${API_URL}/auth/google`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token, action }),
+    });
+
+    const data = await response.json();
+    console.log("[authService] Backend response:", data);
+
+    if (!response.ok) {
+      throw new Error(data.message || "Google authentication failed");
+    }
+
+    // Backend returns: { _id, name, email, phone, image, token, isNewUser }
+    const user = {
+      _id: data._id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      image: data.image,
+      token: data.token
+    };
+
+    // Save session to BOTH auth and user_profile keys
+    await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+
+    // CRITICAL: Also save to user_profile for userSlice compatibility
+    await AsyncStorage.setItem("user_profile", JSON.stringify({
+      name: data.name,
+      email: data.email,
+      phone: data.phone || "",
+      image: data.image
+    }));
+
+    console.log("[authService] User saved to AsyncStorage (both keys):", user.email);
+
+    return {
+      success: true,
+      user: user,
+      isNewUser: data.isNewUser
+    };
+  } catch (error) {
+    console.error("[authService] Error with Google authentication:", error);
+    throw error;
+  }
+};
+
 // Default user init is not needed for real backend, but kept empty for safety imports
 export const initializeDefaultUser = async () => {
   return;

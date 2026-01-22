@@ -14,7 +14,7 @@
  * - Memoized input components
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -32,6 +32,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import {
   signup,
+  googleSignIn,
   clearError,
   selectIsLoading,
   selectError,
@@ -41,6 +42,15 @@ import {
   validateEmail,
   validateName,
 } from "../../utils/authUtils";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+
+WebBrowser.maybeCompleteAuthSession();
+
+// Google OAuth Config
+const GOOGLE_WEB_CLIENT_ID = "380193662825-vd7d24hn7gq8ioc0udnpb505ouh6un0q.apps.googleusercontent.com";
+const GOOGLE_ANDROID_CLIENT_ID = "380193662825-kj89m0kvlf7999f4s8hqio9trrcsoes5.apps.googleusercontent.com";
+const GOOGLE_IOS_CLIENT_ID = "380193662825-kj89m0kvlf7999f4s8hqio9trrcsoes5.apps.googleusercontent.com"; // Using Android ID for iOS
 
 // Memoized input field component
 const InputField = React.memo(
@@ -194,6 +204,41 @@ export default function SignupScreen() {
     router.push("/auth/login");
   }, []);
 
+  // Google OAuth
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      console.log("Google OAuth Success - Access Token:", authentication.accessToken);
+      handleGoogleSignup(authentication.accessToken);
+    } else if (response?.type === "error") {
+      console.error("Google OAuth Error:", response.error);
+      Alert.alert("Google Sign-In Error", response.error?.message || "Authentication failed");
+    }
+  }, [response]);
+
+  const handleGoogleSignup = async (token) => {
+    try {
+      console.log("Calling googleSignIn with token:", token?.substring(0, 20) + "...");
+      const result = await dispatch(googleSignIn({ token, action: 'signup' })).unwrap();
+      console.log("Google Sign-In Success - User:", result);
+
+      // Reload user data from AsyncStorage (userSlice)
+      const { loadUserData } = require("../../store/slices/userSlice");
+      await dispatch(loadUserData());
+
+      router.replace("/home");
+    } catch (err) {
+      console.error("Google Sign-In Failed:", err);
+      Alert.alert("Google Sign-In Failed", err || "Please try again");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -254,6 +299,22 @@ export default function SignupScreen() {
               disabled={isButtonDisabled}
               loading={isLoading}
             />
+
+            {/* Divider */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Google Sign-In Button */}
+            <Pressable
+              style={styles.googleButton}
+              onPress={() => promptAsync()}
+              disabled={!request}
+            >
+              <Text style={styles.googleButtonText}>🔍 Continue with Google</Text>
+            </Pressable>
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account?</Text>
@@ -419,5 +480,36 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 13,
     color: "#666",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#ddd",
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: "#666",
+    fontSize: 14,
+  },
+  googleButton: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    height: 50,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    ...Platform.select({ web: { cursor: "pointer" } }),
+  },
+  googleButtonText: {
+    color: "#333",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

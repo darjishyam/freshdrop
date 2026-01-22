@@ -13,7 +13,7 @@
  * - Memoized child components
  */
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -30,15 +30,26 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import {
   requestOTP,
+  login,
+  googleSignIn,
   clearError,
   selectIsLoading,
   selectError,
 } from "../../store/slices/authSlice";
 import { useToast } from "../../context/ToastContext";
 import { validatePhone } from "../../utils/authUtils";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+
+WebBrowser.maybeCompleteAuthSession();
+
+// Google OAuth Config
+const GOOGLE_WEB_CLIENT_ID = "380193662825-vd7d24hn7gq8ioc0udnpb505ouh6un0q.apps.googleusercontent.com";
+const GOOGLE_ANDROID_CLIENT_ID = "380193662825-kj89m0kvlf7999f4s8hqio9trrcsoes5.apps.googleusercontent.com";
+const GOOGLE_IOS_CLIENT_ID = "380193662825-kj89m0kvlf7999f4s8hqio9trrcsoes5.apps.googleusercontent.com"; // Using Android ID for iOS
 
 // Memoized button component
-const LoginButton = React.memo(({ onPress, disabled, loading }) => (
+const LoginButton = React.memo(({ onPress, disabled, loading, text }) => (
   <Pressable
     style={[styles.button, disabled && styles.buttonDisabled]}
     onPress={onPress}
@@ -47,7 +58,7 @@ const LoginButton = React.memo(({ onPress, disabled, loading }) => (
     {loading ? (
       <ActivityIndicator color="#fff" />
     ) : (
-      <Text style={styles.buttonText}>Continue</Text>
+      <Text style={styles.buttonText}>{text || "Continue"}</Text>
     )}
   </Pressable>
 ));
@@ -55,62 +66,127 @@ const LoginButton = React.memo(({ onPress, disabled, loading }) => (
 LoginButton.displayName = "LoginButton";
 
 export default function LoginScreen() {
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+
   const dispatch = useDispatch();
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
+  const { showToast } = useToast();
 
-  // Memoized validation
-  const isPhoneValid = useMemo(() => {
-    return validatePhone(phoneNumber);
-  }, [phoneNumber]);
-
-  // Memoized button disabled state
   const isButtonDisabled = useMemo(() => {
-    return !isPhoneValid || isLoading;
-  }, [isPhoneValid, isLoading]);
+    if (isLoading) return true;
+    if (step === 'credentials') return !identifier || !password;
+    if (step === 'otp') return otp.length < 6;
+    return false;
+  }, [step, identifier, password, otp, isLoading]);
 
-  // Callback for phone number change
-  const handlePhoneChange = useCallback(
-    (text) => {
-      // Only allow numbers
-      const cleaned = text.replace(/[^0-9]/g, "");
-      setPhoneNumber(cleaned);
+  // Timer for Resend OTP
+  const [timer, setTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
 
-      // Clear any previous errors
-      if (error) {
-        dispatch(clearError());
-      }
-    },
-    [error, dispatch]
-  );
-
-  // Callback for login
-  const { showToast } = useToast(); // Hook for toast
-
-  const handleLogin = useCallback(async () => {
-    if (!isPhoneValid) {
-      showToast("Please enter a valid 10-digit phone number");
-      return;
+  useEffect(() => {
+    let interval;
+    if (step === 'otp' && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      setCanResend(true);
     }
+    return () => clearInterval(interval);
+  }, [step, timer]);
+
+  const handleIdentifierChange = (text) => {
+    setIdentifier(text);
+    if (error) dispatch(clearError());
+  };
+
+  // Step 1: Login (Validate Credentials & Request OTP)
+  const handleLogin = useCallback(async () => {
+    try {
+      // Use requestOTP (which maps to authService.sendOTP). 
+      // We pass the password as 2nd arg to trigger the /login endpoint logic in service.
+      await dispatch(requestOTP({ phone: identifier, password })).unwrap();
+
+      setStep('otp');
+      setTimer(30);
+      setCanResend(false);
+      showToast("OTP sent to your email!");
+    } catch (err) {
+      showToast(err || "Login failed", "error");
+    }
+  }, [identifier, password, dispatch, showToast]);
+
+  // Resend OTP Handler
+  const handleResendOtp = useCallback(async () => {
+    if (!canResend) return;
 
     try {
-      await dispatch(requestOTP(phoneNumber)).unwrap();
-      // Navigate to OTP screen
-      router.push({
-        pathname: "/auth/otp",
-        params: { phone: phoneNumber },
-      });
-    } catch (err) {
-      // Use Toast for better UI feedback
-      showToast(err || "User not found. Please sign up.", "error");
-    }
-  }, [phoneNumber, isPhoneValid, dispatch, showToast]);
+      // Pass only phone/email to trigger "Resend" logic (no password check)
+      await dispatch(requestOTP({ phone: identifier })).unwrap();
 
-  // Callback for navigation to signup
+      setTimer(30);
+      setCanResend(false);
+      showToast("OTP resent successfully!");
+    } catch (err) {
+      showToast(err || "Failed to resend OTP", "error");
+    }
+  }, [canResend, identifier, dispatch, showToast]);
+
+  // Step 2: Verify OTP
+  const handleVerifyOtp = useCallback(async () => {
+    try {
+      // Use login action (which maps to authService.verifyOTP)
+      await dispatch(login({ phone: identifier, otp })).unwrap();
+
+      // Success = Redux state updates, usually triggering navigation in _layout or here
+      router.replace("/home");
+    } catch (err) {
+      showToast(err || "Invalid OTP", "error");
+    }
+  }, [identifier, otp, dispatch, showToast]);
+
   const navigateToSignup = useCallback(() => {
     router.push("/auth/signup");
   }, []);
+
+  // Google OAuth
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+  });
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      console.log("Google OAuth Success - Access Token:", authentication.accessToken);
+      handleGoogleLogin(authentication.accessToken);
+    } else if (response?.type === "error") {
+      console.error("Google OAuth Error:", response.error);
+      showToast("Google Sign-In Error: " + (response.error?.message || "Authentication failed"), "error");
+    }
+  }, [response]);
+
+  const handleGoogleLogin = async (token) => {
+    try {
+      console.log("Calling googleSignIn with token:", token?.substring(0, 20) + "...");
+      const result = await dispatch(googleSignIn({ token, action: 'login' })).unwrap();
+      console.log("Google Sign-In Success - User:", result);
+
+      // Reload user data from AsyncStorage (userSlice)
+      const { loadUserData } = require("../../store/slices/userSlice");
+      await dispatch(loadUserData());
+
+      router.replace("/home");
+    } catch (err) {
+      console.error("Google Sign-In Failed:", err);
+      showToast(err || "Google Sign-In failed", "error");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -129,31 +205,97 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.form}>
-            <Text style={styles.label}>Phone Number</Text>
-            <View style={styles.inputContainer}>
-              <Text style={styles.countryCode}>+91</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter phone number"
-                keyboardType="phone-pad"
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                maxLength={10}
-                autoFocus={Platform.OS === "web"}
-              />
-            </View>
-            {phoneNumber.length > 0 && !isPhoneValid && (
+            {/* STEP 1: CREDENTIALS */}
+            {step === 'credentials' && (
+              <>
+                <Text style={styles.label}>Email or Phone</Text>
+                <View style={[styles.inputContainer, { marginBottom: 16 }]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter email or phone"
+                    value={identifier}
+                    onChangeText={handleIdentifierChange}
+                    autoCapitalize="none"
+                    autoFocus={Platform.OS === "web"}
+                  />
+                </View>
+
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter password"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                  />
+                </View>
+              </>
+            )}
+
+            {/* STEP 2: OTP */}
+            {step === 'otp' && (
+              <>
+                <Text style={styles.label}>Enter OTP sent to your email/phone</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={[styles.input, { letterSpacing: 5, fontSize: 20, textAlign: 'center' }]}
+                    placeholder="OTP"
+                    keyboardType="number-pad"
+                    value={otp}
+                    onChangeText={setOtp}
+                    maxLength={6}
+                    autoFocus
+                  />
+                </View>
+
+                {/* Resend OTP Button */}
+                <View style={styles.resendContainer}>
+                  {canResend ? (
+                    <Pressable onPress={handleResendOtp}>
+                      <Text style={styles.resendTextActive}>Resend OTP</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.resendText}>
+                      Resend OTP in <Text style={{ fontWeight: 'bold' }}>{timer}s</Text>
+                    </Text>
+                  )}
+                </View>
+              </>
+            )}
+
+            {error && (
               <Text style={styles.errorText}>
-                Please enter a valid 10-digit number
+                {error}
               </Text>
             )}
           </View>
 
           <LoginButton
-            onPress={handleLogin}
+            onPress={step === 'credentials' ? handleLogin : handleVerifyOtp}
             disabled={isButtonDisabled}
             loading={isLoading}
+            text={step === 'credentials' ? "Sign In" : "Verify OTP"}
           />
+
+          {/* Google Sign-In - Only show on credentials step */}
+          {step === 'credentials' && (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
+              <Pressable
+                style={styles.googleButton}
+                onPress={() => promptAsync()}
+                disabled={!request}
+              >
+                <Text style={styles.googleButtonText}>🔍 Continue with Google</Text>
+              </Pressable>
+            </>
+          )}
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account?</Text>
@@ -298,5 +440,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#666",
     marginBottom: 2,
+  },
+  resendContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  resendText: {
+    color: "#666",
+    fontSize: 14,
+  },
+  resendTextActive: {
+    color: "#FC8019",
+    fontSize: 14,
+    fontWeight: "bold",
+    ...Platform.select({ web: { cursor: "pointer" } }),
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#ddd",
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: "#666",
+    fontSize: 14,
+  },
+  googleButton: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    height: 50,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    ...Platform.select({ web: { cursor: "pointer" } }),
+  },
+  googleButtonText: {
+    color: "#333",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
