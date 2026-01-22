@@ -11,8 +11,8 @@ export const loadUserData = createAsyncThunk("user/loadUserData", async () => {
     const savedUser = await AsyncStorage.getItem("user_profile");
 
     return {
-      location: savedLoc || "123, React Native Street, Expo City",
-      locationType: savedType || "Home",
+      location: savedLoc || "",
+      locationType: savedType || "",
       coords: savedCoords ? JSON.parse(savedCoords) : null,
       user: savedUser
         ? JSON.parse(savedUser)
@@ -30,9 +30,9 @@ const initialState = {
     email: "",
     phone: "",
   },
-  location: "123, React Native Street, Expo City",
-  locationType: "Home",
-  coords: null, // { latitude, longitude }
+  location: "",
+  locationType: "",
+  coords: null,
   isLoading: true,
   error: null,
 };

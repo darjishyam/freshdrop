@@ -27,6 +27,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
@@ -228,11 +229,34 @@ export default function SignupScreen() {
       const result = await dispatch(googleSignIn({ token, action: 'signup' })).unwrap();
       console.log("Google Sign-In Success - User:", result);
 
+      // CRITICAL: Always clear location data on Google Sign-In
+      // User will be prompted to set their location
+      const AsyncStorage = require("@react-native-async-storage/async-storage").default;
+      console.log("Google Sign-In - clearing location data");
+      await AsyncStorage.removeItem("user_location");
+      await AsyncStorage.removeItem("user_location_type");
+      await AsyncStorage.removeItem("user_location_coords");
+
       // Reload user data from AsyncStorage (userSlice)
       const { loadUserData } = require("../../store/slices/userSlice");
-      await dispatch(loadUserData());
+      const userData = await dispatch(loadUserData()).unwrap();
 
-      router.replace("/home");
+      // Check if user has phone number
+      if (!result.phone || result.phone === "") {
+        console.log("User missing phone, redirecting to add-phone");
+        router.replace("/auth/add-phone");
+        return;
+      }
+
+      // Check if user has location set
+      const savedCoords = await AsyncStorage.getItem("user_location_coords");
+
+      if (!savedCoords || savedCoords === "null") {
+        console.log("User missing location, redirecting to addresses");
+        router.replace("/profile/addresses");
+      } else {
+        router.replace("/home");
+      }
     } catch (err) {
       console.error("Google Sign-In Failed:", err);
       Alert.alert("Google Sign-In Failed", err || "Please try again");
@@ -313,7 +337,10 @@ export default function SignupScreen() {
               onPress={() => promptAsync()}
               disabled={!request}
             >
-              <Text style={styles.googleButtonText}>🔍 Continue with Google</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="logo-google" size={20} color="#DB4437" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </View>
             </Pressable>
 
             <View style={styles.footer}>
@@ -498,18 +525,24 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     backgroundColor: "#fff",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#ddd",
     height: 50,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
     ...Platform.select({ web: { cursor: "pointer" } }),
   },
   googleButtonText: {
     color: "#333",
     fontSize: 16,
     fontWeight: "600",
+    letterSpacing: 0.3,
   },
 });

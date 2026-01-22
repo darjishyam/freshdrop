@@ -25,6 +25,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
@@ -179,9 +180,25 @@ export default function LoginScreen() {
 
       // Reload user data from AsyncStorage (userSlice)
       const { loadUserData } = require("../../store/slices/userSlice");
-      await dispatch(loadUserData());
+      const userData = await dispatch(loadUserData()).unwrap();
 
-      router.replace("/home");
+      // Check if user has phone number
+      if (!result.phone || result.phone === "") {
+        console.log("User missing phone, redirecting to add-phone");
+        router.replace("/auth/add-phone");
+        return;
+      }
+
+      // Check if user has location set
+      const AsyncStorage = require("@react-native-async-storage/async-storage").default;
+      const savedCoords = await AsyncStorage.getItem("user_location_coords");
+
+      if (!savedCoords || savedCoords === "null") {
+        console.log("User missing location, redirecting to addresses");
+        router.replace("/profile/addresses");
+      } else {
+        router.replace("/home");
+      }
     } catch (err) {
       console.error("Google Sign-In Failed:", err);
       showToast(err || "Google Sign-In failed", "error");
@@ -292,7 +309,10 @@ export default function LoginScreen() {
                 onPress={() => promptAsync()}
                 disabled={!request}
               >
-                <Text style={styles.googleButtonText}>🔍 Continue with Google</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="logo-google" size={20} color="#DB4437" />
+                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+                </View>
               </Pressable>
             </>
           )}
@@ -472,18 +492,24 @@ const styles = StyleSheet.create({
   },
   googleButton: {
     backgroundColor: "#fff",
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#ddd",
     height: 50,
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
     ...Platform.select({ web: { cursor: "pointer" } }),
   },
   googleButtonText: {
     color: "#333",
     fontSize: 16,
     fontWeight: "600",
+    letterSpacing: 0.3,
   },
 });
