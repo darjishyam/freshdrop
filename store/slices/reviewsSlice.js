@@ -1,17 +1,22 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import axios from "axios";
+import { Platform } from "react-native";
 
-const STORAGE_KEY_REVIEWS = "user_reviews";
+// Use the same base URL as other services (adjust if you have a config file)
+const API_URL =
+  Platform.OS === "android"
+    ? "http://10.0.2.2:5000/api/reviews" // Android Emulator
+    : "http://localhost:5000/api/reviews"; // Web/iOS
 
-// Load reviews from persistent storage
+// Load reviews for a specific restaurant
 export const loadReviews = createAsyncThunk(
   "reviews/loadReviews",
-  async (_, { rejectWithValue }) => {
+  async (restaurantId, { rejectWithValue }) => {
     try {
-      const storedReviews = await AsyncStorage.getItem(STORAGE_KEY_REVIEWS);
-      return storedReviews ? JSON.parse(storedReviews) : [];
+      const response = await axios.get(`${API_URL}/${restaurantId}`);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
@@ -19,23 +24,26 @@ export const loadReviews = createAsyncThunk(
 // Add a new review
 export const addReview = createAsyncThunk(
   "reviews/addReview",
-  async (review, { getState, rejectWithValue }) => {
+  async (reviewData, { getState, rejectWithValue }) => {
     try {
-      const { reviews } = getState();
-      const newReview = {
-        ...review,
-        id: Date.now().toString(),
-        createdAt: new Date().toISOString(),
+      const { user } = getState().auth; // Get token from auth state
+      const token = user?.token;
+
+      if (!token) {
+        throw new Error("User not authenticated");
+      }
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       };
 
-      const newReviewsList = [newReview, ...reviews.items];
-      await AsyncStorage.setItem(
-        STORAGE_KEY_REVIEWS,
-        JSON.stringify(newReviewsList)
-      );
-      return newReview;
+      const response = await axios.post(API_URL, reviewData, config);
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
@@ -47,7 +55,12 @@ const reviewsSlice = createSlice({
     isLoading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    clearReviews: (state) => {
+      state.items = [];
+      state.error = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(loadReviews.pending, (state) => {
@@ -63,25 +76,40 @@ const reviewsSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(addReview.fulfilled, (state, action) => {
+        // Add new review to the top of the list
         state.items.unshift(action.payload);
       });
   },
 });
 
-export const selectReviews = (state) => state.reviews.items;
+export const { clearReviews } = reviewsSlice.actions;
+export const selectReviews = (state) => state.reviews?.items || [];
+export const selectReviewsLoading = (state) => state.reviews?.isLoading || false;
+export const selectReviewsError = (state) => state.reviews?.error || null;
 
-// Selector to get reviews for a specific product
-// We match based on product name OR productId
-export const selectProductReviews = (state, productNameOrId) => {
-  const reviews = state.reviews.items;
-  if (!productNameOrId) return [];
-  const lowerQuery = productNameOrId.toLowerCase();
+// Selector to get reviews for a specific product (client-side filtering)
+export const selectProductReviews = (state, { id, name } = {}) => {
+  const reviews = state.reviews?.items || [];
 
-  return reviews.filter(
-    (r) =>
-      (r.productId && r.productId === productNameOrId) ||
-      (r.productName && r.productName.toLowerCase() === lowerQuery)
-  );
+  if ((!id && !name) || reviews.length === 0) return [];
+
+  const lowerName = name?.toLowerCase().trim();
+
+  return reviews.filter((r) => {
+    // 1. Match by Product ID (ObjectId)
+    if (id && r.product && r.product === id) {
+      return true;
+    }
+
+    // 2. Match by Product Name (for mock items where ID is null)
+    // Trim and lowercase both sides for robust matching
+    const reviewProductName = r.productName?.toLowerCase().trim();
+    if (name && reviewProductName && reviewProductName === lowerName) {
+      return true;
+    }
+
+    return false;
+  });
 };
 
 export default reviewsSlice.reducer;

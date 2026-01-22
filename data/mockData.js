@@ -561,7 +561,7 @@ export const restaurantItems = {
       description:
         "Stir-fried noodles with crunchy vegetables and a hint of soy sauce.",
       price: 250,
-      image: require("../assets/images/hakka_noodles_peppers.jpg"),
+      image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=600",
       veg: true,
       rating: 4.1,
       ratingCount: 150,
@@ -576,7 +576,7 @@ export const restaurantItems = {
       name: "Manchurian Dry",
       description: "Crispy vegetable balls tossed in a spicy, tangy sauce.",
       price: 220,
-      image: require("../assets/images/manchurian_dry_peppers.jpg"),
+      image: "https://images.unsplash.com/photo-1567188040754-b3c102a39452?w=600",
       veg: true,
       rating: 4.3,
       ratingCount: 120,
@@ -592,7 +592,7 @@ export const restaurantItems = {
       description:
         "Wok-tossed rice with finely chopped vegetables and mild spices.",
       price: 240,
-      image: require("../assets/images/fried_rice_peppers.jpg"),
+      image: "https://images.unsplash.com/photo-1603133872878-684f57143b34?w=600",
       veg: true,
       rating: 4.0,
       ratingCount: 100,
@@ -608,7 +608,7 @@ export const restaurantItems = {
       description:
         "Crispy fried rolls filled with savory shredded vegetables, served with dipping sauce.",
       price: 200,
-      image: require("../assets/images/spring_rolls_peppers.jpg"),
+      image: "https://images.unsplash.com/photo-1544025162-d76690b67f11?w=600",
       veg: true,
       rating: 4.2,
       ratingCount: 80,

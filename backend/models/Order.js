@@ -17,17 +17,49 @@ const orderSchema = new mongoose.Schema(
         product: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Product",
-          required: true,
         },
         name: String,
         price: Number,
         quantity: Number,
         image: String,
+        veg: Boolean,
       },
     ],
     totalAmount: {
       type: Number,
       required: true,
+    },
+    // Detailed Bill Breakdown
+    billDetails: {
+      itemTotal: Number,
+      deliveryFee: { type: Number, default: 0 },
+      taxes: { type: Number, default: 0 },
+      discount: { type: Number, default: 0 },
+      grandTotal: Number,
+    },
+    // Customer Information
+    customerDetails: {
+      name: String,
+      phone: String,
+      address: String,
+    },
+    // Payment Information
+    paymentDetails: {
+      method: String, // 'COD', 'UPI', 'CARD', 'WALLET'
+      status: {
+        type: String,
+        enum: ["Pending", "Completed", "Failed", "Refunded"],
+        default: "Pending",
+      },
+      transactionId: String,
+    },
+    // Driver/Delivery Partner Information
+    driverDetails: {
+      name: String,
+      phone: String,
+      image: String,
+      vehicleNumber: String,
+      rating: Number,
     },
     status: {
       type: String,
@@ -47,15 +79,9 @@ const orderSchema = new mongoose.Schema(
       lat: Number,
       lon: Number,
     },
-    paymentMethod: {
-      type: String, // 'COD', 'UPI', 'CARD'
-      required: true,
-    },
-    paymentStatus: {
-      type: String,
-      enum: ["Pending", "Completed", "Failed", "Refunded"],
-      default: "Pending",
-    },
+    // Legacy fields for backward compatibility
+    paymentMethod: String,
+    paymentStatus: String,
     timeline: [
       {
         status: String,
@@ -63,6 +89,7 @@ const orderSchema = new mongoose.Schema(
         description: String,
       },
     ],
+    eta: String, // Estimated time of arrival
   },
   { timestamps: true }
 );

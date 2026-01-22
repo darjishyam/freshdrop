@@ -22,34 +22,46 @@ export default function AddReviewScreen() {
   const dispatch = useDispatch();
   const { showToast } = useToast();
   const user = useSelector(selectUser);
-  const { orderId, productId, productName, productImage } =
+  const { orderId, productId, productName, productImage, restaurantId } =
     useLocalSearchParams();
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (rating === 0) {
       showToast("Please give a rating.");
       return;
     }
 
-    dispatch(
-      addReview({
-        orderId,
-        productId, // This might be the name if ID is missing
-        productName,
-        rating,
-        comment,
-        image: productImage,
-        userName: user?.name || user?.phone || "Anonymous",
-        userImage: user?.image,
-        verified: true,
-      })
-    );
+    try {
+      // Convert restaurantId to a valid ObjectId format if it's invalid
+      // MongoDB ObjectIds are 24 hex characters
+      const validRestaurantId = restaurantId && restaurantId.length === 24
+        ? restaurantId
+        : "000000000000000000000001"; // Default placeholder ObjectId
 
-    showToast("Review submitted!");
-    router.back();
+      await dispatch(
+        addReview({
+          orderId,
+          restaurantId: validRestaurantId,
+          productId,
+          productName,
+          rating,
+          comment,
+          image: productImage,
+          userName: user?.name || user?.phone || "Anonymous",
+          userImage: user?.image,
+          verified: true,
+        })
+      ).unwrap();
+
+      showToast("Review submitted successfully!");
+      router.back();
+    } catch (error) {
+      console.error("Failed to submit review:", error);
+      showToast(error?.message || "Failed to submit review. Please try again.");
+    }
   };
 
   if (Platform.OS === "web") {

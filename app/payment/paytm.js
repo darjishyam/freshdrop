@@ -56,7 +56,7 @@ export default function PaytmPaymentScreen() {
   }, []);
 
   // Handle Pay button click - DIRECT ACTION
-  const handlePayClick = useCallback(() => {
+  const handlePayClick = useCallback(async () => {
     console.log("Pay button clicked! Amount:", amount);
 
     setProcessing(true);
@@ -64,11 +64,39 @@ export default function PaytmPaymentScreen() {
     setTransactionId(txnId);
 
     // Simulate payment processing (4 seconds)
-    timerRef.current = setTimeout(() => {
+    timerRef.current = setTimeout(async () => {
       setProcessing(false);
       setPaymentSuccess(true);
 
-      // Trigger success animation
+      // Parse order data and add order FIRST before showing success
+      try {
+        const orderData = params.orderData
+          ? JSON.parse(params.orderData)
+          : null;
+        if (orderData) {
+          const orderPayload = {
+            ...orderData,
+            transactionId: txnId,
+            paymentMethod: "Paytm",
+          };
+          // AWAIT the order creation to ensure it's saved to backend
+          await dispatch(addOrder(orderPayload)).unwrap();
+          if (orderPayload.items) {
+            dispatch(deductStock(orderPayload.items));
+          }
+          dispatch(clearCart());
+        }
+      } catch (error) {
+        console.error("Error processing order:", error);
+        const errorMessage = error?.message || error || "Failed to place order";
+        console.log("Full error details:", JSON.stringify(error, null, 2));
+        showToast(errorMessage);
+        setPaymentSuccess(false);
+        setProcessing(false);
+        return;
+      }
+
+      // Trigger success animation AFTER order is saved
       Animated.sequence([
         Animated.parallel([
           Animated.spring(scaleAnim, {
@@ -93,27 +121,6 @@ export default function PaytmPaymentScreen() {
           });
         }, 1500);
       });
-
-      // Parse order data and add order
-      try {
-        const orderData = params.orderData
-          ? JSON.parse(params.orderData)
-          : null;
-        if (orderData) {
-          const orderPayload = {
-            ...orderData,
-            transactionId: txnId,
-            paymentMethod: "Paytm",
-          };
-          dispatch(addOrder(orderPayload)); // Dispatch Redux action
-          if (orderPayload.items) {
-            dispatch(deductStock(orderPayload.items));
-          }
-          dispatch(clearCart());
-        }
-      } catch (error) {
-        console.error("Error processing order:", error);
-      }
     }, 4000);
   }, [
     amount,

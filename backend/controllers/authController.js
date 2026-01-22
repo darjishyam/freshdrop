@@ -4,6 +4,9 @@ const bcrypt = require("bcryptjs");
 const sendSms = require("../utils/smsSender");
 const sendEmail = require("../utils/emailSender");
 
+const shouldLogOtp = () =>
+  process.env.LOG_OTPS === "true" || process.env.NODE_ENV !== "production";
+
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "30d",
@@ -16,10 +19,10 @@ const registerUser = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
 
-    if (!name || (!email && !phone) || !password) {
+    if (!name || (!email && !phone)) {
       return res
         .status(400)
-        .json({ message: "Please provide Name, Password, and Email or Phone" });
+        .json({ message: "Please provide Name and Email or Phone" });
     }
 
     // Check if user exists (by email or phone)
@@ -47,8 +50,11 @@ const registerUser = async (req, res) => {
       }
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    let hashedPassword = undefined;
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      hashedPassword = await bcrypt.hash(password, salt);
+    }
 
     const user = await User.create({
       name,
@@ -59,6 +65,11 @@ const registerUser = async (req, res) => {
 
     if (user) {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      if (shouldLogOtp()) {
+        console.log("--------------------------------");
+        console.log("DEV OTP (SIGNUP):", otp);
+        console.log("--------------------------------");
+      }
       user.otp = otp;
       user.otpExpires = Date.now() + 30 * 1000; // 30 seconds
       await user.save();
@@ -76,9 +87,8 @@ const registerUser = async (req, res) => {
             <h1 style="color: #ffffff; margin: 0; font-size: 24px;">FreshDrop</h1>
           </div>
           <div style="padding: 30px; background-color: #ffffff;">
-            <p style="font-size: 16px; color: #333;">Welcome <strong>${
-              user.name
-            }</strong>! 🛒</p>
+            <p style="font-size: 16px; color: #333;">Welcome <strong>${user.name
+          }</strong>! 🛒</p>
             <p style="font-size: 16px; color: #555;">To complete your registration at FreshDrop, here is your <strong>Sign Up Code</strong>:</p>
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
               <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: ${brandingColor};">${otp}</span>
@@ -118,7 +128,7 @@ const registerUser = async (req, res) => {
         message: sentType ? `OTP sent to ${sentType}` : "OTP generated",
         email: user.email,
         phone: user.phone,
-        devOtp: otp, // For simulating SMS on client
+        ...(process.env.NODE_ENV !== "production" ? { devOtp: otp } : {}),
       });
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -158,6 +168,11 @@ const loginUser = async (req, res) => {
 
     if (await bcrypt.compare(password, user.password)) {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      if (shouldLogOtp()) {
+        console.log("--------------------------------");
+        console.log("DEV OTP (LOGIN):", otp);
+        console.log("--------------------------------");
+      }
       user.otp = otp;
       user.otpExpires = Date.now() + 30 * 1000; // 30 seconds
       await user.save();
@@ -209,7 +224,7 @@ const loginUser = async (req, res) => {
         message: `OTP sent to ${sentType}`,
         email: user.email,
         phone: user.phone,
-        devOtp: otp, // For simulating SMS on client
+        ...(process.env.NODE_ENV !== "production" ? { devOtp: otp } : {}),
       });
     } else {
       // Specific error for Incorrect Password
@@ -245,14 +260,21 @@ const sendOtp = async (req, res) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    if (shouldLogOtp()) {
+      console.log("--------------------------------");
+      console.log("DEV OTP (RESEND):", otp);
+      console.log("--------------------------------");
+    }
     user.otp = otp;
     user.otpExpires = Date.now() + 30 * 1000; // 30 seconds
     await user.save();
 
     let sentType = "";
 
-    // Only send email if phone was NOT provided in request AND input is not a phone number
-    if (user.email && !phone && !isPhoneInput) {
+    // Email OTP:
+    // - If request is email-based => send email
+    // - If request is phone-based BUT user has email => also send email (useful in dev when SMS is mocked)
+    if (user.email && (Boolean(email) || isPhoneInput || Boolean(phone))) {
       const brandingColor = "#FC8019";
       let subject = "FreshDrop Verification Code";
       let bodyText = "Your One-Time Password (OTP) for FreshDrop is:";
@@ -277,9 +299,8 @@ const sendOtp = async (req, res) => {
             <h1 style="color: #ffffff; margin: 0; font-size: 24px;">FreshDrop</h1>
           </div>
           <div style="padding: 30px; background-color: #ffffff;">
-            <p style="font-size: 16px; color: #333;">Hello <strong>${
-              user.name
-            }</strong>,</p>
+            <p style="font-size: 16px; color: #333;">Hello <strong>${user.name
+        }</strong>,</p>
             <p style="font-size: 16px; color: #555;">${bodyText}</p>
             <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
               <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: ${brandingColor};">${otp}</span>
@@ -294,13 +315,13 @@ const sendOtp = async (req, res) => {
       `;
 
       try {
-        await sendEmail({
+        const ok = await sendEmail({
           email: user.email,
           subject: subject,
           message: `Your OTP is ${otp}`,
           html: htmlContent,
         });
-        sentType = "email";
+        if (ok) sentType = "email";
       } catch (emailError) {
         console.error("Failed to send OTP email:", emailError);
       }
@@ -319,7 +340,7 @@ const sendOtp = async (req, res) => {
       message: `OTP sent to ${sentType}`,
       email: user.email,
       phone: user.phone,
-      devOtp: otp, // For simulating SMS on client (Enabled for testing due to SMS failure)
+      ...(process.env.NODE_ENV !== "production" ? { devOtp: otp } : {}),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -364,9 +385,8 @@ const verifyOtp = async (req, res) => {
                   <h1 style="color: #ffffff; margin: 0; font-size: 24px;">FreshDrop</h1>
                 </div>
                 <div style="padding: 30px; background-color: #ffffff;">
-                  <p style="font-size: 16px; color: #333;">Welcome <strong>${
-                    user.name
-                  }</strong>! 🛒</p>
+                  <p style="font-size: 16px; color: #333;">Welcome <strong>${user.name
+              }</strong>! 🛒</p>
                   <p style="font-size: 16px; color: #555;">Thank you for verifying your account!</p>
                   <p style="font-size: 14px; color: #777; margin-top: 20px;">You can now explore thousands of products and order instantly.</p>
                   <p style="font-size: 14px; color: #777; margin-top: 30px;">Happy Ordering!<br>The FreshDrop Team</p>
@@ -398,9 +418,8 @@ const verifyOtp = async (req, res) => {
                   <h1 style="color: #ffffff; margin: 0; font-size: 24px;">FreshDrop</h1>
                 </div>
                 <div style="padding: 30px; background-color: #ffffff;">
-                  <p style="font-size: 16px; color: #333;">Welcome Back <strong>${
-                    user.name
-                  }</strong>! 👋</p>
+                  <p style="font-size: 16px; color: #333;">Welcome Back <strong>${user.name
+              }</strong>! 👋</p>
                   <p style="font-size: 16px; color: #555;">You have successfully logged in.</p>
                   <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
                     <span style="font-size: 14px; color: #555;">${new Date().toLocaleString()}</span>
@@ -561,9 +580,8 @@ const googleLogin = async (req, res) => {
             <h1 style="color: #ffffff; margin: 0; font-size: 24px;">FreshDrop</h1>
           </div>
           <div style="padding: 30px; background-color: #ffffff;">
-            <p style="font-size: 16px; color: #333;">Welcome <strong>${
-              user.name
-            }</strong>! 🛒</p>
+            <p style="font-size: 16px; color: #333;">Welcome <strong>${user.name
+        }</strong>! 🛒</p>
             <p style="font-size: 16px; color: #555;">Thank you for signing up with Google!</p>
             <p style="font-size: 14px; color: #777; margin-top: 20px;">You can now explore thousands of products and order instantly.</p>
             <p style="font-size: 14px; color: #777; margin-top: 30px;">Happy Ordering!<br>The FreshDrop Team</p>
@@ -606,19 +624,56 @@ const googleLogin = async (req, res) => {
 // @access  Private
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).populate({
+      path: "recentlyViewed.restaurant",
+      select: "name image address rating deliveryTime priceRange",
+    });
 
     if (user) {
       res.json({
-        _id: user._id.toString(),
+        _id: user._id,
         name: user.name,
         email: user.email,
         phone: user.phone,
+        googleId: user.googleId,
         image: user.image,
+        recentlyViewed: user.recentlyViewed,
       });
     } else {
       res.status(404).json({ message: "User not found" });
     }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Add restaurant to recently viewed
+// @route   POST /api/auth/profile/history
+// @access  Private
+const addToHistory = async (req, res) => {
+  try {
+    const { restaurantId } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Remove if already exists to avoid duplicates (we will add it to the top)
+    user.recentlyViewed = user.recentlyViewed.filter(
+      (item) => item.restaurant.toString() !== restaurantId
+    );
+
+    // Add to beginning
+    user.recentlyViewed.unshift({ restaurant: restaurantId });
+
+    // Limit to 10 items
+    if (user.recentlyViewed.length > 10) {
+      user.recentlyViewed = user.recentlyViewed.slice(0, 10);
+    }
+
+    await user.save();
+    res.json(user.recentlyViewed);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -870,4 +925,5 @@ module.exports = {
   resetPassword,
   requestProfileUpdateOtp,
   verifyProfileUpdateOtp,
+  addToHistory,
 };

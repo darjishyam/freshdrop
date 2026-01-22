@@ -20,6 +20,7 @@ import {
   selectLocation,
   selectLocationType,
   updateLocation,
+  updateLocationCoords,
   updateLocationType,
 } from "../../store/slices/userSlice";
 
@@ -62,6 +63,9 @@ export default function ManageAddressScreen() {
       });
 
       const { latitude, longitude } = currentLocation.coords;
+
+      // Persist coords for nearby restaurants API usage
+      dispatch(updateLocationCoords({ latitude, longitude }));
 
       // Fetch Address from OpenStreetMap (Nominatim) - Force English
       try {

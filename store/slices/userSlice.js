@@ -7,11 +7,13 @@ export const loadUserData = createAsyncThunk("user/loadUserData", async () => {
   try {
     const savedLoc = await AsyncStorage.getItem("user_location");
     const savedType = await AsyncStorage.getItem("user_location_type");
+    const savedCoords = await AsyncStorage.getItem("user_location_coords");
     const savedUser = await AsyncStorage.getItem("user_profile");
 
     return {
       location: savedLoc || "123, React Native Street, Expo City",
       locationType: savedType || "Home",
+      coords: savedCoords ? JSON.parse(savedCoords) : null,
       user: savedUser
         ? JSON.parse(savedUser)
         : { name: "", email: "", phone: "" },
@@ -30,6 +32,7 @@ const initialState = {
   },
   location: "123, React Native Street, Expo City",
   locationType: "Home",
+  coords: null, // { latitude, longitude }
   isLoading: true,
   error: null,
 };
@@ -58,6 +61,13 @@ const userSlice = createSlice({
         console.error("Failed to save location type", e)
       );
     },
+    updateLocationCoords: (state, action) => {
+      state.coords = action.payload;
+      AsyncStorage.setItem(
+        "user_location_coords",
+        JSON.stringify(action.payload)
+      ).catch((e) => console.error("Failed to save location coords", e));
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -68,6 +78,7 @@ const userSlice = createSlice({
         state.user = action.payload.user;
         state.location = action.payload.location;
         state.locationType = action.payload.locationType;
+        state.coords = action.payload.coords;
         state.isLoading = false;
       })
       .addCase(loadUserData.rejected, (state, action) => {
@@ -77,7 +88,12 @@ const userSlice = createSlice({
   },
 });
 
-export const { updateUser, updateLocation, updateLocationType } =
+export const {
+  updateUser,
+  updateLocation,
+  updateLocationType,
+  updateLocationCoords,
+} =
   userSlice.actions;
 export default userSlice.reducer;
 
@@ -85,4 +101,5 @@ export default userSlice.reducer;
 export const selectUser = (state) => state.user.user;
 export const selectLocation = (state) => state.user.location;
 export const selectLocationType = (state) => state.user.locationType;
+export const selectLocationCoords = (state) => state.user.coords;
 export const selectIsLoading = (state) => state.user.isLoading;

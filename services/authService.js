@@ -1,124 +1,52 @@
 /**
  * Authentication Service
- *
- * This service handles all authentication-related operations including:
- * - User registration (signup)
- * - User login
- * - OTP verification
- * - Local storage management for user credentials
- *
- * Default credentials stored:
- * - Phone: 9999999999
- * - OTP: 111111
+ * 
+ * Handles API calls to the real backend server.
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
-// Storage keys
+// API Configuration
+// Use 10.0.2.2 for Android Emulator, localhost for Web/iOS Simulator
+const getBaseUrl = () => {
+  if (Platform.OS === 'android') return 'http://10.0.2.2:5000/api';
+  return 'http://localhost:5000/api';
+};
+
+const API_URL = getBaseUrl();
+
 const STORAGE_KEYS = {
-  USERS: "auth_users",
   CURRENT_USER: "auth_current_user",
-  DEFAULT_INITIALIZED: "auth_default_initialized",
-};
-
-// Default user credentials
-const DEFAULT_USER = {
-  phone: "9999999999",
-  otp: "111111",
-  name: "Default User",
-  email: "default@example.com",
-};
-
-/**
- * Initialize default user in storage if not already present
- */
-export const initializeDefaultUser = async () => {
-  try {
-    const initialized = await AsyncStorage.getItem(
-      STORAGE_KEYS.DEFAULT_INITIALIZED
-    );
-
-    if (!initialized) {
-      const users = {};
-      users[DEFAULT_USER.phone] = {
-        phone: DEFAULT_USER.phone,
-        name: DEFAULT_USER.name,
-        email: DEFAULT_USER.email,
-        otp: DEFAULT_USER.otp,
-        createdAt: new Date().toISOString(),
-      };
-
-      await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-      await AsyncStorage.setItem(STORAGE_KEYS.DEFAULT_INITIALIZED, "true");
-      console.log("Default user initialized");
-    }
-  } catch (error) {
-    console.error("Error initializing default user:", error);
-    throw error;
-  }
-};
-
-/**
- * Get all registered users from storage
- */
-export const getAllUsers = async () => {
-  try {
-    const usersJson = await AsyncStorage.getItem(STORAGE_KEYS.USERS);
-    return usersJson ? JSON.parse(usersJson) : {};
-  } catch (error) {
-    console.error("Error getting users:", error);
-    return {};
-  }
-};
-
-/**
- * Check if a user exists by phone number
- */
-export const checkUserExists = async (phone) => {
-  try {
-    const users = await getAllUsers();
-    return !!users[phone];
-  } catch (error) {
-    console.error("Error checking user existence:", error);
-    return false;
-  }
+  TOKEN: "auth_token",
 };
 
 /**
  * Register a new user
+ * POST /api/auth/signup
  */
 export const registerUser = async (userData) => {
   try {
-    const { phone, name, email } = userData;
+    const response = await fetch(`${API_URL}/auth/signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(userData),
+    });
 
-    // Check if user already exists
-    const userExists = await checkUserExists(phone);
-    if (userExists) {
-      throw new Error("User with this phone number already exists");
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Registration failed");
     }
-
-    // Generate OTP (in production, this would be sent via SMS)
-    const otp = "111111"; // Default OTP for all users
-
-    // Get existing users
-    const users = await getAllUsers();
-
-    // Add new user
-    users[phone] = {
-      phone,
-      name,
-      email,
-      otp,
-      createdAt: new Date().toISOString(),
-    };
-
-    // Save to storage
-    await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
 
     return {
       success: true,
-      message: "User registered successfully",
-      otp, // In production, don't return OTP
+      message: data.message,
+      // In a real app, we don't return OTP here unless for dev testing
+      // The backend returns { message, email, phone, devOtp: '...' }
+      otp: data.devOtp
     };
   } catch (error) {
     console.error("Error registering user:", error);
@@ -127,23 +55,41 @@ export const registerUser = async (userData) => {
 };
 
 /**
- * Send OTP to user (simulated)
+ * Send OTP to user (Login)
+ * POST /api/auth/otp/send
  */
 export const sendOTP = async (phone) => {
   try {
-    const users = await getAllUsers();
-    const user = users[phone];
+    // Determine login type based on input (phone or email)
+    // The backend's sendOtp endpoint expects { email, phone, type: 'login' }
+    // We send 'phone' if it looks like a phone number, else 'email'
+    // But existing frontend passes just 'phone' which might be the number
 
-    if (!user) {
-      throw new Error("User not found. Please sign up first.");
+    const isEmail = phone.includes('@');
+    const payload = {
+      type: 'login',
+      [isEmail ? 'email' : 'phone']: phone
+    };
+
+    const response = await fetch(`${API_URL}/auth/otp/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      // Handle specific "User not found" messages if needed
+      throw new Error(data.message || "Failed to send OTP");
     }
 
-    // In production, send OTP via SMS service
-    // For now, we just return success
     return {
       success: true,
-      message: "OTP sent successfully",
-      otp: user.otp, // In production, don't return OTP
+      message: data.message,
+      otp: data.devOtp
     };
   } catch (error) {
     console.error("Error sending OTP:", error);
@@ -153,36 +99,49 @@ export const sendOTP = async (phone) => {
 
 /**
  * Verify OTP
+ * POST /api/auth/otp/verify
  */
 export const verifyOTP = async (phone, otp) => {
   try {
-    const users = await getAllUsers();
-    const user = users[phone];
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    if (user.otp !== otp) {
-      throw new Error("Invalid OTP");
-    }
-
-    // PERSISTENT STORAGE: Save current user to AsyncStorage
-    // User will stay logged in even after app restart
-    const currentUser = {
-      phone: user.phone,
-      name: user.name,
-      email: user.email,
+    // Backend expects { email, otp, phone }
+    const isEmail = phone.includes('@');
+    const payload = {
+      otp,
+      [isEmail ? 'email' : 'phone']: phone
     };
 
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.CURRENT_USER,
-      JSON.stringify(currentUser)
-    );
+    const response = await fetch(`${API_URL}/auth/otp/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Invalid OTP");
+    }
+
+    // Backend returns: { _id, name, email, phone, token, message, isNewUser }
+
+    const user = {
+      _id: data._id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      token: data.token
+    };
+
+    // Save session
+    await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
 
     return {
       success: true,
-      user: currentUser,
+      user: user,
+      isNewUser: data.isNewUser
     };
   } catch (error) {
     console.error("Error verifying OTP:", error);
@@ -192,7 +151,6 @@ export const verifyOTP = async (phone, otp) => {
 
 /**
  * Get current logged-in user
- * PERSISTENT STORAGE: Load user from AsyncStorage
  */
 export const getCurrentUser = async () => {
   try {
@@ -206,11 +164,11 @@ export const getCurrentUser = async () => {
 
 /**
  * Logout user
- * PERSISTENT STORAGE: Remove current user from AsyncStorage
  */
 export const logoutUser = async () => {
   try {
     await AsyncStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
     return { success: true };
   } catch (error) {
     console.error("Error logging out:", error);
@@ -220,36 +178,63 @@ export const logoutUser = async () => {
 
 /**
  * Update user profile
+ * Uses PUT /api/auth/profile with Bearer token
  */
 export const updateUserProfile = async (phone, updates) => {
   try {
-    const users = await getAllUsers();
-    const user = users[phone];
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+    const currentUser = await getCurrentUser();
 
-    if (!user) {
-      throw new Error("User not found");
+    // We need the user's ID for the updateProfile endpoint as per backend controller
+    // "const { _id, name, email, phone, image } = req.body;"
+
+    if (!currentUser || !currentUser._id) {
+      throw new Error("User not found in session");
     }
 
-    // Update user data
-    users[phone] = {
-      ...user,
-      ...updates,
-      phone, // Ensure phone doesn't change
-      updatedAt: new Date().toISOString(),
+    const payload = {
+      _id: currentUser._id,
+      ...updates
     };
 
-    // Save to storage
-    await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    const response = await fetch(`${API_URL}/auth/profile`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
 
-    // SESSION STORAGE: Don't persist current user session
-    // Just return the updated user data
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Update failed");
+    }
+
+    // Update local storage
+    const updatedUser = {
+      _id: data._id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      image: data.image,
+      token: data.token
+    };
+
+    await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
 
     return {
       success: true,
-      user: users[phone],
+      user: updatedUser,
     };
   } catch (error) {
     console.error("Error updating user profile:", error);
     throw error;
   }
+};
+
+// Default user init is not needed for real backend, but kept empty for safety imports
+export const initializeDefaultUser = async () => {
+  return;
 };

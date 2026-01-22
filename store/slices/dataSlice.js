@@ -1,4 +1,14 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { Platform } from "react-native";
+
+// API Configuration
+// Use 10.0.2.2 for Android Emulator, localhost for Web/iOS Simulator
+const getBaseUrl = () => {
+  if (Platform.OS === "android") return "http://10.0.2.2:5000/api";
+  return "http://localhost:5000/api";
+};
+
+const API_URL = getBaseUrl();
 
 // Fetch Restaurants
 export const fetchRestaurants = createAsyncThunk(
@@ -6,7 +16,7 @@ export const fetchRestaurants = createAsyncThunk(
   async ({ lat, lon }, { rejectWithValue }) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/external/restaurants?lat=${lat}&lon=${lon}&radius=2000`,
+        `${API_URL}/external/restaurants?lat=${lat}&lon=${lon}&radius=2000`,
       );
       if (!response.ok) throw new Error("Failed to fetch restaurants");
       const data = await response.json();
@@ -23,7 +33,7 @@ export const fetchGroceries = createAsyncThunk(
   async ({ lat, lon }, { rejectWithValue }) => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/external/groceries?lat=${lat}&lon=${lon}&radius=5000`,
+        `${API_URL}/external/groceries?lat=${lat}&lon=${lon}&radius=5000`,
       );
       if (!response.ok) throw new Error("Failed to fetch groceries");
       const data = await response.json();

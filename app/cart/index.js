@@ -100,36 +100,43 @@ export default function CartScreen() {
     const restaurantImage = restaurant?.image || firstItem?.image;
 
     // Create order object
+    // Helper to generate 24-char ObjectId from a string
+    const toObjectId = (str = "") => {
+      const hex = str.toString().split("").map(c => c.charCodeAt(0).toString(16)).join("");
+      return (hex + "000000000000000000000000").slice(0, 24);
+    };
+
+    // Create order object matching Backend Schema
     const newOrder = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      status: "Order Placed",
-      restaurantName: cartItems[0]?.restaurantName || "Food Order",
-      restaurantAddress: "123 Food Street, Tasty City",
-      image: restaurantImage,
-      items: cartItems,
+      restaurantId: toObjectId(firstItem?.restaurantId || "1"),
+      items: cartItems.map((item) => ({
+        product: toObjectId(item.id || "1"), // Map 'id' to 'product' for backend reference
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        // Send image as string.
+        // If it's an object (Web asset), stringify it.
+        // If it's a number (require ID) or string (URL), send as is (Mongoose casts number to string).
+        image:
+          typeof item.image === "object" && item.image !== null
+            ? JSON.stringify(item.image)
+            : item.image,
+      })),
+      totalAmount: grandTotal, // Backend expects top-level totalAmount
       billDetails: {
         itemTotal: cartTotal,
-        taxes: taxes,
         deliveryFee: deliveryFee,
+        taxes: taxes,
         discount: 0,
         grandTotal: grandTotal,
       },
-      customerDetails: {
-        name: user.name || "User",
-        address: user.address || "Home Address",
-        phone: user.phone || "9999999999",
+      deliveryAddress: {
+        street: user.address || "Home Address",
+        city: "Mumbai", // Mock city
+        lat: 19.076, // Mock coords
+        lon: 72.8777,
       },
-      paymentDetails: {
-        method: selectedPaymentMethod.toUpperCase(),
-        status: "PAID",
-      },
-      driverDetails: {
-        name: "Ramesh Kumar",
-        phone: "9876543210",
-        image: "https://cdn-icons-png.flaticon.com/512/3011/3011166.png",
-      },
-      eta: "35 mins",
+      paymentMethod: selectedPaymentMethod === "card" ? "CARD" : "UPI",
     };
 
     // If GPay is selected, navigate to GPay payment page
@@ -475,7 +482,9 @@ export default function CartScreen() {
                   <Image
                     source={
                       typeof item.image === "string"
-                        ? { uri: item.image }
+                        ? isNaN(item.image) && item.image.trim() !== ""
+                          ? { uri: item.image }
+                          : parseInt(item.image) // Handle stringified require ID
                         : item.image
                     }
                     style={styles.itemImage}

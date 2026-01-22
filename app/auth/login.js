@@ -34,6 +34,7 @@ import {
   selectIsLoading,
   selectError,
 } from "../../store/slices/authSlice";
+import { useToast } from "../../context/ToastContext";
 import { validatePhone } from "../../utils/authUtils";
 
 // Memoized button component
@@ -85,12 +86,11 @@ export default function LoginScreen() {
   );
 
   // Callback for login
+  const { showToast } = useToast(); // Hook for toast
+
   const handleLogin = useCallback(async () => {
     if (!isPhoneValid) {
-      Alert.alert(
-        "Invalid Phone",
-        "Please enter a valid 10-digit phone number"
-      );
+      showToast("Please enter a valid 10-digit phone number");
       return;
     }
 
@@ -102,9 +102,10 @@ export default function LoginScreen() {
         params: { phone: phoneNumber },
       });
     } catch (err) {
-      Alert.alert("Error", err || "Failed to send OTP. Please try again.");
+      // Use Toast for better UI feedback
+      showToast(err || "User not found. Please sign up.", "error");
     }
-  }, [phoneNumber, isPhoneValid, dispatch]);
+  }, [phoneNumber, isPhoneValid, dispatch, showToast]);
 
   // Callback for navigation to signup
   const navigateToSignup = useCallback(() => {

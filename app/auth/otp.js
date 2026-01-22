@@ -40,6 +40,7 @@ import {
   selectIsLoading,
 } from "../../store/slices/authSlice";
 import { updateUser } from "../../store/slices/userSlice";
+import { useToast } from "../../context/ToastContext";
 import { validateOTP } from "../../utils/authUtils";
 
 // Memoized OTP input component
@@ -211,9 +212,11 @@ export default function OTPScreen() {
   );
 
   // Callback for verification
+  const { showToast } = useToast();
+
   const handleVerify = useCallback(async () => {
     if (!isOTPValid) {
-      Alert.alert("Invalid OTP", "Please enter a valid 6-digit OTP");
+      showToast("Please enter a valid 6-digit OTP", "error");
       return;
     }
 
@@ -238,17 +241,16 @@ export default function OTPScreen() {
         await AsyncStorage.removeItem("otpTimerEndTime");
       }
 
+      showToast("Verification Successful!", "success");
       // Navigate to home
       router.replace("/(tabs)/home");
     } catch (err) {
-      Alert.alert(
-        "Verification Failed",
-        err || "Invalid OTP. Please try again."
-      );
+      showToast(err || "Invalid OTP. Please try again.", "error");
+
       setOTP("");
       inputRefs.current[0]?.focus();
     }
-  }, [phone, otp, isOTPValid, dispatch]);
+  }, [phone, otp, isOTPValid, dispatch, showToast]);
 
   // Callback for resend OTP
   const handleResendOTP = useCallback(async () => {

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -19,11 +19,16 @@ import {
   categories,
   foodOptions,
   products,
-  restaurants,
 } from "../../data/mockData";
 import { addToCart } from "../../store/slices/cartSlice";
 import {
+  fetchRestaurants,
+  selectDataLoading,
+  selectRestaurants,
+} from "../../store/slices/dataSlice";
+import {
   selectLocation,
+  selectLocationCoords,
   selectLocationType,
   selectUser,
 } from "../../store/slices/userSlice";
@@ -47,10 +52,24 @@ export default function HomeScreen() {
   const locationType = useSelector(selectLocationType);
   const { showToast } = useToast();
 
+  const coords = useSelector(selectLocationCoords);
+  const isDataLoading = useSelector(selectDataLoading);
+  const nearbyRestaurants = useSelector(selectRestaurants);
+
   // State
 
   // State for search
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (!coords?.latitude || !coords?.longitude) return;
+    dispatch(
+      fetchRestaurants({
+        lat: coords.latitude,
+        lon: coords.longitude,
+      })
+    );
+  }, [coords?.latitude, coords?.longitude, dispatch]);
 
   // Update Search Results with useMemo for performance
   const searchResults = useMemo(() => {
@@ -59,7 +78,7 @@ export default function HomeScreen() {
     const query = searchQuery.toLowerCase();
 
     // Filter Restaurants
-    const filteredRestaurants = restaurants
+    const filteredRestaurants = (nearbyRestaurants || [])
       .filter((r) => r.name.toLowerCase().includes(query))
       .map((r) => ({ type: "Restaurant", data: r }));
     // Filter Categories
@@ -834,7 +853,25 @@ export default function HomeScreen() {
                     restaurantLayoutWidth.current = e.nativeEvent.layout.width;
                   }}
                 >
-                  {restaurants.map((item) =>
+                  {(!coords?.latitude || !coords?.longitude) ? (
+                    <View style={{ paddingHorizontal: 16, width: width - 32 }}>
+                      <Text style={{ color: "#6b7280" }}>
+                        Set your location from Profile → Addresses → "Use Current Location" to load nearby restaurants.
+                      </Text>
+                    </View>
+                  ) : isDataLoading && (!nearbyRestaurants || nearbyRestaurants.length === 0) ? (
+                    <View style={{ paddingHorizontal: 16, width: width - 32 }}>
+                      <Text style={{ color: "#6b7280" }}>
+                        Loading nearby restaurants…
+                      </Text>
+                    </View>
+                  ) : (nearbyRestaurants || []).length === 0 ? (
+                    <View style={{ paddingHorizontal: 16, width: width - 32 }}>
+                      <Text style={{ color: "#6b7280" }}>
+                        No nearby restaurants found for this location.
+                      </Text>
+                    </View>
+                  ) : (nearbyRestaurants || []).map((item) =>
                     Platform.OS === "web" ? (
                       <TouchableOpacity
                         key={item.id}
@@ -919,7 +956,7 @@ export default function HomeScreen() {
                               {item.cuisine}
                             </Text>
                             <Text style={styles.priceText}>
-                              {item.priceForTwo}
+                              {item.priceForTwo || item.price}
                             </Text>
                           </View>
                           <View style={styles.restLocationRow}>
@@ -929,7 +966,7 @@ export default function HomeScreen() {
                               color="#9ca3af"
                             />
                             <Text style={styles.locationText} numberOfLines={1}>
-                              {item.location} • {item.time}
+                              {(item.location || item.address)} • {item.time}
                             </Text>
                           </View>
                           <View style={styles.bookingRow}>

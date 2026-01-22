@@ -1,6 +1,6 @@
 import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   Image,
   Platform,
@@ -18,11 +18,13 @@ import { VegNonVegIcon } from "../../components/VegNonVegIcon";
 import { useToast } from "../../context/ToastContext";
 import { restaurantItems, restaurants } from "../../data/mockData";
 import { addToCart } from "../../store/slices/cartSlice";
+import { loadReviews, selectReviews } from "../../store/slices/reviewsSlice";
 import { selectUser } from "../../store/slices/userSlice";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
+  const reviews = useSelector(selectReviews);
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { showToast } = useToast();
@@ -35,6 +37,12 @@ export default function RestaurantScreen() {
   const menuItems = allItems.filter(
     (item) => item.restaurantId === restaurantId
   );
+
+  useEffect(() => {
+    if (restaurantId) {
+      dispatch(loadReviews(restaurantId));
+    }
+  }, [dispatch, restaurantId]);
 
   if (!restaurant) {
     return (
@@ -277,6 +285,31 @@ export default function RestaurantScreen() {
           ))}
           {filteredItems.length === 0 && (
             <Text style={styles.emptyText}>No items match your filter.</Text>
+          )}
+        </View>
+
+        <View style={styles.dashedDivider} />
+
+        {/* Reviews Section */}
+        <View style={styles.reviewsContainer}>
+          <Text style={styles.menuTitle}>Ratings & Reviews</Text>
+          {reviews.length === 0 ? (
+            <Text style={styles.noReviewsText}>No reviews yet. Be the first!</Text>
+          ) : (
+            reviews.map((review) => (
+              <View key={review._id || review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <Text style={styles.reviewUser}>{review.userName}</Text>
+                  <View style={styles.ratingBadge}>
+                    <Text style={styles.ratingTextWhite}>{review.rating} ★</Text>
+                  </View>
+                </View>
+                <Text style={styles.reviewComment}>{review.comment}</Text>
+                <Text style={styles.reviewDate}>
+                  {new Date(review.createdAt).toLocaleDateString()}
+                </Text>
+              </View>
+            ))
           )}
         </View>
       </ScrollView>
@@ -557,5 +590,49 @@ const styles = StyleSheet.create({
   },
   filterBtnTextActiveNonVeg: {
     color: "#b91c1c", // Dark red
+  },
+  reviewsContainer: {
+    padding: 16,
+    paddingTop: 0,
+    backgroundColor: "#fff",
+    marginBottom: 40,
+  },
+  noReviewsText: {
+    textAlign: "center",
+    color: "#6b7280",
+    marginTop: 10,
+    fontStyle: "italic",
+  },
+  reviewCard: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  reviewUser: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  ratingBadge: {
+    backgroundColor: "#22c55e",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: "#4b5563",
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: "#9ca3af",
   },
 });

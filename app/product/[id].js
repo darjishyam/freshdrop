@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -20,6 +20,7 @@ import { products, restaurantItems } from "../../data/mockData";
 import { addToCart, selectCartItems } from "../../store/slices/cartSlice";
 import { selectStock } from "../../store/slices/stockSlice";
 import { selectUser } from "../../store/slices/userSlice";
+import { loadReviews, selectProductReviews } from "../../store/slices/reviewsSlice";
 
 const { width, height } = Dimensions.get("window");
 const IS_WEB = Platform.OS === "web";
@@ -35,43 +36,6 @@ export default function ProductDetailsScreen() {
   const [quantity, setQuantity] = useState(1);
   const [showWebLogin, setShowWebLogin] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
-
-  // Mock reviews data
-  const reviews = [
-    {
-      id: 1,
-      name: "Amit Sharma",
-      initial: "A",
-      rating: 5.0,
-      comment:
-        "Absolutely delicious! The taste was authentic and delivery was on time. Highly recommended!",
-      date: "2 days ago",
-      color: "#16a34a",
-      bgColor: "#f0fdf4",
-    },
-    {
-      id: 2,
-      name: "Priya Patel",
-      initial: "P",
-      rating: 4.0,
-      comment:
-        "Good quality and packaging. Could be a bit spicier, but overall great experience.",
-      date: "1 week ago",
-      color: "#0284c7",
-      bgColor: "#e0f2fe",
-    },
-    {
-      id: 3,
-      name: "Rahul Verma",
-      initial: "R",
-      rating: 5.0,
-      comment:
-        "Best in town! I order this almost every week. Never disappoints.",
-      date: "3 weeks ago",
-      color: "#d946ef",
-      bgColor: "#fdf4ff",
-    },
-  ];
 
   // Find product in all lists
   let product = null;
@@ -113,6 +77,35 @@ export default function ProductDetailsScreen() {
       category: category || cuisine,
     };
   }
+
+  // Debug: Check product data
+  // useEffect(() => {
+  //   if (product) {
+  //     console.log("[DEBUG ProductPage] Product:", JSON.stringify({ id: product.id, name: product.name, restaurantId: product.restaurantId }));
+  //   }
+  // }, [product]);
+
+  // Get real reviews from Redux for this specific product
+  const reviews = useSelector((state) =>
+    selectProductReviews(state, {
+      id: product?.id,
+      name: product?.name
+    })
+  );
+
+  // Calculate average rating from real reviews
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return product?.rating || 4.2;
+    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+    return (sum / reviews.length).toFixed(1);
+  }, [reviews, product]);
+
+  // Load reviews when component mounts or product changes
+  useEffect(() => {
+    // Use the actual restaurantId or the fallback generic ID
+    const targetRestaurantId = product?.restaurantId || "000000000000000000000001";
+    dispatch(loadReviews(targetRestaurantId));
+  }, [dispatch, product?.restaurantId]);
 
   // Stock Logic
   const currentStock = useSelector((state) =>
@@ -189,6 +182,8 @@ export default function ProductDetailsScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+
+
           <View
             style={[styles.imageContainer, IS_WEB && styles.webImageContainer]}
           >
@@ -240,9 +235,12 @@ export default function ProductDetailsScreen() {
                   <View style={styles.ratingPill}>
                     <Ionicons name="star" size={12} color="#fff" />
                     <Text style={styles.ratingTextWhite}>
-                      {product.rating || 4.2}
+                      {averageRating}
                     </Text>
                   </View>
+                  {reviews.length > 0 && (
+                    <Text style={styles.ratingCount}>({reviews.length} reviews)</Text>
+                  )}
                 </View>
                 <Text style={styles.productCategory}>
                   {product.category || product.cuisine || "Food"}
@@ -331,7 +329,7 @@ export default function ProductDetailsScreen() {
                 style={[
                   styles.addToCartBtn,
                   (isOutOfStock || quantity > availableStock) &&
-                    styles.disabledBtn,
+                  styles.disabledBtn,
                 ]}
                 onPress={handleAddToCart}
                 disabled={isOutOfStock || quantity > availableStock}
@@ -364,43 +362,74 @@ export default function ProductDetailsScreen() {
 
             {showReviews && (
               <View style={styles.reviewsList}>
-                {reviews.map((review) => (
-                  <View key={review.id} style={styles.reviewCard}>
-                    <View style={styles.reviewHeader}>
-                      <View style={styles.reviewerInfo}>
-                        <View
-                          style={[
-                            styles.reviewerAvatar,
-                            { backgroundColor: review.bgColor },
-                          ]}
-                        >
-                          <Text
-                            style={[styles.avatarText, { color: review.color }]}
-                          >
-                            {review.initial}
-                          </Text>
-                        </View>
-                        <Text style={styles.reviewerName}>{review.name}</Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.reviewRating,
-                          {
-                            backgroundColor:
-                              review.rating >= 4 ? "#22c55e" : "#84cc16",
-                          },
-                        ]}
-                      >
-                        <Text style={styles.reviewRatingText}>
-                          {review.rating.toFixed(1)}
-                        </Text>
-                        <Ionicons name="star" size={10} color="#fff" />
-                      </View>
-                    </View>
-                    <Text style={styles.reviewComment}>{review.comment}</Text>
-                    <Text style={styles.reviewDate}>{review.date}</Text>
+                {reviews.length === 0 ? (
+                  <View style={styles.noReviewsContainer}>
+                    <Ionicons name="chatbubbles-outline" size={48} color="#ccc" />
+                    <Text style={styles.noReviewsText}>No reviews yet</Text>
+                    <Text style={styles.noReviewsSubtext}>Be the first to review this product!</Text>
                   </View>
-                ))}
+                ) : (
+                  reviews.map((review, index) => {
+                    // Generate user initial and colors dynamically
+                    const userName = review.userName || "Anonymous";
+                    const initial = userName.charAt(0).toUpperCase();
+                    const colors = [
+                      { color: "#16a34a", bgColor: "#f0fdf4" },
+                      { color: "#0284c7", bgColor: "#e0f2fe" },
+                      { color: "#d946ef", bgColor: "#fdf4ff" },
+                      { color: "#ea580c", bgColor: "#fff7ed" },
+                      { color: "#dc2626", bgColor: "#fef2f2" },
+                    ];
+                    const colorScheme = colors[index % colors.length];
+
+                    // Format date
+                    const reviewDate = review.createdAt
+                      ? new Date(review.createdAt).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })
+                      : "Recently";
+
+                    return (
+                      <View key={review._id || review.id || index} style={styles.reviewCard}>
+                        <View style={styles.reviewHeader}>
+                          <View style={styles.reviewerInfo}>
+                            <View
+                              style={[
+                                styles.reviewerAvatar,
+                                { backgroundColor: colorScheme.bgColor },
+                              ]}
+                            >
+                              <Text
+                                style={[styles.avatarText, { color: colorScheme.color }]}
+                              >
+                                {initial}
+                              </Text>
+                            </View>
+                            <Text style={styles.reviewerName}>{userName}</Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.reviewRating,
+                              {
+                                backgroundColor:
+                                  review.rating >= 4 ? "#22c55e" : "#84cc16",
+                              },
+                            ]}
+                          >
+                            <Text style={styles.reviewRatingText}>
+                              {review.rating.toFixed(1)}
+                            </Text>
+                            <Ionicons name="star" size={10} color="#fff" />
+                          </View>
+                        </View>
+                        <Text style={styles.reviewComment}>{review.comment}</Text>
+                        <Text style={styles.reviewDate}>{reviewDate}</Text>
+                      </View>
+                    );
+                  })
+                )}
               </View>
             )}
           </View>
@@ -819,6 +848,12 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     fontFamily: "Poppins_600SemiBold",
   },
+  ratingCount: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginLeft: 6,
+    fontFamily: "Poppins_400Regular",
+  },
   reviewsContainer: {
     padding: 20,
     marginTop: 10,
@@ -905,6 +940,24 @@ const styles = StyleSheet.create({
   reviewDate: {
     fontSize: 11,
     color: "#9ca3af",
+    fontFamily: "Poppins_400Regular",
+  },
+  noReviewsContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  noReviewsText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#9ca3af",
+    marginTop: 12,
+    fontFamily: "Poppins_600SemiBold",
+  },
+  noReviewsSubtext: {
+    fontSize: 13,
+    color: "#d1d5db",
+    marginTop: 4,
     fontFamily: "Poppins_400Regular",
   },
 });

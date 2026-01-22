@@ -82,6 +82,9 @@ export const login = createAsyncThunk(
  */
 export const logout = createAsyncThunk("auth/logout", async () => {
   await logoutUserService();
+  // Clear other sensitive data
+  const AsyncStorage = require("@react-native-async-storage/async-storage").default;
+  await AsyncStorage.removeItem("user_orders"); // Clear orders
 });
 
 /**

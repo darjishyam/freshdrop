@@ -86,14 +86,6 @@ export default function RootLayout() {
                 options={{ headerShown: false }}
               />
               <Stack.Screen name="orders" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="orders/index"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="orders/[id]"
-                options={{ headerShown: false }}
-              />
             </Stack>
             <CartFab />
           </View>

@@ -17,6 +17,9 @@ const reviewSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
     },
+    productName: {
+      type: String, // Store product name for easier filtering/mock items
+    },
     rating: {
       type: Number,
       required: true,

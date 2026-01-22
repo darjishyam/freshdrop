@@ -1,0 +1,70 @@
+[
+  {
+    "_id": "6971d4d6ef2074f7e97802c8",
+    "user": "697097df084fca4aabbe9654",
+    "restaurant": "000000000000000000000001",
+    "product": "767031000000000000000000",
+    "rating": 1,
+    "comment": "bad",
+    "userName": "Shyam",
+    "images": [],
+    "createdAt": "2026-01-22T07:42:14.594Z",
+    "updatedAt": "2026-01-22T07:42:14.594Z",
+    "__v": 0
+  },
+  {
+    "_id": "6971d528ef2074f7e97805c1",
+    "user": "697097df084fca4aabbe9654",
+    "restaurant": "000000000000000000000001",
+    "product": "466f7274756e652053756e20",
+    "rating": 3,
+    "comment": "good",
+    "userName": "Shyam",
+    "images": [],
+    "createdAt": "2026-01-22T07:43:36.259Z",
+    "updatedAt": "2026-01-22T07:43:36.259Z",
+    "__v": 0
+  },
+  {
+    "_id": "6971d5ef150f7b28ec1376ba",
+    "user": "697097df084fca4aabbe9654",
+    "restaurant": "000000000000000000000001",
+    "product": "6e3100000000000000000000",
+    "productName": "Veg Hakka Noodles",
+    "rating": 2,
+    "comment": "good",
+    "userName": "Shyam",
+    "images": [],
+    "createdAt": "2026-01-22T07:46:55.852Z",
+    "updatedAt": "2026-01-22T07:46:55.852Z",
+    "__v": 0
+  },
+  {
+    "_id": "6971d666150f7b28ec137f06",
+    "user": "697097df084fca4aabbe9654",
+    "restaurant": "000000000000000000000001",
+    "product": "6e3100000000000000000000",
+    "productName": "Veg Hakka Noodles",
+    "rating": 3,
+    "comment": "good",
+    "userName": "Shyam",
+    "images": [],
+    "createdAt": "2026-01-22T07:48:54.787Z",
+    "updatedAt": "2026-01-22T07:48:54.787Z",
+    "__v": 0
+  },
+  {
+    "_id": "6971d750150f7b28ec1387cd",
+    "user": "697097df084fca4aabbe9654",
+    "restaurant": "000000000000000000000001",
+    "product": "6e3100000000000000000000",
+    "productName": "Veg Hakka Noodles",
+    "rating": 3,
+    "comment": "good",
+    "userName": "Shyam",
+    "images": [],
+    "createdAt": "2026-01-22T07:52:48.464Z",
+    "updatedAt": "2026-01-22T07:52:48.464Z",
+    "__v": 0
+  }
+]

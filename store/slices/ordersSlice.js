@@ -1,44 +1,29 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { fetchUserOrders, createNewOrder } from "../../services/orderService";
 
-const STORAGE_KEY = "user_orders";
-
-const ORDER_STAGES = [
-  "Order Placed",
-  "Confirmed",
-  "Preparing",
-  "Out for Delivery",
-  "Delivered",
-];
-
-const STATUS_INTERVAL = 15000; // 15 seconds * 4 stages = 60 seconds (1 minute) total
-
+// Load orders from Backend
 export const loadOrders = createAsyncThunk(
   "orders/loadOrders",
   async (_, { rejectWithValue }) => {
     try {
-      const storedOrders = await AsyncStorage.getItem(STORAGE_KEY);
-      return storedOrders ? JSON.parse(storedOrders) : [];
+      const orders = await fetchUserOrders();
+      return orders;
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
 
+// Add Order to Backend
 export const addOrder = createAsyncThunk(
   "orders/addOrder",
-  async (order, { getState, rejectWithValue }) => {
+  async (orderData, { rejectWithValue }) => {
     try {
-      const { orders } = getState();
-      const orderWithTimestamp = {
-        ...order,
-        date: order.date || new Date().toISOString(),
-        status: "Order Placed",
-      };
-
-      const newOrders = [orderWithTimestamp, ...orders.items]; // items is the array in state
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newOrders));
-      return orderWithTimestamp;
+      // Backend expects: { restaurantId, items, totalAmount, deliveryAddress, paymentMethod }
+      // The frontend 'order' object likely needs mapping to match backend schema if it differs
+      // Assuming orderData passed here is formatted correct for API
+      const newOrder = await createNewOrder(orderData);
+      return newOrder;
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -47,51 +32,19 @@ export const addOrder = createAsyncThunk(
 
 export const cancelOrder = createAsyncThunk(
   "orders/cancelOrder",
-  async (orderId, { getState, rejectWithValue }) => {
-    try {
-      const { orders } = getState();
-      const newOrders = orders.items.filter((o) => o.id !== orderId);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(newOrders));
-      return newOrders;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
+  async (orderId, { rejectWithValue }) => {
+    // Requires backend endpoint for cancellation (not implemented yet)
+    // For now, just simulated error
+    return rejectWithValue("Cancellation not implemented in backend yet");
   }
 );
 
-// We define this to allow manual status updates or internal logic updates
+// Helper to refresh orders (used for polling status updates)
 export const updateOrderStatuses = createAsyncThunk(
   "orders/updateStatuses",
-  async (_, { getState, rejectWithValue }) => {
-    try {
-      const { orders } = getState();
-      const now = Date.now();
-      let hasUpdates = false;
-
-      const updatedOrders = orders.items.map((order) => {
-        if (order.status === "Delivered") return order;
-
-        const orderTime = new Date(order.date).getTime();
-        const timePassed = now - orderTime;
-        const stageIndex = Math.floor(timePassed / STATUS_INTERVAL);
-        const newStatus =
-          ORDER_STAGES[Math.min(stageIndex, ORDER_STAGES.length - 1)];
-
-        if (newStatus !== order.status) {
-          hasUpdates = true;
-          return { ...order, status: newStatus };
-        }
-        return order;
-      });
-
-      if (hasUpdates) {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedOrders));
-        return updatedOrders;
-      }
-      return null; // No updates
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
+  async (_, { dispatch }) => {
+    // Just re-fetch from backend. The backend handles status progression logic.
+    dispatch(loadOrders());
   }
 );
 
@@ -112,25 +65,27 @@ const ordersSlice = createSlice({
       })
       .addCase(loadOrders.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.items = action.payload;
+        state.items = action.payload; // Replace with fresh list from server
       })
       .addCase(loadOrders.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })
       // Add Order
+      .addCase(addOrder.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(addOrder.fulfilled, (state, action) => {
-        state.items.unshift(action.payload);
+        state.isLoading = false;
+        state.items.unshift(action.payload); // Add new order to top
       })
-      // Cancel Order
-      .addCase(cancelOrder.fulfilled, (state, action) => {
-        state.items = action.payload;
+      .addCase(addOrder.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload;
       })
-      // Update Statuses
-      .addCase(updateOrderStatuses.fulfilled, (state, action) => {
-        if (action.payload) {
-          state.items = action.payload;
-        }
+      // Clear orders on logout
+      .addCase("auth/logout/fulfilled", (state) => {
+        state.items = [];
       });
   },
 });

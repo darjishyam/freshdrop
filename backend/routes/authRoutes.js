@@ -11,6 +11,7 @@ const {
   resetPassword,
   requestProfileUpdateOtp,
   verifyProfileUpdateOtp,
+  addToHistory,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -24,5 +25,6 @@ router.get("/profile", protect, getProfile);
 router.post("/reset-password", resetPassword);
 router.post("/profile/otp/request", requestProfileUpdateOtp);
 router.post("/profile/otp/verify", verifyProfileUpdateOtp);
+router.post("/profile/history", protect, addToHistory);
 
 module.exports = router;

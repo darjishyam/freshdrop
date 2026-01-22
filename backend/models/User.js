@@ -42,6 +42,18 @@ const userSchema = new mongoose.Schema(
       otp: String,
       otpExpires: Date,
     },
+    recentlyViewed: [
+      {
+        restaurant: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Restaurant",
+        },
+        viewedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

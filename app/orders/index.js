@@ -20,6 +20,21 @@ import {
   updateOrderStatuses,
 } from "../../store/slices/ordersSlice";
 
+// Helpers
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  return isNaN(date.getTime()) ? "" : date.toLocaleString();
+};
+
+const formatPrice = (price) => {
+  if (typeof price === "string") {
+    price = parseFloat(price.replace(/[^0-9.]/g, ""));
+  }
+  const num = Number(price);
+  return isNaN(num) ? "0" : num.toString();
+};
+
 export default function OrdersScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -68,13 +83,13 @@ export default function OrdersScreen() {
       // Fallback for mock/legacy
       dispatch(
         addToCart({
-          id: "reorder-" + order.id,
-          name: order.restaurantName + " Order",
+          id: "reorder-" + (order._id || order.id),
+          name: (order.restaurantName || "Order") + " Reorder",
           price:
             typeof order.total === "string"
               ? parseInt(order.total.replace("₹", ""))
               : order.total,
-          restaurantId: order.id,
+          restaurantId: order.restaurant?._id || order.restaurant,
           image: order.image,
           quantity: 1,
         })
@@ -85,29 +100,44 @@ export default function OrdersScreen() {
 
   const handleCancel = (item) => {
     // Confirm before cancelling
-    dispatch(cancelOrderAction(item.id));
+    dispatch(cancelOrderAction(item._id || item.id));
     showToast("Order canceled.");
   };
 
   const renderOrder = ({ item }) => (
     <TouchableOpacity
       style={styles.orderCard}
-      onPress={() =>
-        router.push({ pathname: "/orders/[id]", params: { id: item.id } })
-      }
+      onPress={() => router.push(`/orders/${item._id || item.id}`)}
     >
       <View style={styles.orderHeader}>
         <View style={styles.restaurantInfo}>
           <Image
-            source={
-              typeof item.image === "string" ? { uri: item.image } : item.image
-            }
+            source={(() => {
+              const img = item.restaurant?.image || item.image || "https://via.placeholder.com/100";
+              if (typeof img === "string") {
+                if (img.trim().startsWith("{")) {
+                  try {
+                    return JSON.parse(img);
+                  } catch (e) { }
+                }
+                if (
+                  !isNaN(img) &&
+                  img.trim() !== "" &&
+                  !img.startsWith("http")
+                )
+                  return parseInt(img);
+                return { uri: img };
+              }
+              return img;
+            })()}
             style={styles.restaurantImage}
           />
           <View>
-            <Text style={styles.restaurantName}>{item.restaurantName}</Text>
+            <Text style={styles.restaurantName}>
+              {item.restaurant?.name || item.restaurantName || "Restaurant"}
+            </Text>
             <Text style={styles.orderDate}>
-              {new Date(item.date).toLocaleString()}
+              {formatDate(item.createdAt || item.date)}
             </Text>
           </View>
         </View>
@@ -123,11 +153,24 @@ export default function OrdersScreen() {
           <View key={index} style={styles.itemCard}>
             {food.image && (
               <Image
-                source={
-                  typeof food.image === "string"
-                    ? { uri: food.image }
-                    : food.image
-                }
+                source={(() => {
+                  const img = food.image;
+                  if (typeof img === "string") {
+                    if (img.trim().startsWith("{")) {
+                      try {
+                        return JSON.parse(img);
+                      } catch (e) { }
+                    }
+                    if (
+                      !isNaN(img) &&
+                      img.trim() !== "" &&
+                      !img.startsWith("http")
+                    )
+                      return parseInt(img);
+                    return { uri: img };
+                  }
+                  return img || { uri: "https://via.placeholder.com/50" };
+                })()}
                 style={styles.itemImage}
               />
             )}
@@ -148,7 +191,7 @@ export default function OrdersScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.totalText}>
-          ₹{item.billDetails ? item.billDetails.grandTotal : item.total}
+          ₹{formatPrice(item.totalAmount || item.total)}
         </Text>
         <View style={styles.actionButtons}>
           {canCancelOrder(item.status) && (
@@ -189,7 +232,7 @@ export default function OrdersScreen() {
         <TouchableOpacity
           onPress={() => {
             if (params.fromPayment === "true") {
-              router.navigate("/(tabs)/home");
+              router.replace("/(tabs)/home");
             } else {
               router.back();
             }
@@ -204,7 +247,7 @@ export default function OrdersScreen() {
       <FlatList
         data={orders}
         renderItem={renderOrder}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id || item.id || Math.random().toString()}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={

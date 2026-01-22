@@ -18,12 +18,31 @@ import {
   updateOrderStatuses,
 } from "../../store/slices/ordersSlice";
 
+// Helpers
+const formatDate = (dateString) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  // specific format for timeline
+  return isNaN(date.getTime())
+    ? ""
+    : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
+const formatPrice = (price) => {
+  if (typeof price === "string") {
+    price = parseFloat(price.replace(/[^0-9.]/g, ""));
+  }
+  const num = Number(price);
+  return isNaN(num) ? "0" : num.toString();
+};
+
 export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const dispatch = useDispatch();
   const orders = useSelector(selectOrders);
   const [order, setOrder] = useState(null);
+  const [expandedSteps, setExpandedSteps] = useState({});
 
   // Order tracking stages
   const ORDER_STAGES = [
@@ -84,8 +103,17 @@ export default function OrderDetailsScreen() {
   };
 
   useEffect(() => {
-    const found = orders.find((o) => o.id === id);
-    if (found) setOrder(found);
+    const found = orders.find((o) => o._id === id || o.id === id);
+    if (found) {
+      setOrder(found);
+      // Auto-expand all completed stages initially (to show full history chain)
+      const idx = getCurrentStageIndex(found.status);
+      const initialExpanded = {};
+      for (let i = 0; i <= idx; i++) {
+        initialExpanded[i] = true;
+      }
+      setExpandedSteps(initialExpanded);
+    }
   }, [id, orders]);
 
   // Poll for status updates while on this screen
@@ -113,7 +141,7 @@ export default function OrderDetailsScreen() {
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>Order Summary</Text>
-          <Text style={styles.headerSub}>{order.restaurantName}</Text>
+          <Text style={styles.headerSub}>{order.restaurant?.name || order.restaurantName}</Text>
         </View>
         <View style={{ width: 24 }} />
       </View>
@@ -138,62 +166,84 @@ export default function OrderDetailsScreen() {
             </Text>
           )}
 
-          {/* Dynamic Timeline */}
+          {/* Interactive Dynamic Timeline */}
           <View style={styles.timeline}>
             {ORDER_STAGES.map((stage, index) => {
               const currentIndex = getCurrentStageIndex(order.status);
-              const isActive = index <= currentIndex;
-              const isCurrentStage = index === currentIndex;
+              const isCompleted = index <= currentIndex;
+              const isActive = index === currentIndex;
+              const isExpanded = !!expandedSteps[index];
 
               return (
-                <View key={stage.key}>
-                  <View style={styles.timelineItem}>
-                    <Ionicons
-                      name={stage.icon}
-                      size={20}
-                      color={isActive ? "#22c55e" : "#ddd"}
-                      style={styles.timelineIcon}
-                    />
-                    <View style={styles.timelineContent}>
+                <View key={stage.key} style={styles.timelineItemContainer}>
+                  {/* Vertical Railway Lane (Line) */}
+                  <View style={styles.leftColumn}>
+                    {/* Dot */}
+                    <View
+                      style={[
+                        styles.dot,
+                        isCompleted && styles.activeDot,
+                        isActive && styles.currentDot, // Special style for "current train stop"
+                      ]}
+                    >
+                      {isCompleted && (
+                        <Ionicons name="checkmark" size={10} color="#fff" />
+                      )}
+                    </View>
+                    {/* Line Connection */}
+                    {index < ORDER_STAGES.length - 1 && (
+                      <View
+                        style={[
+                          styles.line,
+                          index < currentIndex && styles.activeLine,
+                        ]}
+                      />
+                    )}
+                  </View>
+
+                  <View style={styles.rightColumn}>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      style={styles.timelineHeader}
+                      onPress={() =>
+                        setExpandedSteps((prev) => ({
+                          ...prev,
+                          [index]: !prev[index],
+                        }))
+                      }
+                    >
                       <Text
                         style={[
-                          styles.timelineText,
-                          isActive && styles.activeTimelineText,
+                          styles.timelineTitle,
+                          isCompleted && styles.activeTimelineTitle,
                         ]}
                       >
                         {stage.label}
                       </Text>
-                      <Text style={styles.timelineDescription}>
-                        {stage.description}
-                      </Text>
-                      {isCurrentStage && index === 0 && (
-                        <Text style={styles.timelineTime}>
-                          {new Date(order.date).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                      {/* Chevron Icon indicating expansion */}
+                      <Ionicons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={16}
+                        color={isCompleted ? "#333" : "#ccc"}
+                        style={{ marginLeft: 8 }}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Drop Down Content - Accordion */}
+                    {isExpanded && (
+                      <View style={styles.timelineBody}>
+                        <Text style={styles.timelineDescription}>
+                          {stage.description}
                         </Text>
-                      )}
-                      {stage.canCancel && isCurrentStage && (
-                        <Text style={styles.cancelAllowedText}>
-                          Cancel allowed for short time ⏱️
-                        </Text>
-                      )}
-                      {!stage.canCancel && isCurrentStage && (
-                        <Text style={styles.cancelNotAllowedText}>
-                          Cancel not allowed ❌
-                        </Text>
-                      )}
-                    </View>
+                        {/* Only show time if this step is completed or active */}
+                        {isCompleted && (
+                          <Text style={styles.timelineTime}>
+                            {formatDate(order.updatedAt || order.createdAt || order.date || Date.now())}
+                          </Text>
+                        )}
+                      </View>
+                    )}
                   </View>
-                  {index < ORDER_STAGES.length - 1 && (
-                    <View
-                      style={[
-                        styles.timelineLine,
-                        isActive && styles.activeTimelineLine,
-                      ]}
-                    />
-                  )}
                 </View>
               );
             })}
@@ -236,11 +286,24 @@ export default function OrderDetailsScreen() {
               {/* Product Image */}
               {item.image && (
                 <Image
-                  source={
-                    typeof item.image === "string"
-                      ? { uri: item.image }
-                      : item.image
-                  }
+                  source={(() => {
+                    const img = item.image;
+                    if (typeof img === "string") {
+                      if (img.trim().startsWith("{")) {
+                        try {
+                          return JSON.parse(img);
+                        } catch (e) { }
+                      }
+                      if (
+                        !isNaN(img) &&
+                        img.trim() !== "" &&
+                        !img.startsWith("http")
+                      )
+                        return parseInt(img);
+                      return { uri: img };
+                    }
+                    return img;
+                  })()}
                   style={styles.itemImage}
                 />
               )}
@@ -256,7 +319,10 @@ export default function OrderDetailsScreen() {
                     <Text style={styles.qtyText}>{item.quantity || 0}</Text>
                   </View>
                   <Text style={styles.itemPrice}>
-                    ₹{(item.price || 0) * (item.quantity || 0)}
+                    ₹
+                    {formatPrice(
+                      (parseFloat(item.price) || 0) * (item.quantity || 0)
+                    )}
                   </Text>
                 </View>
               </View>
@@ -265,40 +331,40 @@ export default function OrderDetailsScreen() {
         </View>
 
         {/* Bill Details */}
-        {order.billDetails && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Bill Details</Text>
-            <View style={styles.billRow}>
-              <Text style={styles.billLabel}>Item Total</Text>
-              <Text style={styles.billValue}>
-                ₹{order.billDetails.itemTotal}
-              </Text>
-            </View>
-            <View style={styles.billRow}>
-              <Text style={styles.billLabel}>Delivery Fee</Text>
-              <Text style={styles.billValue}>
-                ₹{order.billDetails.deliveryFee}
-              </Text>
-            </View>
-            <View style={styles.billRow}>
-              <Text style={styles.billLabel}>Taxes & Charges</Text>
-              <Text style={styles.billValue}>₹{order.billDetails.taxes}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.billRow}>
-              <Text style={styles.totalLabel}>To Pay</Text>
-              <Text style={styles.totalValue}>
-                ₹{order.billDetails.grandTotal}
-              </Text>
-            </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Bill Details</Text>
+          <View style={styles.billRow}>
+            <Text style={styles.billLabel}>Item Total</Text>
+            <Text style={styles.billValue}>
+              ₹{formatPrice(order.billDetails ? order.billDetails.itemTotal : order.totalAmount)}
+            </Text>
           </View>
-        )}
+          <View style={styles.billRow}>
+            <Text style={styles.billLabel}>Delivery Fee</Text>
+            <Text style={styles.billValue}>
+              ₹{formatPrice(order.billDetails ? order.billDetails.deliveryFee : 0)}
+            </Text>
+          </View>
+          <View style={styles.billRow}>
+            <Text style={styles.billLabel}>Taxes & Charges</Text>
+            <Text style={styles.billValue}>
+              ₹{formatPrice(order.billDetails ? order.billDetails.taxes : 0)}
+            </Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.billRow}>
+            <Text style={styles.totalLabel}>To Pay</Text>
+            <Text style={styles.totalValue}>
+              ₹{formatPrice(order.billDetails ? order.billDetails.grandTotal : order.totalAmount)}
+            </Text>
+          </View>
+        </View>
 
         {/* Order Details Footer */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Order Details</Text>
           <Text style={styles.detailLabel}>Order ID</Text>
-          <Text style={styles.detailValue}>{order.id}</Text>
+          <Text style={styles.detailValue}>{order._id || order.id}</Text>
 
           {order.paymentDetails && (
             <>
@@ -334,6 +400,63 @@ export default function OrderDetailsScreen() {
             <Text style={styles.cancelOrderText}>Cancel Order</Text>
           </TouchableOpacity>
         )}
+
+        {/* Write Review Section - Only for Delivered Orders */}
+        {order.status === "Delivered" && (
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewSectionTitle}>How was your order?</Text>
+            <Text style={styles.reviewSectionSubtitle}>Rate your experience</Text>
+            {order.items.map((item, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={styles.reviewItemCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/reviews/add",
+                    params: {
+                      orderId: order._id || order.id,
+                      restaurantId: order.restaurant?._id || order.restaurant,
+                      productId: item.product || item.id || item.name,
+                      productName: item.name,
+                      productImage: item.image,
+                    },
+                  })
+                }
+              >
+                <View style={styles.reviewItemInfo}>
+                  {item.image && (
+                    <Image
+                      source={(() => {
+                        const img = item.image;
+                        if (typeof img === "string") {
+                          if (img.trim().startsWith("{")) {
+                            try {
+                              return JSON.parse(img);
+                            } catch (e) { }
+                          }
+                          if (
+                            !isNaN(img) &&
+                            img.trim() !== "" &&
+                            !img.startsWith("http")
+                          )
+                            return parseInt(img);
+                          return { uri: img };
+                        }
+                        return img;
+                      })()}
+                      style={styles.reviewItemImage}
+                    />
+                  )}
+                  <Text style={styles.reviewItemName}>{item.name}</Text>
+                </View>
+                <View style={styles.reviewButton}>
+                  <Ionicons name="star-outline" size={18} color="#FC8019" />
+                  <Text style={styles.reviewButtonText}>Rate</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -368,54 +491,92 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 18, fontWeight: "bold", marginLeft: 8 },
   etaText: { fontSize: 14, color: "#666", marginBottom: 16, marginLeft: 32 },
   timeline: { marginTop: 16 },
-  timelineItem: {
+  timelineItemContainer: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginVertical: 8,
+    minHeight: 60,
   },
-  timelineIcon: {
-    marginRight: 12,
+  leftColumn: {
+    alignItems: "center",
+    width: 40,
+    marginRight: 8,
+  },
+  dot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#ddd",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2,
     marginTop: 2,
   },
-  timelineContent: {
+  activeDot: {
+    backgroundColor: "#22c55e",
+    shadowColor: "#22c55e",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  currentDot: {
+    borderWidth: 2,
+    borderColor: "#15803d", // Darker green ring
+    transform: [{ scale: 1.2 }],
+    shadowColor: "#15803d",
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  line: {
     flex: 1,
+    width: 2,
+    backgroundColor: "#e5e7eb",
+    marginVertical: 4,
+  },
+  activeLine: {
+    backgroundColor: "#22c55e",
+  },
+  rightColumn: {
+    flex: 1,
+    paddingBottom: 24,
+  },
+  timelineHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  timelineTitle: {
+    fontSize: 16,
+    color: "#9ca3af",
+    fontWeight: "600",
+  },
+  activeTimelineTitle: {
+    color: "#111827",
+    fontWeight: "bold",
+  },
+  timelineBody: {
+    marginTop: 6,
+    padding: 12,
+    backgroundColor: "#f9fafb",
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#22c55e",
   },
   timelineText: {
     fontSize: 15,
     color: "#999",
     fontWeight: "500",
   },
-  activeTimelineText: {
-    color: "#333",
-    fontWeight: "bold",
-  },
   timelineDescription: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 2,
+    fontSize: 13,
+    color: "#4b5563",
+    lineHeight: 18,
   },
-  timelineLine: {
-    width: 2,
-    height: 24,
-    backgroundColor: "#ddd",
-    marginLeft: 10,
-    marginVertical: 2,
-  },
-  activeTimelineLine: {
-    backgroundColor: "#22c55e",
-  },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#ddd",
-    marginRight: 12,
-  },
-  activeDot: { backgroundColor: "#22c55e" },
   timelineTime: {
     fontSize: 11,
-    color: "#999",
-    marginTop: 4,
+    color: "#6b7280",
+    marginTop: 6,
+    textAlign: "right",
+    fontStyle: "italic",
   },
   cancelAllowedText: {
     fontSize: 11,
@@ -535,5 +696,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     color: "#ef4444",
+  },
+  // Review Section Styles
+  reviewSection: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
+  reviewSectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#111",
+    marginBottom: 4,
+  },
+  reviewSectionSubtitle: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 16,
+  },
+  reviewItemCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  reviewItemInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  reviewItemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    marginRight: 12,
+    backgroundColor: "#E5E7EB",
+  },
+  reviewItemName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    flex: 1,
+  },
+  reviewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF5E6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    gap: 4,
+  },
+  reviewButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FC8019",
   },
 });

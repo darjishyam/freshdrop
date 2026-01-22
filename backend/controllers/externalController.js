@@ -67,7 +67,11 @@ const getRestaurants = async (req, res) => {
 
     res.json(restaurants);
   } catch (error) {
-    console.error("Overpass API Error:", error.message);
+    if (error.response && error.response.status === 429) {
+      console.warn("Overpass API Rate Limit (429) hit - serving empty list.");
+    } else {
+      console.error("Overpass API Error:", error.message);
+    }
     // Return empty array on error to prevent crash
     res.json([]);
   }
@@ -129,7 +133,11 @@ const getGroceries = async (req, res) => {
 
     res.json(groceries);
   } catch (error) {
-    console.error("Overpass API (Groceries) Error:", error.message);
+    if (error.response && error.response.status === 429) {
+      console.warn("Overpass API (Groceries) Rate Limit (429) hit - serving empty list.");
+    } else {
+      console.error("Overpass API (Groceries) Error:", error.message);
+    }
     res.json([]);
   }
 };
