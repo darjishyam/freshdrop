@@ -23,8 +23,10 @@ import {
 import { addToCart } from "../../store/slices/cartSlice";
 import {
   fetchRestaurants,
+  fetchGroceries, // [NEW]
   selectDataLoading,
   selectRestaurants,
+  selectGroceries, // [NEW]
 } from "../../store/slices/dataSlice";
 import {
   selectLocation,
@@ -32,6 +34,7 @@ import {
   selectLocationType,
   selectUser,
 } from "../../store/slices/userSlice";
+
 
 const { width } = Dimensions.get("window");
 
@@ -60,11 +63,18 @@ export default function HomeScreen() {
 
   // State for search
   const [searchQuery, setSearchQuery] = useState("");
+  const groceryItems = useSelector(selectGroceries); // [NEW]
 
   useEffect(() => {
     if (!coords?.latitude || !coords?.longitude) return;
     dispatch(
       fetchRestaurants({
+        lat: coords.latitude,
+        lon: coords.longitude,
+      })
+    );
+    dispatch(
+      fetchGroceries({
         lat: coords.latitude,
         lon: coords.longitude,
       })
@@ -101,6 +111,51 @@ export default function HomeScreen() {
       ...filteredProducts,
     ];
   }, [searchQuery]);
+
+  // Handle restaurant click - save to MongoDB first
+  const handleRestaurantClick = async (restaurant) => {
+    try {
+      const baseUrl = Platform.OS === 'android'
+        ? 'http://10.0.2.2:5000/api'
+        : 'http://localhost:5000/api';
+
+      const response = await fetch(`${baseUrl}/restaurants/save-external`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          externalId: restaurant.id,
+          name: restaurant.name,
+          cuisine: restaurant.cuisine,
+          address: {
+            street: restaurant.address,
+            city: restaurant.location,
+            coordinates: {
+              lat: restaurant.lat,
+              lon: restaurant.lon,
+            },
+          },
+          image: restaurant.image,
+          time: restaurant.time,
+          price: restaurant.price,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save restaurant");
+      }
+
+      // Navigate with MongoDB ID
+      router.push({
+        pathname: "/restaurant/[id]",
+        params: { id: data._id },
+      });
+    } catch (error) {
+      console.error("Error saving restaurant:", error);
+      showToast("Error loading restaurant", "error");
+    }
+  };
 
   // Helper for image source
   const getImageSource = (img) => {
@@ -331,10 +386,7 @@ export default function HomeScreen() {
                           params: { id: item.data.name },
                         });
                       } else if (item.type === "Restaurant") {
-                        router.push({
-                          pathname: "/restaurant/[id]",
-                          params: { id: item.data.id },
-                        });
+                        handleRestaurantClick(item.data);
                       } else if (item.type === "Product") {
                         router.push({
                           pathname: "/product/[id]",
@@ -427,184 +479,138 @@ export default function HomeScreen() {
                 >
                   {Platform.OS === "web"
                     ? Array.from({
-                        length: Math.ceil(foodOptions.length / 2),
-                      }).map((_, i) => {
-                        const item1 = foodOptions[i * 2];
-                        const item2 = foodOptions[i * 2 + 1];
-                        return (
-                          <View key={i} style={{ marginRight: 20 }}>
+                      length: Math.ceil(foodOptions.length / 2),
+                    }).map((_, i) => {
+                      const item1 = foodOptions[i * 2];
+                      const item2 = foodOptions[i * 2 + 1];
+                      return (
+                        <View key={i} style={{ marginRight: 20 }}>
+                          <TouchableOpacity
+                            style={[styles.webItemValues, { marginRight: 0 }]}
+                            onPress={() =>
+                              router.push({
+                                pathname: "/collection/[id]",
+                                params: { id: item1.name },
+                              })
+                            }
+                          >
+                            <View style={styles.webFoodImageContainer}>
+                              <Image
+                                source={getImageSource(item1.image)}
+                                style={styles.webFoodImage}
+                                resizeMode="cover"
+                              />
+                            </View>
+                            <Text style={styles.webItemText}>
+                              {item1.name}
+                            </Text>
+                          </TouchableOpacity>
+                          {item2 && (
                             <TouchableOpacity
-                              style={[styles.webItemValues, { marginRight: 0 }]}
+                              style={[
+                                styles.webItemValues,
+                                { marginRight: 0, marginTop: 24 },
+                              ]}
                               onPress={() =>
                                 router.push({
                                   pathname: "/collection/[id]",
-                                  params: { id: item1.name },
+                                  params: { id: item2.name },
                                 })
                               }
                             >
                               <View style={styles.webFoodImageContainer}>
                                 <Image
-                                  source={getImageSource(item1.image)}
+                                  source={getImageSource(item2.image)}
                                   style={styles.webFoodImage}
                                   resizeMode="cover"
                                 />
                               </View>
                               <Text style={styles.webItemText}>
-                                {item1.name}
+                                {item2.name}
                               </Text>
                             </TouchableOpacity>
-                            {item2 && (
-                              <TouchableOpacity
-                                style={[
-                                  styles.webItemValues,
-                                  { marginRight: 0, marginTop: 24 },
-                                ]}
-                                onPress={() =>
-                                  router.push({
-                                    pathname: "/collection/[id]",
-                                    params: { id: item2.name },
-                                  })
-                                }
-                              >
-                                <View style={styles.webFoodImageContainer}>
-                                  <Image
-                                    source={getImageSource(item2.image)}
-                                    style={styles.webFoodImage}
-                                    resizeMode="cover"
-                                  />
-                                </View>
-                                <Text style={styles.webItemText}>
-                                  {item2.name}
-                                </Text>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        );
-                      })
+                          )}
+                        </View>
+                      );
+                    })
                     : foodOptions.map((item) => (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={styles.foodItem}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/collection/[id]",
-                              params: { id: item.name },
-                            })
-                          }
-                        >
-                          <View style={styles.foodImageContainer}>
-                            <Image
-                              source={getImageSource(item.image)}
-                              style={styles.foodOptionImage}
-                              resizeMode="cover"
-                            />
-                          </View>
-                          <Text style={styles.itemLabel}>{item.name}</Text>
-                        </TouchableOpacity>
-                      ))}
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.foodItem}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/collection/[id]",
+                            params: { id: item.name },
+                          })
+                        }
+                      >
+                        <View style={styles.foodImageContainer}>
+                          <Image
+                            source={getImageSource(item.image)}
+                            style={styles.foodOptionImage}
+                            resizeMode="cover"
+                          />
+                        </View>
+                        <Text style={styles.itemLabel}>{item.name}</Text>
+                      </TouchableOpacity>
+                    ))}
                 </ScrollView>
                 {Platform.OS === "web" && (
                   <View style={styles.webSectionDivider} />
                 )}
               </View>
 
-              {/* Shop by Category (Grocery Options) */}
+              {/* Near By Grocery (Spoonacular) */}
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Shop by Category</Text>
-                  <View style={styles.navButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !categoryCanScrollLeft && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollCategory("left")}
-                      disabled={!categoryCanScrollLeft}
-                    >
-                      <Ionicons
-                        name="arrow-back"
-                        size={20}
-                        color={categoryCanScrollLeft ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !categoryCanScrollRight && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollCategory("right")}
-                      disabled={!categoryCanScrollRight}
-                    >
-                      <Ionicons
-                        name="arrow-forward"
-                        size={20}
-                        color={categoryCanScrollRight ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={styles.sectionTitle}>Near By Grocery</Text>
                 </View>
                 <ScrollView
-                  ref={categoryScrollRef}
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={[
                     styles.horizontalList,
                     Platform.OS === "web" && styles.webHorizontalScroll,
                   ]}
-                  onScroll={handleCategoryScroll}
-                  scrollEventThrottle={16}
-                  onContentSizeChange={(w) => {
-                    categoryContentWidth.current = w;
-                  }}
-                  onLayout={(e) => {
-                    categoryLayoutWidth.current = e.nativeEvent.layout.width;
-                  }}
                 >
-                  {categories.map((item, index) => (
+                  {groceryItems.map((item) => (
                     <TouchableOpacity
-                      key={index}
-                      style={
-                        Platform.OS === "web"
-                          ? styles.webItemValues
-                          : styles.categoryItem
-                      }
-                      onPress={() =>
-                        router.push({
-                          pathname: "/collection/[id]",
-                          params: { id: item.name },
-                        })
-                      }
+                      key={item.id}
+                      style={{
+                        marginRight: 16,
+                        alignItems: "center",
+                        width: 100,
+                      }}
+                      onPress={() => router.push({
+                        pathname: "/grocery/[id]",
+                        params: {
+                          id: item.id,
+                          name: item.name,
+                          address: item.address,
+                          rating: item.rating,
+                          time: item.time,
+                          image: item.image
+                        }
+                      })}
                     >
-                      <View
-                        style={
-                          Platform.OS === "web"
-                            ? styles.webFoodImageContainer
-                            : styles.categoryImageContainer
-                        }
-                      >
-                        <Image
-                          source={getImageSource(item.image)}
-                          style={
-                            Platform.OS === "web"
-                              ? styles.webFoodImage
-                              : styles.categoryImage
-                          }
-                          resizeMode="cover"
-                        />
-                      </View>
-                      <Text
-                        style={
-                          Platform.OS === "web"
-                            ? styles.webItemText
-                            : styles.categoryLabel
-                        }
-                        numberOfLines={2}
-                      >
+                      <Image
+                        source={{ uri: item.image }}
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 40, // Circular
+                          marginBottom: 8,
+                          resizeMode: 'contain',
+                          backgroundColor: '#f0f0f0'
+                        }}
+                      />
+                      <Text style={[styles.itemLabel, { textAlign: 'center' }]} numberOfLines={2}>
                         {item.name}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
+
                 {Platform.OS === "web" && (
                   <View style={styles.webSectionDivider} />
                 )}
@@ -684,7 +690,7 @@ export default function HomeScreen() {
                             {Math.round(
                               ((item.discountPrice - item.price) /
                                 item.discountPrice) *
-                                100
+                              100
                             )}
                             % OFF
                           </Text>
@@ -876,12 +882,7 @@ export default function HomeScreen() {
                       <TouchableOpacity
                         key={item.id}
                         style={styles.webRestCard}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/restaurant/[id]",
-                            params: { id: item.id },
-                          })
-                        }
+                        onPress={() => handleRestaurantClick(item)}
                       >
                         <Image
                           source={getImageSource(item.image)}
@@ -905,12 +906,7 @@ export default function HomeScreen() {
                       <TouchableOpacity
                         key={item.id}
                         style={styles.restaurantCard}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/restaurant/[id]",
-                            params: { id: item.id },
-                          })
-                        }
+                        onPress={() => handleRestaurantClick(item)}
                       >
                         <View style={styles.restImageContainer}>
                           <Image
@@ -993,7 +989,7 @@ export default function HomeScreen() {
           )}
         </ScrollView>
       </View>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 

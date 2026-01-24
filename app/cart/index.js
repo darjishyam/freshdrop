@@ -25,13 +25,16 @@ import {
   updateQuantity,
 } from "../../store/slices/cartSlice";
 import { addOrder } from "../../store/slices/ordersSlice";
-import { selectUser } from "../../store/slices/userSlice";
+import { selectUser, selectLocation, selectLocationType, selectLocationCoords } from "../../store/slices/userSlice";
 export default function CartScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const cartItems = useSelector(selectCartItems);
   const cartTotal = useSelector(selectCartTotal);
   const user = useSelector(selectUser);
+  const userAddress = useSelector(selectLocation);
+  const userLocationType = useSelector(selectLocationType);
+  const userCoords = useSelector(selectLocationCoords);
   const { showToast } = useToast();
   const { mode } = useLocalSearchParams();
   const [paymentMode, setPaymentMode] = useState(mode === "payment");
@@ -106,9 +109,30 @@ export default function CartScreen() {
       return (hex + "000000000000000000000000").slice(0, 24);
     };
 
+    // Helper to validation regex for ObjectId
+    const isValidObjectId = (id) => {
+      return typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
+    };
+
+    // Get restaurant ID from first cart item
+    let restaurantId = firstItem?.restaurantId;
+
+    // If restaurantId is missing OR isn't a valid ObjectId (e.g. it's a name like "Peppers"), generate one
+    if (!isValidObjectId(restaurantId)) {
+      console.log("Invalid or missing restaurantId:", restaurantId, "Generating new one from name...");
+      restaurantId = toObjectId(firstItem?.restaurantName || firstItem?.restaurantId || "default");
+    } else {
+      restaurantId = restaurantId || toObjectId("1");
+    }
+
+    // Debug: Log what we're sending
+    console.log("First cart item:", firstItem);
+    console.log("Restaurant ID being sent:", restaurantId);
+    console.log("Restaurant ID type:", typeof restaurantId);
+
     // Create order object matching Backend Schema
     const newOrder = {
-      restaurantId: toObjectId(firstItem?.restaurantId || "1"),
+      restaurantId: restaurantId, // Use actual restaurant ID from cart
       items: cartItems.map((item) => ({
         product: toObjectId(item.id || "1"), // Map 'id' to 'product' for backend reference
         name: item.name,
@@ -131,10 +155,13 @@ export default function CartScreen() {
         grandTotal: grandTotal,
       },
       deliveryAddress: {
-        street: user.address || "Home Address",
-        city: "Mumbai", // Mock city
-        lat: 19.076, // Mock coords
-        lon: 72.8777,
+        street: userAddress || "Address not set",
+        city: userLocationType || "Home",
+        lat: userCoords?.latitude || 0,
+        lon: userCoords?.longitude || 0,
+        // Send these for backend compatibility
+        type: userLocationType || "Home",
+        address: userAddress || "Address not set"
       },
       paymentMethod: selectedPaymentMethod === "card" ? "CARD" : "UPI",
     };

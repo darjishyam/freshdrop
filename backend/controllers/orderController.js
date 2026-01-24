@@ -40,9 +40,11 @@ const createOrder = async (req, res) => {
             customerDetails: {
                 name: req.user.name || "Customer",
                 phone: req.user.phone,
-                address: deliveryAddress?.street
-                    ? `${deliveryAddress.street}, ${deliveryAddress.city}`
-                    : "Address not provided",
+                address: deliveryAddress?.address
+                    ? deliveryAddress.address  // Frontend sends {type, address}
+                    : deliveryAddress?.street
+                        ? `${deliveryAddress.street}, ${deliveryAddress.city}` // Backward compatibility
+                        : "Address not provided",
             },
             // Payment Details
             paymentDetails: {

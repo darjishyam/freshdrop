@@ -7,6 +7,11 @@ const restaurantSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    externalId: {
+      type: String,
+      unique: true,
+      sparse: true, // Allow null for manually added restaurants
+    },
     image: {
       type: String, // URL
       default: "https://via.placeholder.com/300",

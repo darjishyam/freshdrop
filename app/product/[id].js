@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { generateObjectId } from "../utils/idHelper";
 import { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
@@ -16,7 +17,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { VegNonVegIcon } from "../../components/VegNonVegIcon";
 import WebLoginModal from "../../components/WebLoginModal";
 import { useToast } from "../../context/ToastContext";
-import { products, restaurantItems } from "../../data/mockData";
+import { groceryItems, products, restaurantItems } from "../../data/mockData";
 import { addToCart, selectCartItems } from "../../store/slices/cartSlice";
 import { selectStock } from "../../store/slices/stockSlice";
 import { selectUser } from "../../store/slices/userSlice";
@@ -61,6 +62,12 @@ export default function ProductDetailsScreen() {
       });
     }
 
+    // Check Grocery Items
+    if (!product) {
+      const foundGrocery = groceryItems.find(i => i.id === searchId || i.name.toLowerCase() === searchId.toLowerCase());
+      if (foundGrocery) product = foundGrocery;
+    }
+
     // Legacy category fallback - strict avoid index 0
     if (!product) {
       product = products.find((p) => p.category === searchId);
@@ -100,40 +107,30 @@ export default function ProductDetailsScreen() {
     return (sum / reviews.length).toFixed(1);
   }, [reviews, product]);
 
+
+
   // Load reviews when component mounts or product changes
   useEffect(() => {
-    // Use the actual restaurantId or the fallback generic ID
-    const targetRestaurantId = product?.restaurantId || "000000000000000000000001";
+    // Ensure we have a valid MongoDB ObjectId for reviews
+    const targetRestaurantId = product?.restaurantId
+      ? generateObjectId(product.restaurantId)
+      : "000000000000000000000001";
+
     dispatch(loadReviews(targetRestaurantId));
   }, [dispatch, product?.restaurantId]);
 
-  // Stock Logic
-  const currentStock = useSelector((state) =>
-    selectStock(state, product?.id || product?.name)
-  );
-
-  // Calculate availability based on Cart + Stock (Check ID or Name match)
-  const cartQty =
-    cartItems.find((i) => i.id === product?.id || i.name === product?.name)
-      ?.quantity || 0;
-  const availableStock = Math.max(0, currentStock - cartQty);
-  const isOutOfStock = availableStock <= 0;
-
-  // Get Related Items with useMemo (Strict Category Match)
-  const relatedItems = useMemo(() => {
-    const targetCategory = product?.category || category;
-    if (!targetCategory) return [];
-
-    return products
-      .filter((p) => p.category === targetCategory && p.name !== product?.name)
-      .slice(0, 4); // Exact 4 items
-  }, [product, category]);
+  // ...
 
   const handleAddToCart = () => {
     if (!user.phone) {
       router.push("/auth/login");
       return;
     }
+
+    // Use helper to generate consistent ObjectId
+    const restaurantId = product.restaurantId
+      ? generateObjectId(product.restaurantId)
+      : generateObjectId(product.restaurantName || "default");
 
     dispatch(
       addToCart({
@@ -145,6 +142,7 @@ export default function ProductDetailsScreen() {
         veg: product.veg,
         weight: product.weight,
         supplier: product.supplier,
+        restaurantId: restaurantId, // Add restaurantId
         restaurantName: product.restaurantName,
       })
     );
@@ -503,6 +501,14 @@ export default function ProductDetailsScreen() {
                         if (!user.phone) {
                           router.push("/auth/login");
                         } else {
+                          // Helper to generate ObjectId from restaurant name
+                          const toObjectId = (str = "") => {
+                            const hex = str.toString().split("").map(c => c.charCodeAt(0).toString(16)).join("");
+                            return (hex + "000000000000000000000000").slice(0, 24);
+                          };
+
+                          const restaurantId = item.restaurantId || toObjectId(item.restaurantName || "default");
+
                           dispatch(
                             addToCart({
                               id: item.id || item.name,
@@ -513,6 +519,7 @@ export default function ProductDetailsScreen() {
                               veg: item.veg,
                               weight: item.weight,
                               supplier: item.supplier,
+                              restaurantId: restaurantId, // Add restaurantId
                               restaurantName: item.restaurantName,
                             })
                           );

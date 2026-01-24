@@ -1,0 +1,69 @@
+{
+  "type": "product",
+  "products": [
+    {
+      "id": 4330156,
+      "title": "Grocery & Gourmet Food Cats, Big Chocolate Gift Set, 24 Pieces In 1 Box, Domestic Big Box Prime",
+      "image": "https://img.spoonacular.com/products/4330156-312x231.jpg",
+      "imageType": "jpg"
+    },
+    {
+      "id": 6298276,
+      "title": "Britannia Treat Naughty Jim Jam Sandwich Biscuits 3.52oz (100g) - Breakfast & Tea Time Snacks - Delicious Grocery Cookies - Suitable for Vegetarians (Pack of 6)",
+      "image": "https://img.spoonacular.com/products/6298276-312x231.jpg",
+      "imageType": "jpg"
+    },
+    {
+      "id": 5863722,
+      "title": "Britannia Marie Gold Cookies 8.8oz (250g) Biscuits Pour l'heure du thé - Crispy Tea Time Snack - Delicious Grocery Cookies - Suitable for Vegetarians (Pack of 6)",
+      "image": "https://img.spoonacular.com/products/5863722-312x231.jpg",
+      "imageType": "jpg"
+    },
+    {
+      "id": 4107468,
+      "title": "Grocery & Gourmet Food Break A Part- 5.53 Oz 6 Pack PePPermint Dark, 5.53 Ounce Pack Of 6",
+      "image": "https://img.spoonacular.com/products/4107468-312x231.jpg",
+      "imageType": "jpg"
+    },
+    {
+      "id": 5267972,
+      "title": "Grocery & Gourmet Food Freezable Snack Bag, Mermaids, Snack Bag, Mermaids",
+      "image": "https://img.spoonacular.com/products/5267972-312x231.jpeg",
+      "imageType": "jpeg"
+    },
+    {
+      "id": 723581,
+      "title": "[1 PACK] Black tea Greenfield Coconut Ice (mint + creamy coconut tenderness) Beverages Grocery Gourmet Food [20 pyramids of tea bags]",
+      "image": "https://img.spoonacular.com/products/723581-312x231.jpeg",
+      "imageType": "jpeg"
+    },
+    {
+      "id": 5795914,
+      "title": "Britannia Treat O'som Orange Sandwich Biscuits 4.23oz (120g) - Breakfast & Tea Time Snacks - Delicious Grocery Cookies - Suitable for Vegetarians (Pack of 12)",
+      "image": "https://img.spoonacular.com/products/5795914-312x231.jpg",
+      "imageType": "jpg"
+    },
+    {
+      "id": 4584358,
+      "title": "Grocery & Gourmet Food Cotton Candy Grape Flavor 30 Pack, 5.29 Ounce Pack Of 30, Purple",
+      "image": "https://img.spoonacular.com/products/4584358-312x231.jpeg",
+      "imageType": "jpeg"
+    },
+    {
+      "id": 6839540,
+      "title": "Britannia Treat Crazy Pineapple Sandwich Biscuits 4.23oz (120g) - Breakfast & Tea Time Snacks - Delicious Grocery Cookies - Suitable for Vegetarians (Pack of 12)",
+      "image": "https://img.spoonacular.com/products/6839540-312x231.jpeg",
+      "imageType": "jpeg"
+    },
+    {
+      "id": 5787340,
+      "title": "Britannia Marie Gold Cookies 21.16oz (600g) - Biscuits Pour l'heure du thé - Crispy Tea Time Snack - Delicious Grocery Cookies - Suitable for Vegetarians (Pack of 1)",
+      "image": "https://img.spoonacular.com/products/5787340-312x231.jpg",
+      "imageType": "jpg"
+    }
+  ],
+  "offset": 0,
+  "number": 10,
+  "totalProducts": 189,
+  "processingTimeMs": 28
+}

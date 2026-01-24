@@ -89,6 +89,11 @@ export const logout = createAsyncThunk("auth/logout", async () => {
   // Clear other sensitive data
   const AsyncStorage = require("@react-native-async-storage/async-storage").default;
   await AsyncStorage.removeItem("user_orders"); // Clear orders
+
+  // Clear location data so user sets fresh location on next login
+  await AsyncStorage.removeItem("user_location");
+  await AsyncStorage.removeItem("user_location_type");
+  await AsyncStorage.removeItem("user_location_coords");
 });
 
 /**

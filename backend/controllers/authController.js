@@ -142,6 +142,8 @@ const registerUser = async (req, res) => {
 // @desc    Authenticate a user
 // @route   POST /api/auth/login
 const loginUser = async (req, res) => {
+  return res.status(400).json({ message: "Password login is disabled. Please use OTP login." });
+  /* Deprecated logic below */
   try {
     const { email, password } = req.body;
 

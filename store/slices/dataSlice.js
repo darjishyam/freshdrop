@@ -10,7 +10,7 @@ const getBaseUrl = () => {
 
 const API_URL = getBaseUrl();
 
-// Fetch Restaurants
+// Fetch Restaurants from Overpass API (real nearby places)
 export const fetchRestaurants = createAsyncThunk(
   "data/fetchRestaurants",
   async ({ lat, lon }, { rejectWithValue }) => {

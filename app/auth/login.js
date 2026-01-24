@@ -69,7 +69,7 @@ LoginButton.displayName = "LoginButton";
 export default function LoginScreen() {
   const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
   const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
+
   const [otp, setOtp] = useState("");
 
   const dispatch = useDispatch();
@@ -79,10 +79,10 @@ export default function LoginScreen() {
 
   const isButtonDisabled = useMemo(() => {
     if (isLoading) return true;
-    if (step === 'credentials') return !identifier || !password;
+    if (step === 'credentials') return !identifier; // Removed password check
     if (step === 'otp') return otp.length < 6;
     return false;
-  }, [step, identifier, password, otp, isLoading]);
+  }, [step, identifier, otp, isLoading]);
 
   // Timer for Resend OTP
   const [timer, setTimer] = useState(30);
@@ -105,21 +105,20 @@ export default function LoginScreen() {
     if (error) dispatch(clearError());
   };
 
-  // Step 1: Login (Validate Credentials & Request OTP)
-  const handleLogin = useCallback(async () => {
+  // Step 1: Request OTP
+  const handleSendOtp = useCallback(async () => {
     try {
-      // Use requestOTP (which maps to authService.sendOTP). 
-      // We pass the password as 2nd arg to trigger the /login endpoint logic in service.
-      await dispatch(requestOTP({ phone: identifier, password })).unwrap();
+      // Pass only identifier (email) to request OTP
+      await dispatch(requestOTP({ phone: identifier })).unwrap();
 
       setStep('otp');
       setTimer(30);
       setCanResend(false);
       showToast("OTP sent to your email!");
     } catch (err) {
-      showToast(err || "Login failed", "error");
+      showToast(err || "Failed to send OTP", "error");
     }
-  }, [identifier, password, dispatch, showToast]);
+  }, [identifier, dispatch, showToast]);
 
   // Resend OTP Handler
   const handleResendOtp = useCallback(async () => {
@@ -217,7 +216,7 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Login</Text>
             <Text style={styles.headerSubtitle}>
-              Enter your phone number to proceed
+              Enter your email to proceed
             </Text>
           </View>
 
@@ -225,19 +224,20 @@ export default function LoginScreen() {
             {/* STEP 1: CREDENTIALS */}
             {step === 'credentials' && (
               <>
-                <Text style={styles.label}>Email or Phone</Text>
+                <Text style={styles.label}>Email</Text>
                 <View style={[styles.inputContainer, { marginBottom: 16 }]}>
                   <TextInput
                     style={styles.input}
-                    placeholder="Enter email or phone"
+                    placeholder="Enter your email"
                     value={identifier}
                     onChangeText={handleIdentifierChange}
                     autoCapitalize="none"
                     autoFocus={Platform.OS === "web"}
+                    keyboardType="email-address"
                   />
                 </View>
 
-                <Text style={styles.label}>Password</Text>
+                {/* <Text style={styles.label}>Password</Text>
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={styles.input}
@@ -246,14 +246,14 @@ export default function LoginScreen() {
                     value={password}
                     onChangeText={setPassword}
                   />
-                </View>
+                </View> */}
               </>
             )}
 
             {/* STEP 2: OTP */}
             {step === 'otp' && (
               <>
-                <Text style={styles.label}>Enter OTP sent to your email/phone</Text>
+                <Text style={styles.label}>Enter OTP sent to your email</Text>
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={[styles.input, { letterSpacing: 5, fontSize: 20, textAlign: 'center' }]}
@@ -289,10 +289,10 @@ export default function LoginScreen() {
           </View>
 
           <LoginButton
-            onPress={step === 'credentials' ? handleLogin : handleVerifyOtp}
+            onPress={step === 'credentials' ? handleSendOtp : handleVerifyOtp}
             disabled={isButtonDisabled}
             loading={isLoading}
-            text={step === 'credentials' ? "Sign In" : "Verify OTP"}
+            text={step === 'credentials' ? "Get OTP" : "Verify OTP"}
           />
 
           {/* Google Sign-In - Only show on credentials step */}

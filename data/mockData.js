@@ -1790,3 +1790,138 @@ export const restaurantItems = {
     },
   ],
 };
+// --- GROCERY MOCK DATA ---
+
+export const groceryCategories = [
+  { id: "gc1", name: "Fruits & Veg", image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500" },
+  { id: "gc2", name: "Dairy & Bakery", image: "https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=500" },
+  { id: "gc3", name: "Snacks & Munchies", image: "https://images.unsplash.com/photo-1621939514649-28b12e81658e?w=500" },
+  { id: "gc4", name: "Beverages", image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500" },
+  { id: "gc5", name: "Personal Care", image: "https://images.unsplash.com/photo-1556228720-1957be83f315?w=500" },
+];
+
+export const groceryItems = [
+  // Fruits & Veg
+  {
+    id: "g_fv_1",
+    name: "Fresh Tomatoes",
+    price: 40,
+    oldPrice: 60,
+    weight: "1 kg",
+    image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500",
+    category: "Fruits & Veg",
+    veg: true,
+    description: "Farm fresh red tomatoes, perfect for curries and salads.",
+  },
+  {
+    id: "g_fv_2",
+    name: "Onions",
+    price: 30,
+    oldPrice: 50,
+    weight: "1 kg",
+    image: "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=500",
+    category: "Fruits & Veg",
+    veg: true,
+    description: "Essential kitchen staple, premium quality onions.",
+  },
+  {
+    id: "g_fv_3",
+    name: "Bananas (Robusta)",
+    price: 50,
+    weight: "1 dozen",
+    image: "https://images.unsplash.com/photo-1571771896612-42a5efde1e6c?w=500",
+    category: "Fruits & Veg",
+    veg: true,
+    description: "Naturally ripened sweet bananas, rich in potassium.",
+  },
+  {
+    id: "g_fv_4",
+    name: "Potatoes",
+    price: 35,
+    weight: "1 kg",
+    image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500",
+    category: "Fruits & Veg",
+    veg: true,
+    description: "Fresh crop potatoes.",
+  },
+  // Dairy
+  {
+    id: "g_db_1",
+    name: "Amul Taaza Milk",
+    price: 72,
+    weight: "1 L",
+    image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500",
+    category: "Dairy & Bakery",
+    veg: true,
+    description: "Pasteurized toned milk, fortified with Vitamin A and D.",
+  },
+  {
+    id: "g_db_2",
+    name: "Modern Brown Bread",
+    price: 45,
+    weight: "400g",
+    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500",
+    category: "Dairy & Bakery",
+    veg: true,
+    description: "Healthy brown bread for your daily breakfast.",
+  },
+  {
+    id: "g_db_3",
+    name: "Amul Butter",
+    price: 56,
+    weight: "100g",
+    image: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=500",
+    category: "Dairy & Bakery",
+    veg: true,
+    description: "Utterly butterly delicious Amul Butter.",
+  },
+  // Snacks
+  {
+    id: "g_sn_1",
+    name: "Lays Magic Masala",
+    price: 20,
+    weight: "50g",
+    image: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500",
+    category: "Snacks & Munchies",
+    veg: true,
+    description: "Spicy and crunchy potato chips, India's favorite flavor.",
+  },
+  {
+    id: "g_sn_2",
+    name: "Maggi Noodles",
+    price: 14,
+    weight: "70g",
+    image: "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=500",
+    category: "Snacks & Munchies",
+    veg: true,
+    description: "2-minute instant noodles.",
+  },
+  // Beverages
+  {
+    id: "g_bev_1",
+    name: "Coca Cola",
+    price: 40,
+    weight: "750ml",
+    image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500",
+    category: "Beverages",
+    veg: true,
+    description: "Original taste, refreshing soft drink.",
+  },
+  {
+    id: "g_bev_2",
+    name: "Tropicana Orange Juice",
+    price: 110,
+    weight: "1 L",
+    image: "https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=500",
+    category: "Beverages",
+    veg: true,
+    description: "100% Real Orange Juice, no added sugar.",
+  },
+];
+
+// Helper to get random inventory for a store
+export const getGroceryInventory = (storeId) => {
+  // We can seed randomness with storeId if needed, but for now just returning items
+  // Simulate unavailability of some items
+  return groceryItems.filter(() => Math.random() > 0.2);
+};

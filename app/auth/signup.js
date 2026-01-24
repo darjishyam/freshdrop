@@ -190,7 +190,7 @@ export default function SignupScreen() {
       // Navigate to OTP screen
       router.push({
         pathname: "/auth/otp",
-        params: { phone: phoneNumber, isNewUser: "true" },
+        params: { phone: phoneNumber, email: email, isNewUser: "true" },
       });
     } catch (err) {
       Alert.alert(

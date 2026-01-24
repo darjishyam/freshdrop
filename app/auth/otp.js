@@ -116,9 +116,20 @@ const VerifyButton = React.memo(({ onPress, disabled, loading }) => (
 VerifyButton.displayName = "VerifyButton";
 
 export default function OTPScreen() {
-  const { phone, isNewUser } = useLocalSearchParams();
+  const { phone, email, isNewUser } = useLocalSearchParams();
   const [otp, setOTP] = useState("");
   const [resendTimer, setResendTimer] = useState(30);
+  // ... (rest of component internal state)
+
+  // ... (keeping existing hooks and callbacks)
+
+  // (We need to jump to the JSX part)
+
+  /* NOTE: The replace_file_content tool needs specific target content. 
+     I will target the specific blocks. */
+
+
+
   const inputRefs = useRef([]);
 
   const dispatch = useDispatch();
@@ -294,7 +305,7 @@ export default function OTPScreen() {
             <Text style={styles.headerSubtitle}>
               Enter the 6-digit code sent to
             </Text>
-            <Text style={styles.phoneText}>+91 {maskedPhone}</Text>
+            <Text style={styles.phoneText}>{email ? email : `+91 ${maskedPhone}`}</Text>
           </View>
 
           <View style={styles.form}>

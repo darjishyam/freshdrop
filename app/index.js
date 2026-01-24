@@ -34,8 +34,10 @@ import {
   restaurantItems,
   restaurants,
 } from "../data/mockData";
+import { fetchGroceries, selectGroceries } from "../store/slices/dataSlice";
 import { addToCart } from "../store/slices/cartSlice";
 import { selectUser } from "../store/slices/userSlice";
+
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const IS_WEB = Platform.OS === "web";
@@ -148,6 +150,16 @@ export default function UnifiedAuthScreen() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
+
+  const groceryItems = useSelector(selectGroceries); // [GROCERY FEATURE - REDUX]
+
+  // Fetch Groceries (Landing Page - use default or user location)
+  useEffect(() => {
+    // Default to Mumbai or user location
+    const lat = 19.0760;
+    const lon = 72.8777;
+    dispatch(fetchGroceries({ lat, lon }));
+  }, [dispatch]);
 
   // Auth Redirect
   useEffect(() => {
@@ -776,8 +788,7 @@ export default function UnifiedAuthScreen() {
                       <FlatList
                         data={searchSuggestions}
                         keyExtractor={(item) =>
-                          `${item.type}-${item.name}-${
-                            item.id || Math.random()
+                          `${item.type}-${item.name}-${item.id || Math.random()
                           }`
                         }
                         keyboardShouldPersistTaps="always"
@@ -811,8 +822,8 @@ export default function UnifiedAuthScreen() {
                                 item.type === "restaurant"
                                   ? "map-pin"
                                   : item.type === "category"
-                                  ? "grid"
-                                  : "coffee"
+                                    ? "grid"
+                                    : "coffee"
                               }
                               size={14}
                               color="#666"
@@ -977,115 +988,76 @@ export default function UnifiedAuthScreen() {
                 >
                   {isMobileWeb
                     ? foodOptions.map((item) => (
-                        <Pressable
-                          key={item.id}
-                          style={styles.webItemValues}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/collection/[id]",
-                              params: { id: item.name },
-                            })
-                          }
-                        >
-                          <View style={styles.webFoodImageContainer}>
-                            <Image
-                              source={
-                                typeof item.image === "string"
-                                  ? { uri: item.image }
-                                  : item.image
-                              }
-                              style={styles.webFoodImage}
-                              resizeMode="cover"
-                            />
-                          </View>
-                          <Text style={styles.webItemText}>{item.name}</Text>
-                        </Pressable>
-                      ))
-                    : Array.from({
-                        length: Math.ceil(foodOptions.length / 2),
-                      }).map((_, colIndex) => (
-                        <View key={colIndex} style={styles.webDualRowColumn}>
-                          {foodOptions
-                            .slice(colIndex * 2, colIndex * 2 + 2)
-                            .map((item) => (
-                              <Pressable
-                                key={item.id}
-                                style={styles.webItemValues}
-                                onPress={() =>
-                                  router.push({
-                                    pathname: "/collection/[id]",
-                                    params: { id: item.name },
-                                  })
-                                }
-                              >
-                                <View style={styles.webFoodImageContainer}>
-                                  <Image
-                                    source={
-                                      typeof item.image === "string"
-                                        ? { uri: item.image }
-                                        : item.image
-                                    }
-                                    style={styles.webFoodImage}
-                                    resizeMode="cover"
-                                  />
-                                </View>
-                                <Text style={styles.webItemText}>
-                                  {item.name}
-                                </Text>
-                              </Pressable>
-                            ))}
+                      <Pressable
+                        key={item.id}
+                        style={styles.webItemValues}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/collection/[id]",
+                            params: { id: item.name },
+                          })
+                        }
+                      >
+                        <View style={styles.webFoodImageContainer}>
+                          <Image
+                            source={
+                              typeof item.image === "string"
+                                ? { uri: item.image }
+                                : item.image
+                            }
+                            style={styles.webFoodImage}
+                            resizeMode="cover"
+                          />
                         </View>
-                      ))}
+                        <Text style={styles.webItemText}>{item.name}</Text>
+                      </Pressable>
+                    ))
+                    : Array.from({
+                      length: Math.ceil(foodOptions.length / 2),
+                    }).map((_, colIndex) => (
+                      <View key={colIndex} style={styles.webDualRowColumn}>
+                        {foodOptions
+                          .slice(colIndex * 2, colIndex * 2 + 2)
+                          .map((item) => (
+                            <Pressable
+                              key={item.id}
+                              style={styles.webItemValues}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/collection/[id]",
+                                  params: { id: item.name },
+                                })
+                              }
+                            >
+                              <View style={styles.webFoodImageContainer}>
+                                <Image
+                                  source={
+                                    typeof item.image === "string"
+                                      ? { uri: item.image }
+                                      : item.image
+                                  }
+                                  style={styles.webFoodImage}
+                                  resizeMode="cover"
+                                />
+                              </View>
+                              <Text style={styles.webItemText}>
+                                {item.name}
+                              </Text>
+                            </Pressable>
+                          ))}
+                      </View>
+                    ))}
                 </ScrollView>
 
                 <View style={styles.webSectionDivider} />
 
-                {/* 2. Shop by Category */}
+                {/* 2. Grocery Near By (Spoonacular) */}
                 <View style={styles.webSectionHeader}>
                   <Text style={styles.webSectionTitle}>
-                    Shop groceries on Mart
+                    Near By Grocery
                   </Text>
-                  <View style={styles.webArrows}>
-                    <Pressable
-                      onPress={scrollGroceryLeft}
-                      disabled={!groceryCanScrollLeft}
-                      style={({ pressed }) => [
-                        styles.webArrowBtn,
-                        pressed && { opacity: 0.7 },
-                        !groceryCanScrollLeft && {
-                          opacity: 0.5,
-                          backgroundColor: "#f1f2f6",
-                        },
-                      ]}
-                    >
-                      <Feather
-                        name="arrow-left"
-                        size={24}
-                        color={!groceryCanScrollLeft ? "#9ca3af" : "#4b5563"}
-                      />
-                    </Pressable>
-                    <Pressable
-                      onPress={scrollGroceryRight}
-                      disabled={!groceryCanScrollRight}
-                      style={({ pressed }) => [
-                        styles.webArrowBtn,
-                        pressed && { opacity: 0.7 },
-                        !groceryCanScrollRight && {
-                          opacity: 0.5,
-                          backgroundColor: "#f1f2f6",
-                        },
-                      ]}
-                    >
-                      <Feather
-                        name="arrow-right"
-                        size={24}
-                        color={!groceryCanScrollRight ? "#9ca3af" : "#4b5563"}
-                      />
-                    </Pressable>
-                  </View>
                 </View>
                 <ScrollView
-                  ref={groceryScrollRef}
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   style={[
@@ -1095,36 +1067,29 @@ export default function UnifiedAuthScreen() {
                       paddingHorizontal: 20,
                     },
                   ]}
-                  onScroll={handleGroceryScroll}
-                  scrollEventThrottle={16}
-                  onContentSizeChange={(w) => {
-                    groceryContentWidth.current = w;
-                  }}
-                  onLayout={(e) => {
-                    groceryLayoutWidth.current = e.nativeEvent.layout.width;
-                  }}
                 >
-                  {categories.map((item, index) => (
+                  {groceryItems.map((item) => (
                     <Pressable
-                      key={index}
+                      key={item.id}
                       style={styles.webItem}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/collection/[id]",
-                          params: { id: item.name },
-                        })
-                      }
+                      onPress={() => router.push({
+                        pathname: "/grocery/[id]",
+                        params: {
+                          id: item.id,
+                          name: item.name,
+                          address: item.address,
+                          rating: item.rating,
+                          time: item.time,
+                          image: item.image
+                        }
+                      })}
                     >
                       <Image
-                        source={
-                          typeof item.image === "string"
-                            ? { uri: item.image }
-                            : item.image
-                        }
+                        source={{ uri: item.image }}
                         style={styles.webCatImage}
                         resizeMode="contain"
                       />
-                      <Text style={styles.webItemText}>{item.name}</Text>
+                      <Text style={styles.webItemText} numberOfLines={2}>{item.name}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -1134,8 +1099,8 @@ export default function UnifiedAuthScreen() {
 
             {/* 2.5. Popular Products - Show when no search OR when search has matching products */}
             {searchQuery.length === 0 ||
-            (searchQuery.length > 0 &&
-              filteredHandpickedProducts.length > 0) ? (
+              (searchQuery.length > 0 &&
+                filteredHandpickedProducts.length > 0) ? (
               <>
                 {/* 2.5. Popular Products */}
                 {filteredHandpickedProducts.length > 0 && (
@@ -1238,6 +1203,14 @@ export default function UnifiedAuthScreen() {
                                   if (!user.phone) {
                                     router.push("/auth/login");
                                   } else {
+                                    // Helper to generate ObjectId from restaurant name
+                                    const toObjectId = (str = "") => {
+                                      const hex = str.toString().split("").map(c => c.charCodeAt(0).toString(16)).join("");
+                                      return (hex + "000000000000000000000000").slice(0, 24);
+                                    };
+
+                                    const restaurantId = item.restaurantId || toObjectId(item.restaurantName || "General");
+
                                     dispatch(
                                       addToCart({
                                         id: item.id || item.name,
@@ -1246,10 +1219,9 @@ export default function UnifiedAuthScreen() {
                                         quantity: 1,
                                         image: item.image,
                                         veg: item.veg,
+                                        restaurantId: restaurantId, // Add restaurantId
                                         restaurantName:
                                           item.restaurantName || "General",
-                                        // add ID if missing
-                                        id: item.name,
                                       })
                                     );
                                     showToast(`${item.name} added to cart`);
@@ -1321,7 +1293,7 @@ export default function UnifiedAuthScreen() {
                         style={[
                           styles.filterButton,
                           restaurantVegFilter === true &&
-                            styles.filterButtonActiveVeg,
+                          styles.filterButtonActiveVeg,
                         ]}
                         onPress={() =>
                           setRestaurantVegFilter(
@@ -1336,7 +1308,7 @@ export default function UnifiedAuthScreen() {
                         style={[
                           styles.filterButton,
                           restaurantVegFilter === false &&
-                            styles.filterButtonActiveNonVeg,
+                          styles.filterButtonActiveNonVeg,
                         ]}
                         onPress={() =>
                           setRestaurantVegFilter(
@@ -1399,7 +1371,7 @@ export default function UnifiedAuthScreen() {
 
             {isMobileWeb ? (
               filteredRestaurants.length === 0 &&
-              filteredHandpickedProducts.length === 0 ? (
+                filteredHandpickedProducts.length === 0 ? (
                 <View
                   style={{ width: "100%", alignItems: "center", padding: 40 }}
                 >
@@ -1769,7 +1741,7 @@ const styles = StyleSheet.create({
     width: 140, // Increased size for better resolution
     height: 140, // Square aspect ratio
     marginBottom: 8,
-    borderRadius: 12, // Adding some radius for smoother look
+    borderRadius: 70, // Circular
   },
   webItemText: {
     fontSize: 16,

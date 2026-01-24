@@ -2,6 +2,7 @@ import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo } from "react";
 import {
+  ActivityIndicator,
   Image,
   Platform,
   Pressable,
@@ -30,13 +31,114 @@ export default function RestaurantScreen() {
   const { showToast } = useToast();
 
   const restaurantId = typeof id === "string" ? id : "";
-  const restaurant = restaurants.find((r) => r.id === restaurantId);
 
-  // Aggregate items for this restaurant
-  const allItems = Object.values(restaurantItems).flat();
-  const menuItems = allItems.filter(
-    (item) => item.restaurantId === restaurantId
-  );
+  // State for API data
+  const [restaurant, setRestaurant] = React.useState(null);
+  const [menuItems, setMenuItems] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  // Filter state
+  const [filterMode, setFilterMode] = React.useState("ALL");
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [showSearch, setShowSearch] = React.useState(false);
+
+  // Default menu items (shown when no products in database)
+  const defaultMenuItems = [
+    {
+      id: "default-1",
+      name: "Paneer Butter Masala",
+      price: 280,
+      description: "Cottage cheese cooked in rich tomato gravy with butter and cream",
+      veg: true,
+      bestSeller: true,
+      image: "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=500&q=80",
+      weight: "Serves 2",
+    },
+    {
+      id: "default-2",
+      name: "Chicken Biryani",
+      price: 320,
+      description: "Aromatic basmati rice layered with tender chicken and spices",
+      veg: false,
+      bestSeller: true,
+      image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500&q=80",
+      weight: "Serves 2",
+    },
+    {
+      id: "default-3",
+      name: "Margherita Pizza",
+      price: 250,
+      description: "Classic pizza with fresh mozzarella, tomatoes, and basil",
+      veg: true,
+      bestSeller: false,
+      image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500&q=80",
+      weight: "Medium",
+    },
+    {
+      id: "default-4",
+      name: "Butter Chicken",
+      price: 300,
+      description: "Tender chicken in creamy tomato-based curry",
+      veg: false,
+      bestSeller: true,
+      image: "https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=500&q=80",
+      weight: "Serves 2",
+    },
+    {
+      id: "default-5",
+      name: "Veg Fried Rice",
+      price: 180,
+      description: "Stir-fried rice with mixed vegetables and soy sauce",
+      veg: true,
+      bestSeller: false,
+      image: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500&q=80",
+      weight: "Serves 1",
+    },
+    {
+      id: "default-6",
+      name: "Masala Dosa",
+      price: 120,
+      description: "Crispy rice crepe filled with spiced potato filling",
+      veg: true,
+      bestSeller: true,
+      image: "https://images.unsplash.com/photo-1630383249896-424e482df921?w=500&q=80",
+      weight: "1 Piece",
+    },
+  ];
+
+  // Fetch restaurant data from API
+  useEffect(() => {
+    const fetchRestaurant = async () => {
+      try {
+        setLoading(true);
+        const baseUrl = Platform.OS === 'android'
+          ? 'http://10.0.2.2:5000/api'
+          : 'http://localhost:5000/api';
+
+        const response = await fetch(`${baseUrl}/restaurants/${restaurantId}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to fetch restaurant");
+        }
+
+        setRestaurant(data.restaurant);
+        // Use default menu items if no products in database
+        setMenuItems(data.products && data.products.length > 0 ? data.products : defaultMenuItems);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching restaurant:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (restaurantId) {
+      fetchRestaurant();
+    }
+  }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
@@ -44,26 +146,15 @@ export default function RestaurantScreen() {
     }
   }, [dispatch, restaurantId]);
 
-  if (!restaurant) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.center}>
-          <Text>Restaurant not found</Text>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-          >
-            <Text style={styles.backBtnText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Filter Logic
-  const [filterMode, setFilterMode] = React.useState("ALL");
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [showSearch, setShowSearch] = React.useState(false);
+  // Calculate real rating from user reviews
+  const calculatedRating = useMemo(() => {
+    if (reviews.length === 0) {
+      return restaurant?.rating || "New"; // Fallback to mock rating if no reviews
+    }
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+    const avgRating = (totalRating / reviews.length).toFixed(1);
+    return avgRating;
+  }, [reviews, restaurant]);
 
   // Use useMemo for filtered items performance
   const filteredItems = useMemo(() => {
@@ -90,6 +181,36 @@ export default function RestaurantScreen() {
 
     return items;
   }, [filterMode, menuItems, searchQuery]);
+
+  // ALL HOOKS MUST BE ABOVE THIS LINE - NOW we can do early returns
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#FC8019" />
+          <Text style={{ marginTop: 10 }}>Loading restaurant...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !restaurant) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <Text style={{ fontSize: 18, marginBottom: 10 }}>
+            {error || "Restaurant not found"}
+          </Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
+            <Text style={styles.backBtnText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const renderItem = ({ item }) => (
     <Pressable
@@ -130,6 +251,15 @@ export default function RestaurantScreen() {
               router.push("/auth/login");
               return;
             }
+
+            // Debug: Check what we're sending
+            console.log("Restaurant object:", restaurant);
+            console.log("Restaurant ID:", restaurant?._id);
+            console.log("Restaurant Name:", restaurant?.name);
+
+            // Use restaurant._id if available, otherwise use restaurantId from URL
+            const validRestaurantId = restaurant?._id || restaurantId;
+
             dispatch(
               addToCart({
                 id: item.id,
@@ -137,8 +267,8 @@ export default function RestaurantScreen() {
                 price: item.price,
                 quantity: 1,
                 image: item.image,
-                restaurantId: restaurantId,
-                restaurantName: restaurant.name,
+                restaurantId: validRestaurantId, // Use MongoDB ObjectId
+                restaurantName: restaurant?.name || "Unknown",
                 veg: item.veg,
                 weight: item.weight,
                 supplier: item.supplier,
@@ -211,11 +341,11 @@ export default function RestaurantScreen() {
           <View style={styles.restMeta}>
             <View style={styles.ratingPill}>
               <Ionicons name="star" size={12} color="#fff" />
-              <Text style={styles.ratingTextWhite}>{restaurant.rating}</Text>
+              <Text style={styles.ratingTextWhite}>{calculatedRating}</Text>
             </View>
             <Text style={styles.metaText}>
-              {" "}
-              • {restaurant.time} • {restaurant.priceForTwo}
+              {reviews.length > 0 && `(${reviews.length} ${reviews.length === 1 ? 'review' : 'reviews'})`}
+              {" "}• {restaurant.time} • {restaurant.priceForTwo}
             </Text>
           </View>
           <Text style={styles.cuisineText}>{restaurant.cuisine}</Text>
