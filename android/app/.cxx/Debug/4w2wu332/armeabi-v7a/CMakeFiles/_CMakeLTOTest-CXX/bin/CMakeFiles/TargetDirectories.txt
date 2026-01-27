@@ -1,4 +1,0 @@
-C:/Users/jayra/OneDrive/Desktop/Delivery App/myApp/android/app/.cxx/Debug/4w2wu332/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/foo.dir
-C:/Users/jayra/OneDrive/Desktop/Delivery App/myApp/android/app/.cxx/Debug/4w2wu332/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/boo.dir
-C:/Users/jayra/OneDrive/Desktop/Delivery App/myApp/android/app/.cxx/Debug/4w2wu332/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/edit_cache.dir
-C:/Users/jayra/OneDrive/Desktop/Delivery App/myApp/android/app/.cxx/Debug/4w2wu332/armeabi-v7a/CMakeFiles/_CMakeLTOTest-CXX/bin/CMakeFiles/rebuild_cache.dir
