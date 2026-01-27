@@ -21,6 +21,7 @@ import { restaurantItems, restaurants } from "../../data/mockData";
 import { addToCart } from "../../store/slices/cartSlice";
 import { loadReviews, selectReviews } from "../../store/slices/reviewsSlice";
 import { selectUser } from "../../store/slices/userSlice";
+import { API_BASE_URL } from "../../constants/api";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();
@@ -112,9 +113,7 @@ export default function RestaurantScreen() {
     const fetchRestaurant = async () => {
       try {
         setLoading(true);
-        const baseUrl = Platform.OS === 'android'
-          ? 'http://10.0.2.2:5000/api'
-          : 'http://localhost:5000/api';
+        const baseUrl = API_BASE_URL;
 
         const response = await fetch(`${baseUrl}/restaurants/${restaurantId}`);
         const data = await response.json();

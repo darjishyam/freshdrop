@@ -1,12 +1,8 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
-import { Platform } from "react-native";
+import { API_BASE_URL } from "../../constants/api";
 
-// Use the same base URL as other services (adjust if you have a config file)
-const API_URL =
-  Platform.OS === "android"
-    ? "http://10.0.2.2:5000/api/reviews" // Android Emulator
-    : "http://localhost:5000/api/reviews"; // Web/iOS
+const API_URL = `${API_BASE_URL}/reviews`;
 
 // Load reviews for a specific restaurant
 export const loadReviews = createAsyncThunk(

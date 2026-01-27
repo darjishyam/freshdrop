@@ -1,14 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { Platform } from "react-native";
+import { API_BASE_URL } from "../../constants/api";
 
-// API Configuration
-// Use 10.0.2.2 for Android Emulator, localhost for Web/iOS Simulator
-const getBaseUrl = () => {
-  if (Platform.OS === "android") return "http://10.0.2.2:5000/api";
-  return "http://localhost:5000/api";
-};
-
-const API_URL = getBaseUrl();
+const API_URL = API_BASE_URL;
 
 // Fetch Restaurants from Overpass API (real nearby places)
 export const fetchRestaurants = createAsyncThunk(

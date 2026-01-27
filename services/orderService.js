@@ -1,13 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+import { API_BASE_URL } from "../constants/api";
 
-// Duplicate of authService logic (ideally should be a shared config)
-const getBaseUrl = () => {
-    if (Platform.OS === 'android') return 'http://10.0.2.2:5000/api';
-    return 'http://localhost:5000/api';
-};
-
-const API_URL = getBaseUrl();
+const API_URL = API_BASE_URL;
 
 const STORAGE_KEYS = {
     TOKEN: "auth_token",
