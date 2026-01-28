@@ -16,12 +16,19 @@ app.get("/", (req, res) => {
 });
 
 // Routes
-app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/reviews", require("./routes/reviewRoutes"));
-app.use("/api/external", require("./routes/externalRoutes"));
-app.use("/api/location", require("./routes/locationRoutes"));
-app.use("/api/restaurants", require("./routes/restaurantRoutes"));
-app.use("/api/orders", require("./routes/orderRoutes"));
+const authRoutes = require("./routes/authRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
+const externalRoutes = require("./routes/externalRoutes");
+const locationRoutes = require("./routes/locationRoutes");
+const restaurantRoutes = require("./routes/restaurantRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+
+app.use("/api/auth", authRoutes);
+app.use("/api/reviews", reviewRoutes);
+app.use("/api/external", externalRoutes);
+app.use("/api/location", locationRoutes);
+app.use("/api/restaurants", restaurantRoutes);
+app.use("/api/orders", orderRoutes);
 
 const PORT = process.env.PORT || 5000;
 

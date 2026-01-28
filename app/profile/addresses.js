@@ -104,13 +104,41 @@ export default function ManageAddressScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!address.trim()) {
       Alert.alert("Error", "Address cannot be empty");
       return;
     }
+
+    // Save address and type immediately
     dispatch(updateLocation(address));
     dispatch(updateLocationType(type));
+
+    // Try to geocode the address to get coordinates (for restaurant fetching)
+    try {
+      const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+      const response = await fetch(geocodeUrl, {
+        headers: {
+          "User-Agent": "SwiggyCloneApp/1.0",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const { lat, lon } = data[0];
+          dispatch(updateLocationCoords({
+            latitude: parseFloat(lat),
+            longitude: parseFloat(lon)
+          }));
+          console.log(`✅ Geocoded address to: ${lat}, ${lon}`);
+        }
+      }
+    } catch (error) {
+      console.warn("Geocoding failed, coordinates not updated:", error);
+      // Don't block the save if geocoding fails
+    }
+
     router.back();
   };
 

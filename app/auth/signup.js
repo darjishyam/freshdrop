@@ -185,12 +185,20 @@ export default function SignupScreen() {
     }
 
     try {
-      await dispatch(signup({ phone: phoneNumber, name, email })).unwrap();
+      const response = await dispatch(signup({ phone: phoneNumber, name, email })).unwrap();
 
-      // Navigate to OTP screen
+      console.log("📥 Signup Response Received:", response);
+      console.log("📥 devOtp from response:", response?.devOtp);
+
+      // Navigate to OTP screen with devOtp if available
       router.push({
         pathname: "/auth/otp",
-        params: { phone: phoneNumber, email: email, isNewUser: "true" },
+        params: {
+          phone: phoneNumber,
+          email: email,
+          isNewUser: "true",
+          devOtp: response?.devOtp || "" // Pass devOtp from backend response
+        },
       });
     } catch (err) {
       Alert.alert(

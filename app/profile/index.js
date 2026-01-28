@@ -13,13 +13,16 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../store/slices/authSlice";
 import { clearCart, selectCartCount } from "../../store/slices/cartSlice";
-import { selectUser, updateUser } from "../../store/slices/userSlice";
+import { selectUser, updateUser, clearUser } from "../../store/slices/userSlice";
+import * as authService from "../../services/authService";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
   const cartCount = useSelector(selectCartCount);
+
+  console.log("👤 Profile Screen User Data:", JSON.stringify(user, null, 2)); // DEBUG LOG
 
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(user.name || "");
@@ -34,9 +37,28 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-    dispatch(clearCart());
-    await dispatch(logout());
-    router.replace("/auth/login");
+    try {
+      dispatch(clearCart()); // Clear cart first
+      await authService.logoutUser(); // Call backend logout
+      dispatch(logout()); // Clear auth slice
+      dispatch(clearUser()); // Clear user slice state/storage
+
+      // Force reload or redirect to ensure clean state
+      if (Platform.OS === 'web') {
+        // Use href to force full page reload + navigation
+        window.location.href = "/auth/login";
+      } else {
+        router.replace("/auth/login");
+      }
+    } catch (error) {
+      console.error("Logout failed:", error);
+      // Fallback redirection
+      if (Platform.OS === 'web') {
+        window.location.href = "/auth/login";
+      } else {
+        router.replace("/auth/login");
+      }
+    }
   };
 
   const menuItems = [
@@ -71,7 +93,7 @@ export default function ProfileScreen() {
       subtitle: "FAQs and Chat",
       icon: "headset-outline",
       color: "#333",
-      action: () => {},
+      action: () => { },
     },
   ];
 

@@ -37,6 +37,7 @@ import {
   selectIsLoading,
   selectError,
 } from "../../store/slices/authSlice";
+import { updateUser } from "../../store/slices/userSlice";
 import { useToast } from "../../context/ToastContext";
 import { validatePhone } from "../../utils/authUtils";
 import * as Google from "expo-auth-session/providers/google";
@@ -106,10 +107,17 @@ export default function LoginScreen() {
   };
 
   // Step 1: Request OTP
+  const [devOtp, setDevOtp] = useState("");
+
   const handleSendOtp = useCallback(async () => {
     try {
       // Pass only identifier (email) to request OTP
-      await dispatch(requestOTP({ phone: identifier })).unwrap();
+      const response = await dispatch(requestOTP({ phone: identifier })).unwrap();
+
+      // Capture devOtp if available
+      if (response?.otp) {
+        setDevOtp(response.otp);
+      }
 
       setStep('otp');
       setTimer(30);
@@ -140,7 +148,10 @@ export default function LoginScreen() {
   const handleVerifyOtp = useCallback(async () => {
     try {
       // Use login action (which maps to authService.verifyOTP)
-      await dispatch(login({ phone: identifier, otp })).unwrap();
+      const result = await dispatch(login({ phone: identifier, otp })).unwrap();
+
+      // Update user slice immediately
+      dispatch(updateUser(result));
 
       // Success = Redux state updates, usually triggering navigation in _layout or here
       router.replace("/home");
@@ -153,11 +164,13 @@ export default function LoginScreen() {
     router.push("/auth/signup");
   }, []);
 
-  // Google OAuth
+  // Google OAuth - Use Expo's proxy for development (Expo Go)
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
+  }, {
+    useProxy: true, // Use Expo's auth proxy for development
   });
 
   useEffect(() => {
@@ -327,8 +340,16 @@ export default function LoginScreen() {
           {/* Info box for default credentials */}
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>Demo Credentials</Text>
-            <Text style={styles.infoText}>Phone: 9999999999</Text>
-            <Text style={styles.infoText}>OTP: 111111</Text>
+            {step === 'credentials' ? (
+              <>
+                <Text style={styles.infoText}>Phone: 9999999999</Text>
+                <Text style={styles.infoText}>OTP: 111111</Text>
+              </>
+            ) : (
+              <Text style={styles.infoText}>
+                {devOtp ? `Use OTP: ${devOtp}` : "Check your email for OTP"}
+              </Text>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>

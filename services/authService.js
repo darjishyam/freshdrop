@@ -39,7 +39,7 @@ export const registerUser = async (userData) => {
       message: data.message,
       // In a real app, we don't return OTP here unless for dev testing
       // The backend returns { message, email, phone, devOtp: '...' }
-      otp: data.devOtp
+      devOtp: data.devOtp
     };
   } catch (error) {
     console.error("Error registering user:", error);
@@ -162,6 +162,7 @@ export const logoutUser = async () => {
   try {
     await AsyncStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     await AsyncStorage.removeItem(STORAGE_KEYS.TOKEN);
+    await AsyncStorage.removeItem("user_profile"); // Fix: Clear user slice persistence
     return { success: true };
   } catch (error) {
     console.error("Error logging out:", error);

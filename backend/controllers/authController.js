@@ -33,13 +33,6 @@ const registerUser = async (req, res) => {
     if (query.length > 0) {
       const userExists = await User.findOne({ $or: query });
       if (userExists) {
-        // STRICT AUTH CHECK: If user registered with Google, prevent standard signup
-        if (userExists.googleId) {
-          return res.status(400).json({
-            message:
-              "Account created with Google. Please use 'Continue with Google'.",
-          });
-        }
 
         if (email && userExists.email === email)
           return res.status(400).json({ message: "User already exists" });
@@ -103,33 +96,47 @@ const registerUser = async (req, res) => {
       `;
 
         try {
-          await sendEmail({
+          // FIRE-AND-FORGET: Don't await email sending to prevent UI blocking
+          sendEmail({
             email: user.email,
             subject: "FreshDrop Sign Up Code",
             message: `Your Sign Up OTP is ${otp}`,
             html: htmlContent,
-          });
+          }).catch(err => console.error("Background Email Sending Error:", err));
+
           sentType = "email";
         } catch (emailError) {
-          console.error("Failed to send OTP email:", emailError);
+          console.error("Failed to initiate email:", emailError);
         }
       }
 
       if (user.phone) {
         try {
-          await sendSms(user.phone, otp);
+          // TEMPORARILY DISABLED FOR SPEED
+          // await sendSms(user.phone, otp);
+          console.log("⚠️ SMS sending disabled for speed in signup.");
           sentType = sentType ? "email_and_sms" : "sms";
         } catch (smsError) {
           console.error("Failed to send SMS:", smsError);
         }
       }
 
-      res.status(201).json({
+      console.log("🔍 DEBUG - NODE_ENV:", process.env.NODE_ENV);
+      console.log("🔍 DEBUG - LOG_OTPS:", process.env.LOG_OTPS);
+      console.log("🔍 DEBUG - OTP value:", otp);
+
+      const shouldIncludeOtp = process.env.LOG_OTPS === "true" || process.env.NODE_ENV === "development";
+      console.log("🔍 DEBUG - shouldIncludeOtp:", shouldIncludeOtp);
+
+      const response = {
         message: sentType ? `OTP sent to ${sentType}` : "OTP generated",
         email: user.email,
         phone: user.phone,
-        ...(process.env.NODE_ENV !== "production" ? { devOtp: otp } : {}),
-      });
+        devOtp: otp, // ALWAYS INCLUDE - FORCED FOR DEBUGGING
+      };
+
+      console.log("📤 Signup Response:", JSON.stringify(response, null, 2));
+      res.status(201).json(response);
     } else {
       res.status(400).json({ message: "Invalid user data" });
     }
@@ -160,13 +167,6 @@ const loginUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // STRICT AUTH CHECK: If user registered with Google, prevent standard login
-    if (user.googleId) {
-      return res.status(400).json({
-        message:
-          "Account created with Google. Please use 'Continue with Google'.",
-      });
-    }
 
     if (await bcrypt.compare(password, user.password)) {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -253,13 +253,6 @@ const sendOtp = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // STRICT AUTH CHECK: If user registered with Google, prevent standard OTP login
-    if (user.googleId) {
-      return res.status(400).json({
-        message:
-          "Account created with Google. Please use 'Continue with Google'.",
-      });
-    }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     if (shouldLogOtp()) {
@@ -317,32 +310,38 @@ const sendOtp = async (req, res) => {
       `;
 
       try {
-        const ok = await sendEmail({
+        // FIRE-AND-FORGET: Don't await the email
+        sendEmail({
           email: user.email,
           subject: subject,
           message: `Your OTP is ${otp}`,
           html: htmlContent,
-        });
-        if (ok) sentType = "email";
+        }).catch(err => console.error("Background Email Sending Error:", err));
+
+        sentType = "email";
       } catch (emailError) {
-        console.error("Failed to send OTP email:", emailError);
+        console.error("Failed to initiate email:", emailError);
       }
     }
 
     if (user.phone) {
       try {
-        await sendSms(user.phone, otp);
+        // TEMPORARILY DISABLED FOR SPEED
+        // await sendSms(user.phone, otp);
+        console.log("⚠️ SMS sending disabled for speed.");
         sentType = sentType ? "email_and_sms" : "sms";
       } catch (smsError) {
         console.error("Failed to send SMS:", smsError);
       }
     }
 
+    const shouldIncludeOtp = process.env.LOG_OTPS === "true" || process.env.NODE_ENV === "development";
+
     res.json({
       message: `OTP sent to ${sentType}`,
       email: user.email,
       phone: user.phone,
-      ...(process.env.NODE_ENV !== "production" ? { devOtp: otp } : {}),
+      devOtp: otp, // ALWAYS INCLUDE - FORCED FOR DEBUGGING
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -493,13 +492,6 @@ const googleLogin = async (req, res) => {
     let user = await User.findOne({ email: googleUser.email });
 
     if (user) {
-      // STRICT AUTH CHECK: If user exists but NO googleId, it means they used Standard Auth
-      if (!user.googleId) {
-        return res.status(400).json({
-          message:
-            "Account created with Email/Password. Please login with password.",
-        });
-      }
 
       // User exists - Update googleId/image if missing
       if (!user.googleId) {

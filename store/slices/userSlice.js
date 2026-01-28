@@ -42,12 +42,19 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     updateUser: (state, action) => {
+      console.log("🔄 Updating User Store:", action.payload); // DEBUG LOG
       state.user = { ...state.user, ...action.payload };
       try {
         AsyncStorage.setItem("user_profile", JSON.stringify(state.user));
       } catch (e) {
         console.error("Failed to save user profile", e);
       }
+    },
+    clearUser: (state) => {
+      state.user = { name: "", email: "", phone: "" };
+      try {
+        AsyncStorage.removeItem("user_profile");
+      } catch (e) { }
     },
     updateLocation: (state, action) => {
       state.location = action.payload;
@@ -88,12 +95,7 @@ const userSlice = createSlice({
   },
 });
 
-export const {
-  updateUser,
-  updateLocation,
-  updateLocationType,
-  updateLocationCoords,
-} =
+export const { updateUser, clearUser, updateLocation, updateLocationType, updateLocationCoords } =
   userSlice.actions;
 export default userSlice.reducer;
 

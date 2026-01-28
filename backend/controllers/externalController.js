@@ -26,7 +26,10 @@ const getRestaurants = async (req, res) => {
     const overpassUrl = "https://overpass-api.de/api/interpreter";
     const response = await axios.get(overpassUrl, {
       params: { data: query },
-      timeout: 10000,
+      timeout: 25000, // Increased to 25s for slower connections
+      headers: {
+        "User-Agent": "FreshDrop/1.0 (professorshyam123@gmail.com)", // Required by Overpass
+      },
     });
 
     const elements = response.data.elements || [];
@@ -90,6 +93,8 @@ const getGroceries = async (req, res) => {
         .json({ message: "Latitude and Longitude are required for Groceries" });
     }
 
+    console.log(`🛒 Groceries Query - Lat: ${lat}, Lon: ${lon}, Radius: ${radius}`);
+
     const query = `
       [out:json];
       (
@@ -102,10 +107,14 @@ const getGroceries = async (req, res) => {
     const overpassUrl = "https://overpass-api.de/api/interpreter";
     const response = await axios.get(overpassUrl, {
       params: { data: query },
-      timeout: 10000,
+      timeout: 25000,
+      headers: {
+        "User-Agent": "FreshDrop/1.0 (professorshyam123@gmail.com)",
+      },
     });
 
     const elements = response.data.elements || [];
+    console.log(`🛒 Groceries Found: ${elements.length}`);
 
     const groceryImages = [
       "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80",

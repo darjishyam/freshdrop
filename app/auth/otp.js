@@ -90,6 +90,7 @@ const OTPInput = React.memo(({ value, onChange, inputRefs }) => {
           keyboardType="number-pad"
           maxLength={1}
           selectTextOnFocus
+          autoFocus={index === 0}
         />
       ))}
     </View>
@@ -116,10 +117,15 @@ const VerifyButton = React.memo(({ onPress, disabled, loading }) => (
 VerifyButton.displayName = "VerifyButton";
 
 export default function OTPScreen() {
-  const { phone, email, isNewUser } = useLocalSearchParams();
+  const { phone, email, isNewUser, devOtp } = useLocalSearchParams();
   const [otp, setOTP] = useState("");
   const [resendTimer, setResendTimer] = useState(30);
   // ... (rest of component internal state)
+
+  // Debug: Log route params
+  useEffect(() => {
+    console.log("🔍 OTP Screen Params:", { phone, email, isNewUser, devOtp });
+  }, [phone, email, isNewUser, devOtp]);
 
   // ... (keeping existing hooks and callbacks)
 
@@ -234,6 +240,8 @@ export default function OTPScreen() {
     try {
       const result = await dispatch(login({ phone, otp })).unwrap();
 
+      console.log("✅ Login Result Payload:", JSON.stringify(result, null, 2)); // DEBUG LOG
+
       // Update user slice with auth data (for backward compatibility)
       dispatch(
         updateUser({
@@ -346,7 +354,11 @@ export default function OTPScreen() {
           {/* Info box for demo */}
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>🔐 Demo OTP</Text>
-            <Text style={styles.infoText}>Use OTP: 111111</Text>
+            <Text style={styles.infoText}>
+              {isNewUser === "true" && devOtp
+                ? `Use OTP: ${devOtp}`
+                : "Check your email/SMS for OTP"}
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>

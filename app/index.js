@@ -165,6 +165,9 @@ export default function UnifiedAuthScreen() {
   useEffect(() => {
     if (user.phone) {
       router.replace("/(tabs)/home");
+    } else if (!IS_WEB) {
+      // Mobile users without login should go to proper login screen
+      router.replace("/auth/login");
     }
   }, [user.phone]);
 
@@ -1535,7 +1538,7 @@ export default function UnifiedAuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FC8019", // Swiggy Orange
+    backgroundColor: "#ffffff", // Changed from orange to white for better mobile UX
     // On web, container might need to be full height
     // @ts-ignore
     ...Platform.select({ web: { minHeight: "100vh" } }),

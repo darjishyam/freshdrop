@@ -1,49 +1,52 @@
-const nodemailer = require("nodemailer");
-const dotenv = require("dotenv");
-dotenv.config();
+const axios = require('axios');
+
 const sendEmail = async (options) => {
-  const hasSmtpHost = Boolean(process.env.EMAIL_HOST);
+  // USE BREVO HTTP API (Bypasses SMTP Port Blocking)
+  const apiKey = process.env.BREVO_API_KEY;
 
-  // Create transporter (Gmail service fallback; SMTP preferred when configured)
-  const transporter = hasSmtpHost
-    ? nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: Number(process.env.EMAIL_PORT || 587),
-        secure: Number(process.env.EMAIL_PORT) === 465, // true for 465, false for 587
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      })
-    : nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER, // e.g. 'yourname@gmail.com'
-          pass: process.env.EMAIL_PASS, // App Password from Google Account
-        },
-      });
+  if (!apiKey) {
+    console.error('BREVO_API_KEY is missing in environment variables');
+    throw new Error('Email configuration missing');
+  }
 
-  const message = {
-    // Supports both legacy FROM_* and EMAIL_FROM envs
-    from:
-      process.env.EMAIL_FROM ||
-      `${process.env.FROM_NAME || "FreshDrop"} <${
-        process.env.FROM_EMAIL || process.env.EMAIL_USER || "noreply@freshdrop.com"
-      }>`,
-    to: options.email,
+  const data = {
+    sender: {
+      name: process.env.FROM_NAME || 'FreshDrop',
+      email: process.env.SMTP_EMAIL || process.env.FROM_EMAIL || 'professorshyam123@gmail.com'
+    },
+    to: [
+      {
+        email: options.email,
+        name: options.name || 'User'
+      }
+    ],
     subject: options.subject,
-    text: options.message,
-    html: options.html, // Support HTML emails
+    // Use provided HTML template if available, otherwise fallback to message text
+    htmlContent: options.html || `<p>${options.message}</p>`,
   };
 
+  console.log('Sending Email Payload:', JSON.stringify(data, null, 2));
+
   try {
-    await transporter.sendMail(message);
-    return true;
+    const response = await axios.post('https://api.brevo.com/v3/smtp/email', data, {
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json'
+      },
+      timeout: 10000 // 10s timeout
+    });
+
+    console.log('✅ Email sent via Brevo API. MessageId:', response.data.messageId);
+    return response.data;
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("Email send failed:", error?.message || error);
+    if (error.response) {
+      console.error('❌ Brevo API Error:', error.response.status, error.response.data);
+    } else {
+      console.error('❌ Email Sending Error:', error.message);
     }
-    return false;
+    // Don't throw, just log to prevent crashing the flow if email fails
+    return null;
   }
 };
 

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { generateObjectId } from "../utils/idHelper";
+import { generateObjectId } from "../../utils/idHelper";
 import { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
@@ -118,6 +118,23 @@ export default function ProductDetailsScreen() {
 
     dispatch(loadReviews(targetRestaurantId));
   }, [dispatch, product?.restaurantId]);
+
+  // Stock Management
+  const itemId = product?.id || product?.name;
+  const availableStock = useSelector((state) => selectStock(state, itemId));
+  const isOutOfStock = availableStock <= 0;
+
+  // Related Items Logic
+  const relatedItems = useMemo(() => {
+    if (!product) return [];
+    // Combine mock sources to find matches
+    const allItems = [...products, ...Object.values(restaurantItems).flat(), ...groceryItems];
+    return allItems.filter(
+      (p) =>
+        (p.category === product.category || p.cuisine === product.cuisine) &&
+        (p.id !== product.id && p.name !== product.name)
+    ).slice(0, 5);
+  }, [product]);
 
   // ...
 
