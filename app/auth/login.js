@@ -107,17 +107,14 @@ export default function LoginScreen() {
   };
 
   // Step 1: Request OTP
-  const [devOtp, setDevOtp] = useState("");
+
 
   const handleSendOtp = useCallback(async () => {
     try {
       // Pass only identifier (email) to request OTP
       const response = await dispatch(requestOTP({ phone: identifier })).unwrap();
 
-      // Capture devOtp if available
-      if (response?.otp) {
-        setDevOtp(response.otp);
-      }
+
 
       setStep('otp');
       setTimer(30);
@@ -345,7 +342,7 @@ export default function LoginScreen() {
               </>
             ) : (
               <Text style={styles.infoText}>
-                {devOtp ? `Use OTP: ${devOtp}` : "Check your email for OTP"}
+                Check your email for OTP
               </Text>
             )}
           </View>

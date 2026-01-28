@@ -117,15 +117,15 @@ const VerifyButton = React.memo(({ onPress, disabled, loading }) => (
 VerifyButton.displayName = "VerifyButton";
 
 export default function OTPScreen() {
-  const { phone, email, isNewUser, devOtp } = useLocalSearchParams();
+  const { phone, email, isNewUser } = useLocalSearchParams();
   const [otp, setOTP] = useState("");
   const [resendTimer, setResendTimer] = useState(30);
   // ... (rest of component internal state)
 
   // Debug: Log route params
   useEffect(() => {
-    console.log("🔍 OTP Screen Params:", { phone, email, isNewUser, devOtp });
-  }, [phone, email, isNewUser, devOtp]);
+    console.log("🔍 OTP Screen Params:", { phone, email, isNewUser });
+  }, [phone, email, isNewUser]);
 
   // ... (keeping existing hooks and callbacks)
 
@@ -353,11 +353,9 @@ export default function OTPScreen() {
 
           {/* Info box for demo */}
           <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>🔐 Demo OTP</Text>
+            <Text style={styles.infoTitle}>🔐 Verify OTP</Text>
             <Text style={styles.infoText}>
-              {isNewUser === "true" && devOtp
-                ? `Use OTP: ${devOtp}`
-                : "Check your email/SMS for OTP"}
+              Check your email for OTP
             </Text>
           </View>
         </View>
