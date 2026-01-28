@@ -164,13 +164,11 @@ export default function LoginScreen() {
     router.push("/auth/signup");
   }, []);
 
-  // Google OAuth - Use Expo's proxy for development (Expo Go)
+  // Google OAuth - For standalone builds (Preview/Production)
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
-  }, {
-    useProxy: true, // Use Expo's auth proxy for development
   });
 
   useEffect(() => {
