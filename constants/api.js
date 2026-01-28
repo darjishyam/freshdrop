@@ -1,7 +1,7 @@
 // API Configuration
 // API Configuration
 // ✅ RENDER (Cloud) - Use for Preview/Production builds
-export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api";
+export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api"; // Updated for EAS Build
 
 // ❌ LOCALHOST (Fast & Instant) - Only for Expo Go development
 // Uncomment the one matching your device:
