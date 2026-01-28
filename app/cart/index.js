@@ -371,7 +371,7 @@ export default function CartScreen() {
                     >
                       <Image
                         source={{
-                          uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/512px-Google_Pay_Logo.svg.png",
+                          uri: "https://cdn.iconscout.com/icon/free/png-256/free-google-pay-logo-icon-download-in-svg-png-gif-file-formats--payment-brand-logos-icons-1721763.png",
                         }}
                         style={{ width: 60, height: 24 }}
                         resizeMode="contain"
@@ -396,7 +396,7 @@ export default function CartScreen() {
                     >
                       <Image
                         source={{
-                          uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/512px-PhonePe_Logo.svg.png",
+                          uri: "https://cdn.iconscout.com/icon/free/png-256/free-phonepe-logo-icon-download-in-svg-png-gif-file-formats--brand-logos-icons-226594.png",
                         }}
                         style={{ width: 90, height: 28 }}
                         resizeMode="contain"
@@ -421,7 +421,7 @@ export default function CartScreen() {
                     >
                       <Image
                         source={{
-                          uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/512px-Paytm_Logo_%28standalone%29.svg.png",
+                          uri: "https://cdn.iconscout.com/icon/free/png-256/free-paytm-logo-icon-download-in-svg-png-gif-file-formats--brand-logos-icons-226595.png",
                         }}
                         style={{ width: 70, height: 24 }}
                         resizeMode="contain"
