@@ -8,13 +8,26 @@ export const fetchRestaurants = createAsyncThunk(
   "data/fetchRestaurants",
   async ({ lat, lon }, { rejectWithValue }) => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
       const response = await fetch(
         `${API_URL}/external/restaurants?lat=${lat}&lon=${lon}&radius=2000`,
+        { signal: controller.signal }
       );
-      if (!response.ok) throw new Error("Failed to fetch restaurants");
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error("Restaurant fetch failed:", response.status);
+        throw new Error("Failed to fetch restaurants");
+      }
+
       const data = await response.json();
+      console.log("✅ Restaurants fetched:", data.length);
       return data;
     } catch (error) {
+      console.error("❌ Restaurant fetch error:", error.message);
       return rejectWithValue(error.message);
     }
   },
@@ -25,13 +38,26 @@ export const fetchGroceries = createAsyncThunk(
   "data/fetchGroceries",
   async ({ lat, lon }, { rejectWithValue }) => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
       const response = await fetch(
         `${API_URL}/external/groceries?lat=${lat}&lon=${lon}&radius=5000`,
+        { signal: controller.signal }
       );
-      if (!response.ok) throw new Error("Failed to fetch groceries");
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.error("Groceries fetch failed:", response.status);
+        throw new Error("Failed to fetch groceries");
+      }
+
       const data = await response.json();
+      console.log("✅ Groceries fetched:", data.length);
       return data;
     } catch (error) {
+      console.error("❌ Groceries fetch error:", error.message);
       return rejectWithValue(error.message);
     }
   },

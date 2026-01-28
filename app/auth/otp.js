@@ -90,7 +90,6 @@ const OTPInput = React.memo(({ value, onChange, inputRefs }) => {
           keyboardType="number-pad"
           maxLength={1}
           selectTextOnFocus
-          autoFocus={index === 0}
         />
       ))}
     </View>

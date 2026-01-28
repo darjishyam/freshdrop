@@ -369,13 +369,10 @@ export default function CartScreen() {
                       ]}
                       onPress={() => setSelectedApp("gpay")}
                     >
-                      <Image
-                        source={{
-                          uri: "https://cdn.iconscout.com/icon/free/png-256/free-google-pay-logo-icon-download-in-svg-png-gif-file-formats--payment-brand-logos-icons-1721763.png",
-                        }}
-                        style={{ width: 60, height: 24 }}
-                        resizeMode="contain"
-                      />
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Ionicons name="logo-google" size={20} color="#4285F4" style={{ marginRight: 8 }} />
+                        <Text style={{ fontSize: 16, fontWeight: "600", color: "#333" }}>Google Pay</Text>
+                      </View>
                       {selectedApp === "gpay" && (
                         <Ionicons
                           name="checkmark-circle"
@@ -394,13 +391,14 @@ export default function CartScreen() {
                       ]}
                       onPress={() => setSelectedApp("phonepe")}
                     >
-                      <Image
-                        source={{
-                          uri: "https://cdn.iconscout.com/icon/free/png-256/free-phonepe-logo-icon-download-in-svg-png-gif-file-formats--brand-logos-icons-226594.png",
-                        }}
-                        style={{ width: 90, height: 28 }}
-                        resizeMode="contain"
-                      />
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Image
+                          source={require("../../assets/images/phonepe.png")}
+                          style={{ width: 24, height: 24, marginRight: 8 }}
+                          resizeMode="contain"
+                        />
+                        <Text style={{ fontSize: 16, fontWeight: "600", color: "#333" }}>PhonePe</Text>
+                      </View>
                       {selectedApp === "phonepe" && (
                         <Ionicons
                           name="checkmark-circle"
@@ -419,13 +417,10 @@ export default function CartScreen() {
                       ]}
                       onPress={() => setSelectedApp("paytm")}
                     >
-                      <Image
-                        source={{
-                          uri: "https://cdn.iconscout.com/icon/free/png-256/free-paytm-logo-icon-download-in-svg-png-gif-file-formats--brand-logos-icons-226595.png",
-                        }}
-                        style={{ width: 70, height: 24 }}
-                        resizeMode="contain"
-                      />
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Ionicons name="wallet" size={20} color="#00BAF2" style={{ marginRight: 8 }} />
+                        <Text style={{ fontSize: 16, fontWeight: "600", color: "#333" }}>Paytm</Text>
+                      </View>
                       {selectedApp === "paytm" && (
                         <Ionicons
                           name="checkmark-circle"
