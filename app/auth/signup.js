@@ -50,9 +50,10 @@ import Constants from "expo-constants";
 WebBrowser.maybeCompleteAuthSession();
 
 // Google OAuth Config
-const GOOGLE_WEB_CLIENT_ID = "380193662825-vd7d24hn7gq8ioc0udnpb505ouh6un0q.apps.googleusercontent.com";
-const GOOGLE_ANDROID_CLIENT_ID = "380193662825-kj89m0kvlf7999f4s8hqio9trrcsoes5.apps.googleusercontent.com";
-const GOOGLE_IOS_CLIENT_ID = "380193662825-kj89m0kvlf7999f4s8hqio9trrcsoes5.apps.googleusercontent.com"; // Using Android ID for iOS
+// Google OAuth Config
+const GOOGLE_WEB_CLIENT_ID = "545670845311-3obgrom063pe85o7m2oo7395sr3mtech.apps.googleusercontent.com";
+const GOOGLE_ANDROID_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com";
+const GOOGLE_IOS_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com"; // Using Android ID for iOS
 
 // Memoized input field component
 const InputField = React.memo(
