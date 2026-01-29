@@ -214,6 +214,7 @@ export default function SignupScreen() {
   }, []);
 
   // Google OAuth
+  // Google OAuth
   const authConfig = {
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
