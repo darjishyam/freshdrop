@@ -45,6 +45,7 @@ import {
 } from "../../utils/authUtils";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -212,11 +213,17 @@ export default function SignupScreen() {
   }, []);
 
   // Google OAuth
-  const [request, response, promptAsync] = Google.useAuthRequest({
+  const authConfig = {
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-  });
+  };
+
+  // Add webClientId only for Expo Go
+  if (Constants.appOwnership === 'expo') {
+    authConfig.webClientId = GOOGLE_WEB_CLIENT_ID;
+  }
+
+  const [request, response, promptAsync] = Google.useAuthRequest(authConfig);
 
   useEffect(() => {
     if (response?.type === "success") {
