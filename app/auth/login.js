@@ -169,13 +169,17 @@ export default function LoginScreen() {
   const authConfig = {
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
+    scopes: ['profile', 'email'],
   };
 
   if (Constants.appOwnership === 'expo') {
     authConfig.webClientId = GOOGLE_WEB_CLIENT_ID;
   }
 
-  const [request, response, promptAsync] = Google.useAuthRequest(authConfig);
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    authConfig,
+    { useProxy: false }
+  );
 
   useEffect(() => {
     if (response?.type === "success") {
