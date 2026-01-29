@@ -163,17 +163,12 @@ export default function LoginScreen() {
   }, []);
 
   // Google OAuth - For standalone builds (Preview/Production)
-  const authConfig = {
+  // ⚠️ FORCE NATIVE FLOW: Removed webClientId completely to fix APK 400 Error.
+  // This will cause Expo Go to crash on login, but fixes the APK.
+  const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     iosClientId: GOOGLE_IOS_CLIENT_ID,
-  };
-
-  // Add webClientId only for Expo Go (development) to avoid redirect mismatch in APK
-  if (Constants.appOwnership === 'expo') {
-    authConfig.webClientId = GOOGLE_WEB_CLIENT_ID;
-  }
-
-  const [request, response, promptAsync] = Google.useAuthRequest(authConfig);
+  });
 
   useEffect(() => {
     if (response?.type === "success") {
