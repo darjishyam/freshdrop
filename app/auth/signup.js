@@ -43,17 +43,38 @@ import {
   validateEmail,
   validateName,
 } from "../../utils/authUtils";
+import Constants from "expo-constants";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
-import Constants from "expo-constants";
+
+// Conditionally require Native Google Sign-In to prevent Expo Go crash
+let GoogleSignin, statusCodes;
+try {
+  const GoogleSigninPackage = require('@react-native-google-signin/google-signin');
+  GoogleSignin = GoogleSigninPackage.GoogleSignin;
+  statusCodes = GoogleSigninPackage.statusCodes;
+} catch (e) {
+  console.log("Native Google Sign-In not available (likely running in Expo Go)");
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Google OAuth Config
-// Google OAuth Config
-const GOOGLE_WEB_CLIENT_ID = "545670845311-3obgrom063pe85o7m2oo7395sr3mtech.apps.googleusercontent.com";
+// Configure Google Sign-In
+const GOOGLE_WEB_CLIENT_ID = "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com";
 const GOOGLE_ANDROID_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com";
 const GOOGLE_IOS_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com"; // Using Android ID for iOS
+
+// Configure Native Google Sign-In (Safe to call on web if guarded)
+if (Platform.OS !== 'web' && GoogleSignin) {
+  try {
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: false,
+    });
+  } catch (err) {
+    console.warn("GoogleSignin configure failed", err);
+  }
+}
 
 // Memoized input field component
 const InputField = React.memo(
@@ -128,6 +149,26 @@ export default function SignupScreen() {
   const dispatch = useDispatch();
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
+
+  // Expo Auth Session Hook (For Web)
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+  });
+
+  // Handle Expo Auth Session Response (Web)
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      console.log("Web Google Sign-Up Success - Access Token:", authentication.accessToken);
+      // For Web, we get Access Token
+      handleGoogleSignup(authentication.accessToken, 'web');
+    } else if (response?.type === "error") {
+      console.error("Web Google Sign-Up Error:", response.error);
+      Alert.alert("Google Sign-In Error", response.error?.message || "Authentication failed");
+    }
+  }, [response]);
 
   // Memoized validations
   const validations = useMemo(
@@ -213,71 +254,71 @@ export default function SignupScreen() {
     router.push("/auth/login");
   }, []);
 
-  // Google OAuth
-  // Google OAuth
-  const authConfig = {
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
-    scopes: ['profile', 'email'],
-  };
-
-  if (Constants.appOwnership === 'expo') {
-    authConfig.webClientId = GOOGLE_WEB_CLIENT_ID;
-  }
-
-  const [request, response, promptAsync] = Google.useAuthRequest(
-    authConfig,
-    { useProxy: false }
-  );
-
-  useEffect(() => {
-    if (response?.type === "success") {
-      const { authentication } = response;
-      console.log("Google OAuth Success - Access Token:", authentication.accessToken);
-      handleGoogleSignup(authentication.accessToken);
-    } else if (response?.type === "error") {
-      console.error("Google OAuth Error:", response.error);
-      Alert.alert("Google Sign-In Error", response.error?.message || "Authentication failed");
-    }
-  }, [response]);
-
-  const handleGoogleSignup = async (token) => {
+  const handleGoogleSignup = async (token, source) => {
     try {
-      console.log("Calling googleSignIn with token:", token?.substring(0, 20) + "...");
+      console.log(`Calling googleSignIn with token (${source}):`, token?.substring(0, 20) + "...");
       const result = await dispatch(googleSignIn({ token, action: 'signup' })).unwrap();
       console.log("Google Sign-In Success - User:", result);
 
       // CRITICAL: Always clear location data on Google Sign-In
-      // User will be prompted to set their location
+      // to force new users to select address
       const AsyncStorage = require("@react-native-async-storage/async-storage").default;
-      console.log("Google Sign-In - clearing location data");
-      await AsyncStorage.removeItem("user_location");
-      await AsyncStorage.removeItem("user_location_type");
       await AsyncStorage.removeItem("user_location_coords");
 
-      // Reload user data from AsyncStorage (userSlice)
-      const { loadUserData } = require("../../store/slices/userSlice");
-      const userData = await dispatch(loadUserData()).unwrap();
-
-      // Check if user has phone number
+      // Check if user has phone number (new user might not)
       if (!result.phone || result.phone === "") {
         console.log("User missing phone, redirecting to add-phone");
         router.replace("/auth/add-phone");
-        return;
-      }
-
-      // Check if user has location set
-      const savedCoords = await AsyncStorage.getItem("user_location_coords");
-
-      if (!savedCoords || savedCoords === "null") {
-        console.log("User missing location, redirecting to addresses");
-        router.replace("/profile/addresses");
       } else {
-        router.replace("/home");
+        // Just in case, if they have phone but no address
+        console.log("User has phone, checking location...");
+        router.replace("/profile/addresses");
       }
     } catch (err) {
-      console.error("Google Sign-In Failed:", err);
-      Alert.alert("Google Sign-In Failed", err || "Please try again");
+      console.error("Google Signup Error:", err);
+      showToast(err || "Google Signup Failed", "error");
+    }
+  };
+
+  const onGoogleButtonPress = async () => {
+    if (Platform.OS === 'web') {
+      // WEB FLOW: expo-auth-session
+      promptAsync();
+    } else {
+      // NATIVE FLOW (Android/iOS): react-native-google-signin
+      if (GoogleSignin) {
+        handleNativeGoogleSignIn();
+      } else {
+        Alert.alert("Not Supported", "Native Google Sign-In is not supported in this environment (likely Expo Go). Please build the APK.");
+      }
+    }
+  };
+
+  const handleNativeGoogleSignIn = async () => {
+    try {
+      if (!GoogleSignin) return;
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      console.log("Native Google Sign-Up Success:", userInfo);
+
+      // Get ID Token
+      const { idToken } = userInfo;
+      if (idToken) {
+        handleGoogleSignup(idToken, 'native');
+      } else {
+        Alert.alert("Error", "No ID Token received from Google");
+      }
+    } catch (error) {
+      console.error("Native Google Sign-Up Error:", error);
+      if (statusCodes && error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // user cancelled the login flow
+      } else if (statusCodes && error.code === statusCodes.IN_PROGRESS) {
+        // operation (e.g. sign in) is in progress already
+      } else if (statusCodes && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert("Error", "Google Play Services not available");
+      } else {
+        Alert.alert("Google Signup Error", error.message);
+      }
     }
   };
 
@@ -285,95 +326,62 @@ export default function SignupScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.content}
+        style={styles.keyboardView}
       >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          <View style={styles.webContainer}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.content}>
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Sign Up</Text>
-              <Text style={styles.headerSubtitle}>
-                Create an account to start ordering
-              </Text>
+              <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.subtitle}>Sign up to get started</Text>
             </View>
 
             <View style={styles.form}>
               <InputField
                 label="Full Name"
+                placeholder="Enter your full name"
                 value={name}
                 onChangeText={handleNameChange}
-                placeholder="Enter your name"
                 autoCapitalize="words"
               />
-              {name.length > 0 && !validations.isNameValid && (
-                <Text style={styles.errorText}>
-                  Name must be at least 2 characters
-                </Text>
-              )}
 
               <InputField
                 label="Email Address"
+                placeholder="Enter your email"
                 value={email}
                 onChangeText={handleEmailChange}
-                placeholder="Enter your email"
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
-              {email.length > 0 && !validations.isEmailValid && (
-                <Text style={styles.errorText}>Please enter a valid email</Text>
-              )}
 
               <PhoneInput
                 value={phoneNumber}
                 onChangeText={handlePhoneChange}
               />
-              {phoneNumber.length > 0 && !validations.isPhoneValid && (
-                <Text style={styles.errorText}>
-                  Please enter a valid 10-digit number
-                </Text>
-              )}
-            </View>
 
-            <SignupButton
-              onPress={handleSignup}
-              disabled={isButtonDisabled}
-              loading={isLoading}
-            />
+              <SignupButton
+                onPress={handleSignup}
+                disabled={isButtonDisabled}
+                loading={isLoading}
+              />
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Google Sign-In Button */}
-            <Pressable
-              style={styles.googleButton}
-              onPress={() => promptAsync()}
-              disabled={!request}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="logo-google" size={20} color="#DB4437" />
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              <View style={styles.divider}>
+                <View style={styles.line} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.line} />
               </View>
-            </Pressable>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account?</Text>
-              <Pressable onPress={navigateToLogin}>
-                <Text style={styles.linkText}> Login</Text>
+              {/* Google Sign In Button */}
+              <Pressable style={styles.googleButton} onPress={onGoogleButtonPress}>
+                <Ionicons name="logo-google" size={24} color="#DB4437" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
               </Pressable>
-            </View>
 
-            {/* Info box */}
-            <View style={styles.infoBox}>
-              <Text style={styles.infoTitle}>📝 Note</Text>
-              <Text style={styles.infoText}>
-                All new users will receive OTP: 111111
-              </Text>
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>Already have an account? </Text>
+                <Pressable onPress={navigateToLogin}>
+                  <Text style={styles.link}>Sign In</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -385,46 +393,33 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Platform.OS === "web" ? "#f4f4f6" : "#fff",
+    backgroundColor: "#fff",
   },
-  content: {
+  keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  content: {
+    flex: 1,
     padding: 24,
-    alignItems: "center",
     justifyContent: "center",
   },
-  webContainer: {
-    width: "100%",
-    maxWidth: 500,
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    alignSelf: "center",
-  },
   header: {
-    marginTop: 0,
     marginBottom: 32,
   },
-  headerTitle: {
+  title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1a1a1a",
     marginBottom: 8,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 16,
     color: "#666",
   },
   form: {
-    marginBottom: 32,
     width: "100%",
   },
   inputGroup: {
@@ -432,135 +427,102 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: "#666",
+    fontWeight: "600",
+    color: "#1a1a1a",
     marginBottom: 8,
-    fontWeight: "500",
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 50,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
-    color: "#333",
-    ...Platform.select({ web: { outlineStyle: "none" } }),
+    color: "#1a1a1a",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   phoneContainer: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 50,
+    borderColor: "#e0e0e0",
   },
   countryCode: {
+    paddingLeft: 16,
+    paddingRight: 8,
     fontSize: 16,
-    color: "#333",
-    marginRight: 12,
-    fontWeight: "500",
+    color: "#666",
+    fontWeight: "600",
+    borderRightWidth: 1,
+    borderRightColor: "#e0e0e0",
   },
   phoneInput: {
     flex: 1,
+    padding: 16,
     fontSize: 16,
-    color: "#333",
-    height: "100%",
-    ...Platform.select({ web: { outlineStyle: "none" } }),
+    color: "#1a1a1a",
   },
   button: {
-    backgroundColor: "#FC8019",
-    height: 50,
-    borderRadius: 8,
-    justifyContent: "center",
+    backgroundColor: "#FF5200",
+    borderRadius: 12,
+    padding: 16,
     alignItems: "center",
-    marginBottom: 16,
+    justifyContent: "center",
     marginTop: 8,
-    width: "100%",
-    ...Platform.select({ web: { cursor: "pointer" } }),
+    marginBottom: 24,
   },
   buttonDisabled: {
-    backgroundColor: "#FCA55D",
-    opacity: 0.6,
+    opacity: 0.7,
   },
   buttonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "600",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#e0e0e0",
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: "#666",
+    fontSize: 14,
+  },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  googleButtonText: {
+    marginLeft: 12,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 24,
   },
   footerText: {
     color: "#666",
     fontSize: 14,
   },
-  linkText: {
-    color: "#FC8019",
+  link: {
+    color: "#FF5200",
     fontSize: 14,
-    fontWeight: "bold",
-    ...Platform.select({ web: { cursor: "pointer" } }),
-  },
-  errorText: {
-    color: "#ef4444",
-    fontSize: 12,
-    marginTop: -16,
-    marginBottom: 8,
-  },
-  infoBox: {
-    backgroundColor: "#E8F5E9",
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: "#4CAF50",
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  infoText: {
-    fontSize: 13,
-    color: "#666",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#ddd",
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: "#666",
-    fontSize: 14,
-  },
-  googleButton: {
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: "#ddd",
-    height: 50,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    ...Platform.select({ web: { cursor: "pointer" } }),
-  },
-  googleButtonText: {
-    color: "#333",
-    fontSize: 16,
     fontWeight: "600",
-    letterSpacing: 0.3,
   },
 });

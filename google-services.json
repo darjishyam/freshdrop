@@ -1,0 +1,39 @@
+{
+    "project_info": {
+        "project_number": "620352640426",
+        "project_id": "freshdrop-ee105",
+        "storage_bucket": "freshdrop-ee105.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:620352640426:android:2310decd2605f63da187d3",
+                "android_client_info": {
+                    "package_name": "com.bytesved.freshdrop"
+                }
+            },
+            "oauth_client": [
+                {
+                    "client_id": "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com",
+                    "client_type": 3
+                }
+            ],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyCFEPbkKt4jiQRqTXj9TTmgPv1iMBv6j8Y"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": [
+                        {
+                            "client_id": "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com",
+                            "client_type": 3
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

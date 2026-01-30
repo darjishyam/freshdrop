@@ -40,17 +40,40 @@ import {
 import { updateUser } from "../../store/slices/userSlice";
 import { useToast } from "../../context/ToastContext";
 import { validatePhone } from "../../utils/authUtils";
+import Constants from "expo-constants";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
-import Constants from "expo-constants";
+
+// Conditionally require Native Google Sign-In to prevent Expo Go crash
+let GoogleSignin, statusCodes;
+try {
+  const GoogleSigninPackage = require('@react-native-google-signin/google-signin');
+  GoogleSignin = GoogleSigninPackage.GoogleSignin;
+  statusCodes = GoogleSigninPackage.statusCodes;
+} catch (e) {
+  console.log("Native Google Sign-In not available (likely running in Expo Go)");
+}
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Google OAuth Config
-// Google OAuth Config
-const GOOGLE_WEB_CLIENT_ID = "545670845311-3obgrom063pe85o7m2oo7395sr3mtech.apps.googleusercontent.com";
+// Configure Google Sign-In
+// Web Client ID is required for getting the ID Token.
+// Android Client ID is handled automatically by google-services.json
+const GOOGLE_WEB_CLIENT_ID = "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com";
 const GOOGLE_ANDROID_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com";
 const GOOGLE_IOS_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com"; // Using Android ID for iOS
+
+// Configure Native Google Sign-In (Safe to call on web if guarded, but better to check platform)
+if (Platform.OS !== 'web' && GoogleSignin) {
+  try {
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: false,
+    });
+  } catch (err) {
+    console.warn("GoogleSignin configure failed", err);
+  }
+}
 
 // Memoized button component
 const LoginButton = React.memo(({ onPress, disabled, loading, text }) => (
@@ -72,13 +95,20 @@ LoginButton.displayName = "LoginButton";
 export default function LoginScreen() {
   const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
   const [identifier, setIdentifier] = useState("");
-
   const [otp, setOtp] = useState("");
 
   const dispatch = useDispatch();
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
   const { showToast } = useToast();
+
+  // Expo Auth Session Hook (For Web)
+  // We initialize it always, but only use it on Web
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+  });
 
   const isButtonDisabled = useMemo(() => {
     if (isLoading) return true;
@@ -103,20 +133,29 @@ export default function LoginScreen() {
     return () => clearInterval(interval);
   }, [step, timer]);
 
+  // Handle Expo Auth Session Response (Web)
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      console.log("Web Google OAuth Success - Access Token:", authentication.accessToken);
+      // For Web, we get Access Token, backend verifies via UserInfo endpoint
+      handleGoogleLogin(authentication.accessToken, 'web');
+    } else if (response?.type === "error") {
+      console.error("Web Google OAuth Error:", response.error);
+      showToast("Google Sign-In Error: " + (response.error?.message || "Authentication failed"), "error");
+    }
+  }, [response]);
+
   const handleIdentifierChange = (text) => {
     setIdentifier(text);
     if (error) dispatch(clearError());
   };
 
   // Step 1: Request OTP
-
-
   const handleSendOtp = useCallback(async () => {
     try {
       // Pass only identifier (email) to request OTP
       const response = await dispatch(requestOTP({ phone: identifier })).unwrap();
-
-
 
       setStep('otp');
       setTimer(30);
@@ -163,38 +202,55 @@ export default function LoginScreen() {
     router.push("/auth/signup");
   }, []);
 
-  // Google OAuth - For standalone builds (Preview/Production)
-  // Conditional: Use webClientId ONLY in Expo Go to prevent crash.
-  // In APK, remove it to force Native Flow (SHA-1).
-  const authConfig = {
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
-    scopes: ['profile', 'email'],
+  // HYBRID GOOGLE LOGIN HANDLER
+  const onGoogleButtonPress = async () => {
+    if (Platform.OS === 'web') {
+      // WEB FLOW: expo-auth-session
+      promptAsync();
+    } else {
+      // NATIVE FLOW (Android/iOS): react-native-google-signin
+      if (GoogleSignin) {
+        handleNativeGoogleSignIn();
+      } else {
+        Alert.alert("Not Supported", "Native Google Sign-In is not supported in this environment (likely Expo Go). Please build the APK.");
+      }
+    }
   };
 
-  if (Constants.appOwnership === 'expo') {
-    authConfig.webClientId = GOOGLE_WEB_CLIENT_ID;
-  }
-
-  const [request, response, promptAsync] = Google.useAuthRequest(
-    authConfig,
-    { useProxy: false }
-  );
-
-  useEffect(() => {
-    if (response?.type === "success") {
-      const { authentication } = response;
-      console.log("Google OAuth Success - Access Token:", authentication.accessToken);
-      handleGoogleLogin(authentication.accessToken);
-    } else if (response?.type === "error") {
-      console.error("Google OAuth Error:", response.error);
-      showToast("Google Sign-In Error: " + (response.error?.message || "Authentication failed"), "error");
-    }
-  }, [response]);
-
-  const handleGoogleLogin = async (token) => {
+  const handleNativeGoogleSignIn = async () => {
     try {
-      console.log("Calling googleSignIn with token:", token?.substring(0, 20) + "...");
+      if (!GoogleSignin) return;
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      console.log("Native Google Sign-In Success:", userInfo);
+
+      // Get ID Token
+      const { idToken } = userInfo;
+      if (idToken) {
+        // Native returns ID Token
+        handleGoogleLogin(idToken, 'native');
+      } else {
+        Alert.alert("Error", "No ID Token received from Google");
+      }
+    } catch (error) {
+      console.error("Native Google Sign-In Error:", error);
+      if (statusCodes && error.code === statusCodes.SIGN_IN_CANCELLED) {
+        // user cancelled the login flow
+      } else if (statusCodes && error.code === statusCodes.IN_PROGRESS) {
+        // operation (e.g. sign in) is in progress already
+      } else if (statusCodes && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert("Error", "Google Play Services not available");
+      } else {
+        Alert.alert("Google Login Error", error.message);
+      }
+    }
+  };
+
+  const handleGoogleLogin = async (token, source) => {
+    try {
+      console.log(`Calling googleSignIn with token (${source}):`, token?.substring(0, 20) + "...");
+      // Backend should handle both Access Token (Web) and ID Token (Native)
+      // Or we standardize interaction. Usually, ID Token is preferred for Native.
       const result = await dispatch(googleSignIn({ token, action: 'login' })).unwrap();
       console.log("Google Sign-In Success - User:", result);
 
@@ -217,148 +273,115 @@ export default function LoginScreen() {
         console.log("User missing location, redirecting to addresses");
         router.replace("/profile/addresses");
       } else {
+        // Everything set, go home
         router.replace("/home");
       }
+
     } catch (err) {
-      console.error("Google Sign-In Failed:", err);
-      showToast(err || "Google Sign-In failed", "error");
+      console.error("Google Login Error:", err);
+      showToast(err || "Google Login Failed", "error");
     }
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.content}
+        style={styles.keyboardView}
       >
-        <View
-          style={Platform.OS === "web" ? styles.webCard : { width: "100%" }}
-        >
+        <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Login</Text>
-            <Text style={styles.headerSubtitle}>
-              Enter your email to proceed
-            </Text>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to continue</Text>
           </View>
 
-          <View style={styles.form}>
-            {/* STEP 1: CREDENTIALS */}
-            {step === 'credentials' && (
-              <>
-                <Text style={styles.label}>Email</Text>
-                <View style={[styles.inputContainer, { marginBottom: 16 }]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your email"
-                    value={identifier}
-                    onChangeText={handleIdentifierChange}
-                    autoCapitalize="none"
-                    autoFocus={Platform.OS === "web"}
-                    keyboardType="email-address"
-                  />
-                </View>
-
-                {/* <Text style={styles.label}>Password</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter password"
-                    secureTextEntry
-                    value={password}
-                    onChangeText={setPassword}
-                  />
-                </View> */}
-              </>
-            )}
-
-            {/* STEP 2: OTP */}
-            {step === 'otp' && (
-              <>
-                <Text style={styles.label}>Enter OTP sent to your email</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={[styles.input, { letterSpacing: 5, fontSize: 20, textAlign: 'center' }]}
-                    placeholder="OTP"
-                    keyboardType="number-pad"
-                    value={otp}
-                    onChangeText={setOtp}
-                    maxLength={6}
-                    autoFocus
-                  />
-                </View>
-
-                {/* Resend OTP Button */}
-                <View style={styles.resendContainer}>
-                  {canResend ? (
-                    <Pressable onPress={handleResendOtp}>
-                      <Text style={styles.resendTextActive}>Resend OTP</Text>
-                    </Pressable>
-                  ) : (
-                    <Text style={styles.resendText}>
-                      Resend OTP in <Text style={{ fontWeight: 'bold' }}>{timer}s</Text>
-                    </Text>
-                  )}
-                </View>
-              </>
-            )}
-
-            {error && (
-              <Text style={styles.errorText}>
-                {error}
-              </Text>
-            )}
-          </View>
-
-          <LoginButton
-            onPress={step === 'credentials' ? handleSendOtp : handleVerifyOtp}
-            disabled={isButtonDisabled}
-            loading={isLoading}
-            text={step === 'credentials' ? "Get OTP" : "Verify OTP"}
-          />
-
-          {/* Google Sign-In - Only show on credentials step */}
-          {step === 'credentials' && (
-            <>
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
-                <View style={styles.dividerLine} />
+          {step === 'credentials' ? (
+            // Check identifier (is it email or phone?) to show correct label/keyboard
+            // Assuming simplified: just one input field for identifier
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Phone Number or Email</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your phone or email"
+                  value={identifier}
+                  onChangeText={handleIdentifierChange}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
               </View>
 
-              <Pressable
-                style={styles.googleButton}
-                onPress={() => promptAsync()}
-                disabled={!request}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="logo-google" size={20} color="#DB4437" />
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
-                </View>
+              <LoginButton
+                onPress={handleSendOtp}
+                disabled={isButtonDisabled}
+                loading={isLoading}
+                text="Get OTP"
+              />
+
+              <View style={styles.divider}>
+                <View style={styles.line} />
+                <Text style={styles.dividerText}>OR</Text>
+                <View style={styles.line} />
+              </View>
+
+              {/* Google Sign In Button */}
+              <Pressable style={styles.googleButton} onPress={onGoogleButtonPress}>
+                <Ionicons name="logo-google" size={24} color="#DB4437" />
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
               </Pressable>
-            </>
+
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>Don't have an account? </Text>
+                <Pressable onPress={navigateToSignup}>
+                  <Text style={styles.link}>Sign Up</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.form}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Enter OTP</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter 6-digit OTP"
+                  value={otp}
+                  onChangeText={setOtp}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </View>
+
+              <View style={styles.resendContainer}>
+                {timer > 0 ? (
+                  <Text style={styles.timerText}>Resend in {timer}s</Text>
+                ) : (
+                  <Pressable onPress={handleResendOtp}>
+                    <Text style={styles.resendLink}>Resend OTP</Text>
+                  </Pressable>
+                )}
+              </View>
+
+              <LoginButton
+                onPress={handleVerifyOtp}
+                disabled={isButtonDisabled}
+                loading={isLoading}
+                text="Verify OTP"
+              />
+
+              <Pressable
+                style={styles.backButton}
+                onPress={() => {
+                  setStep('credentials');
+                  setOtp("");
+                  setTimer(30);
+                }}
+              >
+                <Text style={styles.backButtonText}>Back to Phone/Email</Text>
+              </Pressable>
+            </View>
           )}
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
-            <Pressable onPress={navigateToSignup}>
-              <Text style={styles.linkText}> Sign Up</Text>
-            </Pressable>
-          </View>
-
-          {/* Info box for default credentials */}
-          <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>Demo Credentials</Text>
-            {step === 'credentials' ? (
-              <>
-                <Text style={styles.infoText}>Phone: 9999999999</Text>
-                <Text style={styles.infoText}>OTP: 111111</Text>
-              </>
-            ) : (
-              <Text style={styles.infoText}>
-                Check your email for OTP
-              </Text>
-            )}
-          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -368,177 +391,131 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Platform.OS === "web" ? "#f4f4f6" : "#fff",
+    backgroundColor: "#fff",
+  },
+  keyboardView: {
+    flex: 1,
   },
   content: {
     flex: 1,
     padding: 24,
     justifyContent: "center",
-    alignItems: "center",
-  },
-  webCard: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 40,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
   },
   header: {
     marginBottom: 32,
   },
-  headerTitle: {
+  title: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#333",
+    color: "#1a1a1a",
     marginBottom: 8,
   },
-  headerSubtitle: {
+  subtitle: {
     fontSize: 16,
     color: "#666",
   },
   form: {
-    marginBottom: 32,
     width: "100%",
+  },
+  inputGroup: {
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    color: "#666",
+    fontWeight: "600",
+    color: "#1a1a1a",
     marginBottom: 8,
-    fontWeight: "500",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 50,
-  },
-  countryCode: {
-    fontSize: 16,
-    color: "#333",
-    marginRight: 12,
-    fontWeight: "500",
   },
   input: {
-    flex: 1,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
-    color: "#333",
-    height: "100%",
-    ...Platform.select({ web: { outlineStyle: "none" } }),
+    color: "#1a1a1a",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   button: {
-    backgroundColor: "#FC8019",
-    height: 50,
+    backgroundColor: "#FF5200", // Swiggy Orange
     borderRadius: 12,
-    justifyContent: "center",
+    padding: 16,
     alignItems: "center",
-    marginBottom: 16,
-    width: "100%",
-    ...Platform.select({ web: { cursor: "pointer" } }),
+    justifyContent: "center",
+    marginBottom: 24,
   },
   buttonDisabled: {
-    backgroundColor: "#FCA55D",
-    opacity: 0.6,
+    opacity: 0.7,
   },
   buttonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "600",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  line: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#e0e0e0",
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: "#666",
+    fontSize: 14,
+  },
+  googleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  googleButtonText: {
+    marginLeft: 12,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1a1a1a",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 24,
   },
   footerText: {
     color: "#666",
     fontSize: 14,
   },
-  linkText: {
-    color: "#FC8019",
+  link: {
+    color: "#FF5200",
     fontSize: 14,
-    fontWeight: "bold",
-    ...Platform.select({ web: { cursor: "pointer" } }),
-  },
-  errorText: {
-    color: "#ef4444",
-    fontSize: 12,
-    marginTop: 4,
-  },
-  infoBox: {
-    backgroundColor: "#FFF5E6",
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: "#FC8019",
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 13,
-    color: "#666",
-    marginBottom: 2,
+    fontWeight: "600",
   },
   resendContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 20,
+  },
+  timerText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  resendLink: {
+    color: '#FF5200',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  backButton: {
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 10,
   },
-  resendText: {
-    color: "#666",
+  backButtonText: {
+    color: '#666',
     fontSize: 14,
-  },
-  resendTextActive: {
-    color: "#FC8019",
-    fontSize: 14,
-    fontWeight: "bold",
-    ...Platform.select({ web: { cursor: "pointer" } }),
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#ddd",
-  },
-  dividerText: {
-    marginHorizontal: 10,
-    color: "#666",
-    fontSize: 14,
-  },
-  googleButton: {
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: "#ddd",
-    height: 50,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    ...Platform.select({ web: { cursor: "pointer" } }),
-  },
-  googleButtonText: {
-    color: "#333",
-    fontSize: 16,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
+  }
 });
