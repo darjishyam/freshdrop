@@ -14,16 +14,16 @@
             },
             "oauth_client": [
                 {
-                    "client_id": "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com",
-                    "client_type": 3
-                },
-                {
-                    "client_id": "620352640426-1am9grdjhod9bagd10umchvirluvceuf.apps.googleusercontent.com",
+                    "client_id": "620352640426-ha6ndng5bj5lg59jf46pd0bba5in7nao.apps.googleusercontent.com",
                     "client_type": 1,
                     "android_info": {
                         "package_name": "com.bytesved.freshdrop",
                         "certificate_hash": "224865415fdd6ea8a35861ce7fd510f24a21591c"
                     }
+                },
+                {
+                    "client_id": "620352640426-g4tviqolht9lc0tkcebnf5t5kp2coffm.apps.googleusercontent.com",
+                    "client_type": 3
                 }
             ],
             "api_key": [
@@ -37,14 +37,6 @@
                         {
                             "client_id": "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com",
                             "client_type": 3
-                        },
-                        {
-                            "client_id": "620352640426-1am9grdjhod9bagd10umchvirluvceuf.apps.googleusercontent.com",
-                            "client_type": 1,
-                            "android_info": {
-                                "package_name": "com.bytesved.freshdrop",
-                                "certificate_hash": "224865415fdd6ea8a35861ce7fd510f24a21591c"
-                            }
                         }
                     ]
                 }

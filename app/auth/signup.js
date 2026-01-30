@@ -60,7 +60,7 @@ try {
 WebBrowser.maybeCompleteAuthSession();
 
 // Configure Google Sign-In
-const GOOGLE_WEB_CLIENT_ID = "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com";
+const GOOGLE_WEB_CLIENT_ID = "620352640426-g4tviqolht9lc0tkcebnf5t5kp2coffm.apps.googleusercontent.com";
 const GOOGLE_ANDROID_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com";
 const GOOGLE_IOS_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com"; // Using Android ID for iOS
 
@@ -153,8 +153,6 @@ export default function SignupScreen() {
   // Expo Auth Session Hook (For Web)
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
   });
 
   // Handle Expo Auth Session Response (Web)

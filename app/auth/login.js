@@ -59,7 +59,7 @@ WebBrowser.maybeCompleteAuthSession();
 // Configure Google Sign-In
 // Web Client ID is required for getting the ID Token.
 // Android Client ID is handled automatically by google-services.json
-const GOOGLE_WEB_CLIENT_ID = "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com";
+const GOOGLE_WEB_CLIENT_ID = "620352640426-g4tviqolht9lc0tkcebnf5t5kp2coffm.apps.googleusercontent.com";
 const GOOGLE_ANDROID_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com";
 const GOOGLE_IOS_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com"; // Using Android ID for iOS
 
@@ -103,11 +103,8 @@ export default function LoginScreen() {
   const { showToast } = useToast();
 
   // Expo Auth Session Hook (For Web)
-  // We initialize it always, but only use it on Web
   const [request, response, promptAsync] = Google.useAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
   });
 
   const isButtonDisabled = useMemo(() => {
