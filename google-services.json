@@ -16,6 +16,14 @@
                 {
                     "client_id": "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com",
                     "client_type": 3
+                },
+                {
+                    "client_id": "620352640426-1am9grdjhod9bagd10umchvirluvceuf.apps.googleusercontent.com",
+                    "client_type": 1,
+                    "android_info": {
+                        "package_name": "com.bytesved.freshdrop",
+                        "certificate_hash": "224865415fdd6ea8a35861ce7fd510f24a21591c"
+                    }
                 }
             ],
             "api_key": [
@@ -29,6 +37,14 @@
                         {
                             "client_id": "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com",
                             "client_type": 3
+                        },
+                        {
+                            "client_id": "620352640426-1am9grdjhod9bagd10umchvirluvceuf.apps.googleusercontent.com",
+                            "client_type": 1,
+                            "android_info": {
+                                "package_name": "com.bytesved.freshdrop",
+                                "certificate_hash": "224865415fdd6ea8a35861ce7fd510f24a21591c"
+                            }
                         }
                     ]
                 }
