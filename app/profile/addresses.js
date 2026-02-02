@@ -155,7 +155,11 @@ export default function ManageAddressScreen() {
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.card}>
           <Text style={styles.label}>Address Type</Text>
           <View style={styles.typeRow}>
@@ -241,15 +245,19 @@ const styles = StyleSheet.create({
     justifyContent: "center", // Center vertically if needed
   },
   // Removed custom header styles
+  scrollView: {
+    width: "100%",
+  },
   content: {
     width: "100%",
     maxWidth: 500, // Constrain width for web/tablets
-    padding: 24,
+    padding: 16,   // Reduced from 24
+    alignSelf: "center", // Center the content container within the ScrollView
   },
   card: {
     backgroundColor: "#fff",
     borderRadius: 20,
-    padding: 30,
+    padding: 20,   // Reduced from 30
     ...Platform.select({
       web: {
         boxShadow: "0px 4px 15px rgba(0,0,0,0.08)",

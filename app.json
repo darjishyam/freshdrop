@@ -2,6 +2,7 @@
   "expo": {
     "name": "FreshDrop",
     "slug": "fresh-drop",
+    "owner": "professor_fan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,7 +28,6 @@
     },
     "plugins": [
       "expo-router",
-      "@react-native-google-signin/google-signin",
       [
         "expo-splash-screen",
         {
@@ -40,15 +40,7 @@
           }
         }
       ],
-      "expo-web-browser",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "newArchEnabled": true
-          }
-        }
-      ]
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -247,6 +247,7 @@ export const googleAuth = async (token, action = 'signup') => {
     console.log("[authService] Backend response:", data);
 
     if (!response.ok) {
+      console.error("[authService] Backend Error Details:", JSON.stringify(data, null, 2));
       throw new Error(data.message || "Google authentication failed");
     }
 

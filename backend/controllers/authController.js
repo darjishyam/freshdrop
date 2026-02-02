@@ -475,17 +475,15 @@ const googleLogin = async (req, res) => {
     // 1. Get token from frontend
     const { token, action } = req.body; // action: 'login' or 'signup'
 
-    // 2. Verify token with Google
+    // 2. Verify ID TOKEN (Native) with Google
     const response = await fetch(
-      `https://www.googleapis.com/oauth2/v3/userinfo`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`
     );
     const googleUser = await response.json();
+    console.log("Google Token Verification Response:", googleUser);
 
     if (!googleUser.email) {
-      return res.status(400).json({ message: "Google authentication failed" });
+      return res.status(400).json({ message: "Google authentication failed", details: googleUser });
     }
 
     // 3. Check if user exists

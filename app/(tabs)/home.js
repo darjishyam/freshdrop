@@ -16,10 +16,11 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { useToast } from "../../context/ToastContext";
 import {
+  products,
   categories,
   foodOptions,
-  products,
 } from "../../data/mockData";
+import { API_BASE_URL } from "../../constants/api";
 import { addToCart } from "../../store/slices/cartSlice";
 import {
   fetchRestaurants,
@@ -115,11 +116,8 @@ export default function HomeScreen() {
   // Handle restaurant click - save to MongoDB first
   const handleRestaurantClick = async (restaurant) => {
     try {
-      const baseUrl = Platform.OS === 'android'
-        ? 'http://10.0.2.2:5000/api'
-        : 'http://localhost:5000/api';
-
-      const response = await fetch(`${baseUrl}/restaurants/save-external`, {
+      // Use centralized API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/restaurants/save-external`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

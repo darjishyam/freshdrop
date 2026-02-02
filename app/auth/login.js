@@ -26,7 +26,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -40,40 +40,12 @@ import {
 import { updateUser } from "../../store/slices/userSlice";
 import { useToast } from "../../context/ToastContext";
 import { validatePhone } from "../../utils/authUtils";
-import Constants from "expo-constants";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
-
-// Conditionally require Native Google Sign-In to prevent Expo Go crash
-let GoogleSignin, statusCodes;
-try {
-  const GoogleSigninPackage = require('@react-native-google-signin/google-signin');
-  GoogleSignin = GoogleSigninPackage.GoogleSignin;
-  statusCodes = GoogleSigninPackage.statusCodes;
-} catch (e) {
-  console.log("Native Google Sign-In not available (likely running in Expo Go)");
-}
-
-WebBrowser.maybeCompleteAuthSession();
+import { configureGoogleSignIn, signInWithGoogle } from "../../utils/googleSignInConfig";
 
 // Configure Google Sign-In
-// Web Client ID is required for getting the ID Token.
-// Android Client ID is handled automatically by google-services.json
-const GOOGLE_WEB_CLIENT_ID = "620352640426-g4tviqolht9lc0tkcebnf5t5kp2coffm.apps.googleusercontent.com";
-const GOOGLE_ANDROID_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com";
-const GOOGLE_IOS_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com"; // Using Android ID for iOS
+configureGoogleSignIn();
 
-// Configure Native Google Sign-In (Safe to call on web if guarded, but better to check platform)
-if (Platform.OS !== 'web' && GoogleSignin) {
-  try {
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-      offlineAccess: false,
-    });
-  } catch (err) {
-    console.warn("GoogleSignin configure failed", err);
-  }
-}
+
 
 // Memoized button component
 const LoginButton = React.memo(({ onPress, disabled, loading, text }) => (
@@ -93,19 +65,18 @@ const LoginButton = React.memo(({ onPress, disabled, loading, text }) => (
 LoginButton.displayName = "LoginButton";
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const { showToast } = useToast();
+
   const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
   const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
 
-  const dispatch = useDispatch();
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
-  const { showToast } = useToast();
 
-  // Expo Auth Session Hook (For Web)
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-  });
+
 
   const isButtonDisabled = useMemo(() => {
     if (isLoading) return true;
@@ -130,18 +101,7 @@ export default function LoginScreen() {
     return () => clearInterval(interval);
   }, [step, timer]);
 
-  // Handle Expo Auth Session Response (Web)
-  useEffect(() => {
-    if (response?.type === "success") {
-      const { authentication } = response;
-      console.log("Web Google OAuth Success - Access Token:", authentication.accessToken);
-      // For Web, we get Access Token, backend verifies via UserInfo endpoint
-      handleGoogleLogin(authentication.accessToken, 'web');
-    } else if (response?.type === "error") {
-      console.error("Web Google OAuth Error:", response.error);
-      showToast("Google Sign-In Error: " + (response.error?.message || "Authentication failed"), "error");
-    }
-  }, [response]);
+
 
   const handleIdentifierChange = (text) => {
     setIdentifier(text);
@@ -199,46 +159,27 @@ export default function LoginScreen() {
     router.push("/auth/signup");
   }, []);
 
-  // HYBRID GOOGLE LOGIN HANDLER
+  // NATIVE GOOGLE LOGIN HANDLER
   const onGoogleButtonPress = async () => {
-    if (Platform.OS === 'web') {
-      // WEB FLOW: expo-auth-session
-      promptAsync();
-    } else {
-      // NATIVE FLOW (Android/iOS): react-native-google-signin
-      if (GoogleSignin) {
-        handleNativeGoogleSignIn();
-      } else {
-        Alert.alert("Not Supported", "Native Google Sign-In is not supported in this environment (likely Expo Go). Please build the APK.");
-      }
-    }
-  };
-
-  const handleNativeGoogleSignIn = async () => {
     try {
-      if (!GoogleSignin) return;
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      console.log("Native Google Sign-In Success:", userInfo);
-
-      // Get ID Token
-      const { idToken } = userInfo;
+      const idToken = await signInWithGoogle();
       if (idToken) {
-        // Native returns ID Token
-        handleGoogleLogin(idToken, 'native');
-      } else {
-        Alert.alert("Error", "No ID Token received from Google");
+        handleGoogleLogin(idToken, 'android');
       }
     } catch (error) {
-      console.error("Native Google Sign-In Error:", error);
-      if (statusCodes && error.code === statusCodes.SIGN_IN_CANCELLED) {
+      if (error.code === 'SIGN_IN_CANCELLED') {
         // user cancelled the login flow
-      } else if (statusCodes && error.code === statusCodes.IN_PROGRESS) {
+      } else if (error.code === 'IN_PROGRESS') {
         // operation (e.g. sign in) is in progress already
-      } else if (statusCodes && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        Alert.alert("Error", "Google Play Services not available");
+        showToast("Sign in already in progress", "info");
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        // play services not available or outdated
+        showToast("Google Play Services not available", "error");
       } else {
-        Alert.alert("Google Login Error", error.message);
+        // likely DEVELOPER_ERROR (SHA-1 mismatch) or network issue
+        const errorCode = error.code || "UNKNOWN";
+        showToast(`Sign-In Failed (${errorCode}). Check SHA-1.`, "error");
+        console.error("Google Sign-In detailed error:", error);
       }
     }
   };
@@ -253,16 +194,24 @@ export default function LoginScreen() {
 
       // Reload user data from AsyncStorage (userSlice)
       const { loadUserData } = require("../../store/slices/userSlice");
-      const userData = await dispatch(loadUserData()).unwrap();
+      await dispatch(loadUserData()).unwrap();
 
-      // Check if user has phone number
+      // LOGIC: Existing users go Home. New users go to complete profile.
+      if (result.isNewUser) {
+        console.log("New Google User, redirecting to address setup");
+        router.replace("/profile/addresses");
+        return;
+      }
+
+      // EXISTING USER:
+      // Even if existing, check if critical info is missing (like phone)
       if (!result.phone || result.phone === "") {
         console.log("User missing phone, redirecting to add-phone");
         router.replace("/auth/add-phone");
         return;
       }
 
-      // Check if user has location set
+      // Check if user has location set (Optional optimization: could just go home)
       const AsyncStorage = require("@react-native-async-storage/async-storage").default;
       const savedCoords = await AsyncStorage.getItem("user_location_coords");
 
@@ -406,6 +355,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1a1a1a",
     marginBottom: 8,
+    color: "#1a1a1a",
   },
   subtitle: {
     fontSize: 16,

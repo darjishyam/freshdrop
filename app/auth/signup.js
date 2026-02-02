@@ -28,9 +28,10 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
+import { useToast } from "../../context/ToastContext";
 import {
   signup,
   googleSignIn,
@@ -43,38 +44,12 @@ import {
   validateEmail,
   validateName,
 } from "../../utils/authUtils";
-import Constants from "expo-constants";
-import * as Google from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
-
-// Conditionally require Native Google Sign-In to prevent Expo Go crash
-let GoogleSignin, statusCodes;
-try {
-  const GoogleSigninPackage = require('@react-native-google-signin/google-signin');
-  GoogleSignin = GoogleSigninPackage.GoogleSignin;
-  statusCodes = GoogleSigninPackage.statusCodes;
-} catch (e) {
-  console.log("Native Google Sign-In not available (likely running in Expo Go)");
-}
-
-WebBrowser.maybeCompleteAuthSession();
+import { configureGoogleSignIn, signInWithGoogle } from "../../utils/googleSignInConfig";
 
 // Configure Google Sign-In
-const GOOGLE_WEB_CLIENT_ID = "620352640426-g4tviqolht9lc0tkcebnf5t5kp2coffm.apps.googleusercontent.com";
-const GOOGLE_ANDROID_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com";
-const GOOGLE_IOS_CLIENT_ID = "545670845311-3cpeb3hgqqumb7hmsv88upf2g0kvmotr.apps.googleusercontent.com"; // Using Android ID for iOS
+configureGoogleSignIn();
 
-// Configure Native Google Sign-In (Safe to call on web if guarded)
-if (Platform.OS !== 'web' && GoogleSignin) {
-  try {
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-      offlineAccess: false,
-    });
-  } catch (err) {
-    console.warn("GoogleSignin configure failed", err);
-  }
-}
+
 
 // Memoized input field component
 const InputField = React.memo(
@@ -149,24 +124,11 @@ export default function SignupScreen() {
   const dispatch = useDispatch();
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
+  const { showToast } = useToast();
 
-  // Expo Auth Session Hook (For Web)
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-  });
 
-  // Handle Expo Auth Session Response (Web)
-  useEffect(() => {
-    if (response?.type === "success") {
-      const { authentication } = response;
-      console.log("Web Google Sign-Up Success - Access Token:", authentication.accessToken);
-      // For Web, we get Access Token
-      handleGoogleSignup(authentication.accessToken, 'web');
-    } else if (response?.type === "error") {
-      console.error("Web Google Sign-Up Error:", response.error);
-      Alert.alert("Google Sign-In Error", response.error?.message || "Authentication failed");
-    }
-  }, [response]);
+
+
 
   // Memoized validations
   const validations = useMemo(
@@ -279,43 +241,25 @@ export default function SignupScreen() {
   };
 
   const onGoogleButtonPress = async () => {
-    if (Platform.OS === 'web') {
-      // WEB FLOW: expo-auth-session
-      promptAsync();
-    } else {
-      // NATIVE FLOW (Android/iOS): react-native-google-signin
-      if (GoogleSignin) {
-        handleNativeGoogleSignIn();
-      } else {
-        Alert.alert("Not Supported", "Native Google Sign-In is not supported in this environment (likely Expo Go). Please build the APK.");
-      }
-    }
-  };
-
-  const handleNativeGoogleSignIn = async () => {
     try {
-      if (!GoogleSignin) return;
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      console.log("Native Google Sign-Up Success:", userInfo);
-
-      // Get ID Token
-      const { idToken } = userInfo;
+      const idToken = await signInWithGoogle();
       if (idToken) {
-        handleGoogleSignup(idToken, 'native');
-      } else {
-        Alert.alert("Error", "No ID Token received from Google");
+        handleGoogleSignup(idToken, 'android');
       }
     } catch (error) {
-      console.error("Native Google Sign-Up Error:", error);
-      if (statusCodes && error.code === statusCodes.SIGN_IN_CANCELLED) {
+      if (error.code === 'SIGN_IN_CANCELLED') {
         // user cancelled the login flow
-      } else if (statusCodes && error.code === statusCodes.IN_PROGRESS) {
+      } else if (error.code === 'IN_PROGRESS') {
         // operation (e.g. sign in) is in progress already
-      } else if (statusCodes && error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        Alert.alert("Info", "Sign in already in progress");
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        // play services not available or outdated
         Alert.alert("Error", "Google Play Services not available");
       } else {
-        Alert.alert("Google Signup Error", error.message);
+        // likely DEVELOPER_ERROR (SHA-1 mismatch) or network issue
+        const errorCode = error.code || "UNKNOWN";
+        Alert.alert("Sign-In Error", `Failed: ${errorCode}\nCheck Firebase SHA-1.`);
+        console.error("Google Sign-In detailed error:", error);
       }
     }
   };
