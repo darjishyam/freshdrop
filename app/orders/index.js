@@ -114,18 +114,26 @@ export default function OrdersScreen() {
           <Image
             source={(() => {
               const img = item.restaurant?.image || item.image || "https://via.placeholder.com/100";
+
+              // Handle stale numbers (from old persisted state)
+              if (typeof img === "number") {
+                return { uri: "https://via.placeholder.com/100?text=Restaurant" };
+              }
+
               if (typeof img === "string") {
                 if (img.trim().startsWith("{")) {
                   try {
                     return JSON.parse(img);
                   } catch (e) { }
                 }
+                // Handle potential numeric strings that aren't URLs
                 if (
                   !isNaN(img) &&
                   img.trim() !== "" &&
                   !img.startsWith("http")
-                )
-                  return parseInt(img);
+                ) {
+                  return { uri: "https://via.placeholder.com/100?text=Restaurant" };
+                }
                 return { uri: img };
               }
               return img;
@@ -155,6 +163,12 @@ export default function OrdersScreen() {
               <Image
                 source={(() => {
                   const img = food.image;
+
+                  // Handle stale numbers (from old persisted state)
+                  if (typeof img === "number") {
+                    return { uri: "https://via.placeholder.com/50?text=Food" };
+                  }
+
                   if (typeof img === "string") {
                     if (img.trim().startsWith("{")) {
                       try {
@@ -165,8 +179,9 @@ export default function OrdersScreen() {
                       !isNaN(img) &&
                       img.trim() !== "" &&
                       !img.startsWith("http")
-                    )
-                      return parseInt(img);
+                    ) {
+                      return { uri: "https://via.placeholder.com/50?text=Food" };
+                    }
                     return { uri: img };
                   }
                   return img || { uri: "https://via.placeholder.com/50" };

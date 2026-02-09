@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -35,6 +34,8 @@ export default function PhonePePaymentScreen() {
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [transactionId, setTransactionId] = useState("");
+  const [showPin, setShowPin] = useState(true); // Start with PIN screen
+  const [pin, setPin] = useState("");
   const timerRef = useRef(null);
   const redirectTimerRef = useRef(null);
 
@@ -42,22 +43,40 @@ export default function PhonePePaymentScreen() {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Parse the amount from params
+  // Amount
   const amount = params.amount
     ? Math.round(parseFloat(params.amount)).toString()
     : "0";
 
-  // Generate realistic transaction ID
+  // Generate Transaction ID
   const generateTransactionId = useCallback(() => {
-    const randomRef = Math.floor(Math.random() * 1000000000000)
+    // T + random digits
+    const randomRef = "T" + Math.floor(Math.random() * 1000000000000000)
       .toString()
-      .padStart(12, "0");
+      .substring(0, 20);
     return randomRef;
   }, []);
 
-  // Handle Pay button click - DIRECT ACTION
-  const handlePayClick = useCallback(async () => {
-    console.log("Pay button clicked! Amount:", amount);
+  // Handle PIN Submit
+  const handlePinSubmit = useCallback(() => {
+    if (pin.length !== 4) {
+      showToast("Please enter 4-digit UPI PIN");
+      return;
+    }
+    setShowPin(false);
+    startProcessing();
+  }, [pin]);
+
+  const handlePinPress = (digit) => {
+    if (digit === "backspace") {
+      setPin((prev) => prev.slice(0, -1));
+    } else if (pin.length < 4) {
+      setPin((prev) => prev + digit);
+    }
+  };
+
+  const startProcessing = useCallback(async () => {
+    console.log("PIN Verified! Starting Payment...");
 
     setProcessing(true);
     const txnId = generateTransactionId();
@@ -68,7 +87,6 @@ export default function PhonePePaymentScreen() {
       setProcessing(false);
       setPaymentSuccess(true);
 
-      // Parse order data and add order FIRST before showing success
       try {
         const orderData = params.orderData
           ? JSON.parse(params.orderData)
@@ -77,9 +95,8 @@ export default function PhonePePaymentScreen() {
           const orderPayload = {
             ...orderData,
             transactionId: txnId,
-            paymentMethod: "PhonePe",
+            paymentMethod: "UPI (PhonePe)",
           };
-          // AWAIT the order creation to ensure it's saved to backend
           await dispatch(addOrder(orderPayload)).unwrap();
           if (orderPayload.items) {
             dispatch(deductStock(orderPayload.items));
@@ -88,149 +105,102 @@ export default function PhonePePaymentScreen() {
         }
       } catch (error) {
         console.error("Error processing order:", error);
-        const errorMessage = error?.message || error || "Failed to place order";
-        console.log("Full error details:", JSON.stringify(error, null, 2));
-        showToast(errorMessage);
-        setPaymentSuccess(false);
-        setProcessing(false);
-        return;
       }
 
-      // Trigger success animation AFTER order is saved
+      // Trigger success animation
       Animated.sequence([
         Animated.parallel([
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            tension: 50,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
+          Animated.spring(scaleAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
+          Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
         ]),
       ]).start(() => {
-        // Automatically redirect after showing success screen for a few seconds
+        // Auto-redirect after delay
         redirectTimerRef.current = setTimeout(() => {
-          showToast("Payment Successful! Redirecting to Orders...");
-          router.replace({
-            pathname: "/orders",
-            params: { fromPayment: "true" },
-          });
+          showToast("Payment Successful! Redirecting...");
+          handleDone();
         }, 1500);
       });
-    }, 4000);
-  }, [
-    amount,
-    generateTransactionId,
-    scaleAnim,
-    fadeAnim,
-    params,
-    dispatch,
-    showToast,
-    router,
-  ]);
-
-  // Handle cancel payment - returns to cart
-  const handleCancelPayment = useCallback(() => {
-    console.log("Cancel button clicked!");
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (redirectTimerRef.current) {
-      clearTimeout(redirectTimerRef.current);
-      redirectTimerRef.current = null;
-    }
-    showToast("Payment cancelled");
-    router.back();
-  }, [router, showToast]);
-
-  // Lifecycle management
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
-    };
-  }, []);
-
-  // Handle Android hardware back button
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (processing) {
-          return true; // Block back during processing
-        } else if (!paymentSuccess) {
-          handleCancelPayment();
-          return true;
-        }
-        return false;
-      }
-    );
-
-    return () => {
-      backHandler.remove();
-    };
-  }, [processing, paymentSuccess, handleCancelPayment]);
+    }, 3000);
+  }, [amount, generateTransactionId, scaleAnim, fadeAnim, params, dispatch, showToast]);
 
   const handleDone = useCallback(() => {
-    showToast("Payment Successful! Your order has been placed.");
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     router.replace({ pathname: "/orders", params: { fromPayment: "true" } });
-  }, [router, showToast]);
-
-  // Get current date and time
-  const getTransactionDateTime = () => {
-    const now = new Date();
-    const date = now.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    const time = now.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-    return { date, time };
-  };
-
-  const { date, time } = getTransactionDateTime();
+  }, [router]);
 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      {/* Header */}
-
       <View style={styles.content}>
-        {processing ? (
+        {showPin ? (
+          // PIN ENTRY SCREEN (PhonePe Style - Purple)
+          <View style={styles.pinContainer}>
+            {/* Header */}
+            <View style={styles.pinHeader}>
+              <View style={styles.headerRow}>
+                <Text style={styles.pinHeaderTitle}>PhonePe</Text>
+                <Image
+                  source={{ uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/1200px-PhonePe_Logo.svg.png" }}
+                  style={{ width: 24, height: 24, marginLeft: 8 }}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.pinHeaderSubtitle}>USER@ybl</Text>
+            </View>
+
+            <View style={styles.pinBody}>
+              <View style={styles.pinTopRow}>
+                <Text style={styles.pinLabel}>Enter UPI PIN</Text>
+                <Text style={styles.pinAmt}><RupeeSymbol />{amount}</Text>
+              </View>
+
+              <View style={styles.pinDotsContainer}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View key={i} style={[styles.pinDot, pin.length > i && styles.pinDotFilled]} />
+                ))}
+              </View>
+            </View>
+
+            {/* Numpad */}
+            <View style={styles.numpad}>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <TouchableOpacity key={num} style={styles.numKey} onPress={() => handlePinPress(num.toString())}>
+                  <Text style={styles.numKeyText}>{num}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.numKey} onPress={() => handlePinPress("backspace")}>
+                <Ionicons name="backspace-outline" size={24} color="#333" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.numKey} onPress={() => handlePinPress("0")}>
+                <Text style={styles.numKeyText}>0</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.numKey, { backgroundColor: '#5f259f' }]} onPress={handlePinSubmit}>
+                <Ionicons name="checkmark" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : processing ? (
           // Processing State
           <View style={styles.processingContainer}>
             <Image
-              source={{
-                uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/600px-PhonePe_Logo.svg.png",
-              }}
-              style={styles.gpayLogo}
+              source={{ uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/1200px-PhonePe_Logo.svg.png" }}
+              style={styles.logo} // 100x100
               resizeMode="contain"
             />
             <ActivityIndicator
               size="large"
-              color="#6739B7" // PhonePe Purple
+              color="#5f259f"
               style={styles.loader}
             />
-            <Text style={styles.processingText}>Processing Payment...</Text>
+            <Text style={styles.processingText}>Processing request...</Text>
             <Text style={styles.amountText}>
               <RupeeSymbol />
               {amount}
             </Text>
-            <Text style={styles.warningText}>
-              Do not press back or close the app
-            </Text>
           </View>
         ) : paymentSuccess ? (
-          // Success State with Animation
+          // Success State
           <View style={styles.successContainer}>
             <Animated.View
               style={[
@@ -244,233 +214,27 @@ export default function PhonePePaymentScreen() {
               <Ionicons name="checkmark-circle" size={100} color="#22c55e" />
             </Animated.View>
 
-            <Animated.View style={{ opacity: fadeAnim, width: "100%" }}>
-              <Text style={styles.successTitle}>Payment Successful!</Text>
-              <Text style={styles.successSub}>
-                Your order has been placed successfully via PhonePe.
-              </Text>
+            <Animated.View style={{ opacity: fadeAnim, width: "100%", alignItems: 'center' }}>
+              <Text style={styles.successTitle}>Payment Successful</Text>
 
               <View style={styles.detailsCard}>
+                <Text style={styles.paidText}>Paid to Merchant</Text>
+                <Text style={styles.amountPaid}><RupeeSymbol />{amount}</Text>
+
+                <View style={[styles.divider, { marginVertical: 16 }]} />
+
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Transaction ID</Text>
-                  <Text style={[styles.detailValue, styles.txnId]}>
-                    {transactionId}
-                  </Text>
-                </View>
-                <View style={styles.divider} />
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Payment Method</Text>
-                  <View style={styles.paymentMethodRow}>
-                    <Image
-                      source={{
-                        uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/600px-PhonePe_Logo.svg.png",
-                      }}
-                      style={styles.smallGpayLogo}
-                      resizeMode="contain"
-                    />
-                    <Text style={styles.detailValue}>PhonePe</Text>
-                  </View>
-                </View>
-                <View style={styles.divider} />
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Amount Paid</Text>
-                  <Text style={[styles.detailValue, styles.amountPaid]}>
-                    <RupeeSymbol />
-                    {amount}
-                  </Text>
-                </View>
-                <View style={styles.divider} />
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Date & Time</Text>
-                  <View>
-                    <Text style={styles.detailValue}>{date}</Text>
-                    <Text style={styles.detailValueSmall}>{time}</Text>
-                  </View>
-                </View>
-                <View style={styles.divider} />
-
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Status</Text>
-                  <View style={styles.statusBadge}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={14}
-                      color="#15803d"
-                    />
-                    <Text style={styles.statusText}>Success</Text>
-                  </View>
+                  <Text style={styles.detailValue}>{transactionId}</Text>
                 </View>
               </View>
 
               <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-                <Text style={styles.doneButtonText}>View Order</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.homeButton}
-                onPress={() => router.replace("/(tabs)/home")}
-              >
-                <Text style={styles.homeButtonText}>Back to Home</Text>
+                <Text style={styles.doneButtonText}>Done</Text>
               </TouchableOpacity>
             </Animated.View>
           </View>
-        ) : (
-          // Initial Payment Screen
-          <View style={styles.initialContainer}>
-            <Image
-              source={{
-                uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/600px-PhonePe_Logo.svg.png",
-              }}
-              style={styles.gpayLogo}
-              resizeMode="contain"
-            />
-
-            <View style={styles.billDetailsCard}>
-              <Text style={styles.billDetailsTitle}>Bill Details</Text>
-              {(() => {
-                try {
-                  const orderData = params.orderData
-                    ? JSON.parse(params.orderData)
-                    : null;
-                  const billDetails = orderData?.billDetails;
-
-                  if (billDetails) {
-                    return (
-                      <>
-                        <View style={styles.billRow}>
-                          <Text style={styles.billLabel}>Item Total</Text>
-                          <Text style={styles.billValue}>
-                            <Text
-                              style={{
-                                fontFamily: Platform.select({
-                                  ios: "Arial",
-                                  android: "sans-serif",
-                                  default: "sans-serif",
-                                }),
-                                fontWeight: "normal",
-                              }}
-                            >
-                              {"\u20B9"}
-                            </Text>
-                            {billDetails.itemTotal}
-                          </Text>
-                        </View>
-
-                        <View style={styles.billRow}>
-                          <Text style={styles.billLabel}>GST (5%)</Text>
-                          <Text style={styles.billValue}>
-                            <Text
-                              style={{
-                                fontFamily: Platform.select({
-                                  ios: "Arial",
-                                  android: "sans-serif",
-                                  default: "sans-serif",
-                                }),
-                                fontWeight: "normal",
-                              }}
-                            >
-                              {"\u20B9"}
-                            </Text>
-                            {billDetails.taxes}
-                          </Text>
-                        </View>
-
-                        <View style={styles.billRow}>
-                          <Text style={styles.billLabel}>Delivery Fee</Text>
-                          <Text style={styles.billValue}>
-                            <Text
-                              style={{
-                                fontFamily: Platform.select({
-                                  ios: "Arial",
-                                  android: "sans-serif",
-                                  default: "sans-serif",
-                                }),
-                                fontWeight: "normal",
-                              }}
-                            >
-                              {"\u20B9"}
-                            </Text>
-                            {billDetails.deliveryFee}
-                          </Text>
-                        </View>
-
-                        {billDetails.discount > 0 && (
-                          <View style={styles.billRow}>
-                            <Text style={styles.billLabel}>Discount</Text>
-                            <Text
-                              style={[styles.billValue, styles.discountText]}
-                            >
-                              -
-                              <Text
-                                style={{
-                                  fontFamily: Platform.select({
-                                    ios: "Arial",
-                                    android: "sans-serif",
-                                    default: "sans-serif",
-                                  }),
-                                  fontWeight: "normal",
-                                }}
-                              >
-                                {"\u20B9"}
-                              </Text>
-                              {billDetails.discount}
-                            </Text>
-                          </View>
-                        )}
-
-                        <View style={styles.billDivider} />
-
-                        <View style={styles.billRow}>
-                          <Text style={styles.billTotalLabel}>
-                            Total Amount
-                          </Text>
-                          <Text style={styles.billTotalValue}>
-                            <RupeeSymbol />
-                            {amount}
-                          </Text>
-                        </View>
-                      </>
-                    );
-                  }
-                } catch (error) {
-                  console.error("Error parsing bill details:", error);
-                }
-                return (
-                  <View style={styles.billRow}>
-                    <Text style={styles.billTotalLabel}>Amount to Pay</Text>
-                    <Text style={styles.billTotalValue}>
-                      <RupeeSymbol /> {amount}
-                    </Text>
-                  </View>
-                );
-              })()}
-            </View>
-
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.payButton}
-                onPress={handlePayClick}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.payButtonText}>
-                  Pay <RupeeSymbol />
-                  {amount}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.cancelButtonAlt}
-                onPress={handleCancelPayment}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelButtonAltText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -479,290 +243,192 @@ export default function PhonePePaymentScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitleContainer: {
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-  },
-  secureBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  secureText: {
-    fontSize: 12,
-    color: "#0F9D58",
-    fontWeight: "500",
+    backgroundColor: '#fff',
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
   },
-  initialContainer: {
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 400,
+  // PIN Styles
+  pinContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'space-between'
   },
-  billDetailsCard: {
-    width: "100%",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: Platform.OS === "web" ? 24 : 20,
-    marginTop: 32,
-    marginBottom: 24,
+  pinHeader: {
+    padding: 16,
+    backgroundColor: '#5f259f', // PhonePe Purple
+    alignItems: 'center',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4
+  },
+  pinHeaderTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  pinHeaderSubtitle: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14
+  },
+  pinBody: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 50
+  },
+  pinTopRow: {
+    alignItems: 'center',
+    marginBottom: 30
+  },
+  pinLabel: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 8
+  },
+  pinAmt: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000'
+  },
+  pinDotsContainer: {
+    flexDirection: 'row',
+    gap: 16
+  },
+  pinDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: '#333',
+    backgroundColor: 'transparent'
   },
-  billDetailsTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 16,
+  pinDotFilled: {
+    backgroundColor: '#333'
   },
-  billRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
+  numpad: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: '#fff',
   },
-  billLabel: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: "500",
+  numKey: {
+    width: '33.33%',
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0.5,
+    borderColor: '#f0f0f0'
   },
-  billValue: {
-    fontSize: 14,
-    color: "#374151",
-    fontWeight: "600",
+  numKeyText: {
+    fontSize: 24,
+    color: '#333'
   },
-  discountText: {
-    color: "#22c55e",
-  },
-  billDivider: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginVertical: 12,
-  },
-  billTotalLabel: {
-    fontSize: 16,
-    color: "#111827",
-    fontWeight: "700",
-  },
-  billTotalValue: {
-    fontSize: 20,
-    color: "#6739B7", // PhonePe Color
-    fontWeight: "bold",
-  },
-  buttonContainer: {
-    width: "100%",
-    gap: 12,
-  },
-  payButton: {
-    width: "100%",
-    backgroundColor: "#6739B7", // PhonePe Color
-    paddingVertical: Platform.OS === "web" ? 16 : 14,
-    borderRadius: 12,
-    alignItems: "center",
-    shadowColor: "#6739B7",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-    ...Platform.select({ web: { cursor: "pointer" } }),
-  },
-  payButtonText: {
-    color: "#fff",
-    fontSize: Platform.OS === "web" ? 17 : 16,
-    fontWeight: "bold",
-  },
-  cancelButtonAlt: {
-    width: "100%",
-    backgroundColor: "#fff",
-    paddingVertical: Platform.OS === "web" ? 16 : 14,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#e5e7eb",
-    ...Platform.select({ web: { cursor: "pointer" } }),
-  },
-  cancelButtonAltText: {
-    color: "#6b7280",
-    fontSize: Platform.OS === "web" ? 17 : 16,
-    fontWeight: "600",
-  },
+
+  // Processing
   processingContainer: {
-    alignItems: "center",
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff'
   },
-  gpayLogo: {
-    width: 120,
-    height: 48,
-    marginBottom: 40,
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 20
   },
   loader: {
-    marginVertical: 20,
+    marginBottom: 20
   },
   processingText: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginTop: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+    color: '#333'
   },
   amountText: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#6739B7", // PhonePe Color
-    marginTop: 8,
-    marginBottom: 32,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333'
   },
   warningText: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginTop: 8,
-    textAlign: "center",
+    marginTop: 20,
+    color: '#999',
+    fontSize: 12
   },
+
+  // Success
   successContainer: {
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 400,
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#fff'
   },
   successIconContainer: {
-    marginBottom: 24,
+    marginBottom: 20
   },
   successTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 8,
-    textAlign: "center",
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8
   },
-  successSub: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    marginBottom: 32,
-    lineHeight: 20,
+  successSubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 30,
+    textAlign: 'center'
   },
   detailsCard: {
-    width: "100%",
-    backgroundColor: "#f9fafb",
-    borderRadius: 12,
+    width: '100%',
+    backgroundColor: '#f9f9f9',
     padding: 20,
-    marginBottom: 24,
+    borderRadius: 12,
+    marginBottom: 30,
+    alignItems: 'center'
   },
-  detailRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  detailLabel: {
+  paidText: {
     fontSize: 14,
-    color: "#6b7280",
-    fontWeight: "500",
-  },
-  detailValue: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "600",
-  },
-  detailValueSmall: {
-    fontSize: 12,
-    color: "#6b7280",
-    fontWeight: "500",
-    textAlign: "right",
-    marginTop: 2,
-  },
-  txnId: {
-    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
-    fontSize: 12,
-    color: "#6739B7", // PhonePe Color
+    color: '#666',
+    marginBottom: 4
   },
   amountPaid: {
-    fontSize: 16,
-    color: "#22c55e",
-    fontWeight: "bold",
-  },
-  paymentMethodRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  smallGpayLogo: {
-    width: 60,
-    height: 24,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333'
   },
   divider: {
     height: 1,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: '#e0e0e0',
+    width: '100%'
   },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#dcfce7",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 4,
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%'
   },
-  statusText: {
-    fontSize: 12,
-    color: "#15803d",
-    fontWeight: "bold",
+  detailLabel: {
+    color: '#666',
+    fontSize: 14
+  },
+  detailValue: {
+    fontWeight: '600',
+    color: '#333',
+    fontSize: 14
   },
   doneButton: {
-    width: "100%",
-    backgroundColor: "#FC8019",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 12,
-    shadowColor: "#FC8019",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: '#5f259f',
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center'
   },
   doneButtonText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 16,
-    fontWeight: "bold",
-  },
-  homeButton: {
-    width: "100%",
-    backgroundColor: "#fff",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  homeButtonText: {
-    color: "#333",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+    fontWeight: 'bold'
+  }
 });

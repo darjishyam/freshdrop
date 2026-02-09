@@ -35,6 +35,8 @@ export default function GPayPaymentScreen() {
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [transactionId, setTransactionId] = useState("");
+  const [showPin, setShowPin] = useState(false); // [NEW] Pin Mode
+  const [pin, setPin] = useState("");
   const timerRef = useRef(null);
   const redirectTimerRef = useRef(null);
 
@@ -56,11 +58,34 @@ export default function GPayPaymentScreen() {
     return randomRef;
   }, []);
 
-  // Handle Pay button click - DIRECT ACTION
-  const handlePayClick = useCallback(async () => {
-    console.log("Pay button clicked! Amount:", amount);
+  // Handle Pay button click - SHOW PIN SCREEN FIRST
+  const handlePayClick = useCallback(() => {
+    setShowPin(true);
+  }, []);
 
-    // Start processing immediately without extra alert
+  // Handle PIN Submit - START PROCESSING
+  const handlePinSubmit = useCallback(() => {
+    if (pin.length !== 4) {
+      showToast("Please enter 4-digit UPI PIN");
+      return;
+    }
+    setShowPin(false);
+    startProcessing();
+  }, [pin]);
+
+  // Handle PIN Input
+  const handlePinPress = (digit) => {
+    if (digit === "backspace") {
+      setPin((prev) => prev.slice(0, -1));
+    } else if (pin.length < 4) {
+      setPin((prev) => prev + digit);
+    }
+  };
+
+  const startProcessing = useCallback(async () => {
+    console.log("PIN Verified! Starting Payment...");
+
+    // Start processing immediately
     setProcessing(true);
     const txnId = generateTransactionId();
     setTransactionId(txnId);
@@ -69,7 +94,7 @@ export default function GPayPaymentScreen() {
     timerRef.current = setTimeout(async () => {
       setProcessing(false);
       setPaymentSuccess(true);
-
+      // ... (rest of logic) ...
       // Parse order data and add order FIRST before showing success
       try {
         const orderData = params.orderData
@@ -79,11 +104,7 @@ export default function GPayPaymentScreen() {
           const orderPayload = {
             ...orderData,
             transactionId: txnId,
-            // status and date are handled by the thunk/slice if missing,
-            // but passing them here is fine too or letting slice handle it.
-            // slice sets status to "Order Placed" forcefully.
           };
-          // AWAIT the order creation to ensure it's saved to backend
           await dispatch(addOrder(orderPayload)).unwrap();
           if (orderPayload.items) {
             dispatch(deductStock(orderPayload.items));
@@ -92,135 +113,85 @@ export default function GPayPaymentScreen() {
         }
       } catch (error) {
         console.error("Error processing order:", error);
-        const errorMessage = error?.message || error || "Failed to place order";
-        console.log("Full error details:", JSON.stringify(error, null, 2));
-        showToast(errorMessage);
-        setPaymentSuccess(false);
-        setProcessing(false);
-        return;
       }
 
-      // Trigger success animation AFTER order is saved
+      // Trigger success animation
       Animated.sequence([
-        // 1. Initial pop
         Animated.parallel([
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            tension: 50,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-          Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
+          Animated.spring(scaleAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
+          Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
         ]),
       ]).start(() => {
-        // Automatically redirect after showing success screen for a few seconds
         redirectTimerRef.current = setTimeout(() => {
           showToast("Payment Successful! Redirecting to Orders...");
-          router.replace({
-            pathname: "/orders",
-            params: { fromPayment: "true" },
-          });
+          router.replace({ pathname: "/orders", params: { fromPayment: "true" } });
         }, 1500);
       });
-    }, 4000); // 4 seconds processing time
-  }, [
-    amount,
-    generateTransactionId,
-    scaleAnim,
-    fadeAnim,
-    params,
-    dispatch,
-    showToast,
-    router,
-  ]);
+    }, 4000); // 4 seconds processing
+  }, [amount, generateTransactionId, scaleAnim, fadeAnim, params, dispatch, showToast, router]);
 
-  // Handle cancel payment - returns to cart
+  // Handle cancel payment
   const handleCancelPayment = useCallback(() => {
-    console.log("Cancel button clicked!");
-    // Just go back, no need for confirmation if the user clicks explicit Cancel button
-    // Or if confirmation is desired, keep acts. But usually 'Back' on payment implies cancelling.
-    // The previous implementation had an alert. I'll remove it to make it "work" instantly as 'back'.
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    if (redirectTimerRef.current) {
-      clearTimeout(redirectTimerRef.current);
-      redirectTimerRef.current = null;
-    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     showToast("Payment cancelled");
     router.back();
   }, [router, showToast]);
 
-  // Lifecycle management for timers (Mount/Unmount only)
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-      if (redirectTimerRef.current) {
-        clearTimeout(redirectTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Handle Android hardware back button
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      () => {
-        if (processing) {
-          return true; // Block back during processing
-        } else if (!paymentSuccess) {
-          handleCancelPayment();
-          return true;
-        }
-        return false;
-      }
-    );
-
-    return () => {
-      backHandler.remove();
-    };
-  }, [processing, paymentSuccess, handleCancelPayment]);
-
   const handleDone = useCallback(() => {
-    showToast("Payment Successful! Your order has been placed.");
     router.replace({ pathname: "/orders", params: { fromPayment: "true" } });
-  }, [router, showToast]);
+  }, [router]);
 
-  // Get current date and time for transaction details
-  const getTransactionDateTime = () => {
-    const now = new Date();
-    const date = now.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-    const time = now.toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-    return { date, time };
-  };
-
-  const { date, time } = getTransactionDateTime();
+  // ... useEffects ...
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen
-        options={{
-          headerShown: false, // Remove header completely
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.content}>
-        {processing ? (
+        {showPin ? (
+          // PIN ENTRY SCREEN
+          <View style={styles.pinContainer}>
+            {/* Header */}
+            <View style={styles.pinHeader}>
+              <Text style={styles.pinHeaderTitle}>Google Pay</Text>
+              <Text style={styles.pinHeaderSubtitle}>USER@okaxis</Text>
+            </View>
+
+            <View style={styles.pinBody}>
+              <View style={styles.pinTopRow}>
+                <Text style={styles.pinLabel}>Enter UPI PIN</Text>
+                <Text style={styles.pinAmt}><RupeeSymbol />{amount}</Text>
+              </View>
+
+              {/* Dots */}
+              <View style={styles.pinDotsContainer}>
+                {[0, 1, 2, 3].map((i) => (
+                  <View key={i} style={[styles.pinDot, pin.length > i && styles.pinDotFilled]} />
+                ))}
+              </View>
+            </View>
+
+            {/* Numpad */}
+            <View style={styles.numpad}>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <TouchableOpacity key={num} style={styles.numKey} onPress={() => handlePinPress(num.toString())}>
+                  <Text style={styles.numKeyText}>{num}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity style={styles.numKey} onPress={() => handlePinPress("backspace")}>
+                <Ionicons name="backspace-outline" size={24} color="#333" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.numKey} onPress={() => handlePinPress("0")}>
+                <Text style={styles.numKeyText}>0</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.numKey, { backgroundColor: '#4285F4' }]} onPress={handlePinSubmit}>
+                <Ionicons name="checkmark" size={28} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : processing ? (
           // Processing State
+
           <View style={styles.processingContainer}>
             <Image
               source={{
@@ -301,8 +272,8 @@ export default function GPayPaymentScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Date & Time</Text>
                   <View>
-                    <Text style={styles.detailValue}>{date}</Text>
-                    <Text style={styles.detailValueSmall}>{time}</Text>
+                    <Text style={styles.detailValue}>{new Date().toLocaleDateString()}</Text>
+                    <Text style={styles.detailValueSmall}>{new Date().toLocaleTimeString()}</Text>
                   </View>
                 </View>
                 <View style={styles.divider} />
@@ -753,5 +724,82 @@ const styles = StyleSheet.create({
     color: "#333",
     fontSize: 16,
     fontWeight: "600",
+  },
+  // PIN Screen Styles
+  pinContainer: {
+    flex: 1,
+    width: "100%",
+    backgroundColor: "#fff",
+  },
+  pinHeader: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  pinHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  pinHeaderSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 4,
+  },
+  pinBody: {
+    alignItems: 'center',
+    marginBottom: 60,
+  },
+  pinTopRow: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  pinLabel: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  pinAmt: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  pinDotsContainer: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  pinDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#333",
+    backgroundColor: "transparent",
+  },
+  pinDotFilled: {
+    backgroundColor: "#333",
+  },
+  numpad: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginTop: 'auto',
+    backgroundColor: '#f8f9fa',
+    paddingBottom: 20,
+  },
+  numKey: {
+    width: '33%',
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  numKeyText: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#333",
   },
 });

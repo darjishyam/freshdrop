@@ -14,14 +14,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { VegNonVegIcon } from "../../components/VegNonVegIcon";
 import { useToast } from "../../context/ToastContext";
-import { restaurantItems, restaurants } from "../../data/mockData";
+import { restaurantItems, restaurants, getRestaurantMenu } from "../../data/mockData";
 import { addToCart } from "../../store/slices/cartSlice";
 import { loadReviews, selectReviews } from "../../store/slices/reviewsSlice";
 import { selectUser } from "../../store/slices/userSlice";
-import { API_BASE_URL } from "../../constants/api";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();
@@ -108,39 +108,46 @@ export default function RestaurantScreen() {
     },
   ];
 
-  // Fetch restaurant data from API
+  // Fetch restaurant data from API (MOCK IMPL)
   useEffect(() => {
     const fetchRestaurant = async () => {
       try {
         setLoading(true);
-        const baseUrl = API_BASE_URL;
+        // Simulate API call
+        setTimeout(() => {
+          // Find restaurant details from mock data
+          // If ID matches a mock ID, use it. Otherwise default to first one for demo.
+          let mockRestaurant = restaurants.find(r => r.id === restaurantId);
 
-        const response = await fetch(`${baseUrl}/restaurants/${restaurantId}`);
-        const data = await response.json();
+          if (!mockRestaurant) {
+            // Fallback: If passed ID is not in mock data (e.g. Mongo ID), use the first mock restaurant
+            // But try to be smart: if we have many, maybe random? No, consistent is better.
+            mockRestaurant = restaurants[0];
+            console.log("Restaurant ID not found in mock data, falling back to:", mockRestaurant.name);
+          }
 
-        if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch restaurant");
-        }
+          // Find menu items
+          const mockMenu = getRestaurantMenu(mockRestaurant.id);
 
-        setRestaurant(data.restaurant);
-        // Use default menu items if no products in database
-        setMenuItems(data.products && data.products.length > 0 ? data.products : defaultMenuItems);
-        setError(null);
+          setRestaurant(mockRestaurant);
+          setMenuItems(mockMenu.length > 0 ? mockMenu : defaultMenuItems);
+          setError(null);
+          setLoading(false);
+        }, 500);
       } catch (err) {
         console.error("Error fetching restaurant:", err);
         setError(err.message);
-      } finally {
         setLoading(false);
       }
     };
 
-    if (restaurantId) {
-      fetchRestaurant();
-    }
+    fetchRestaurant();
   }, [restaurantId]);
 
   useEffect(() => {
     if (restaurantId) {
+      // Keep trying to load reviews, though it might fail if ID is mismatch
+      // Or we could mock reviews too? modifying reviewsSlice is out of scope for now.
       dispatch(loadReviews(restaurantId));
     }
   }, [dispatch, restaurantId]);
@@ -257,7 +264,7 @@ export default function RestaurantScreen() {
             console.log("Restaurant Name:", restaurant?.name);
 
             // Use restaurant._id if available, otherwise use restaurantId from URL
-            const validRestaurantId = restaurant?._id || restaurantId;
+            const validRestaurantId = restaurant?.id || restaurant?._id || restaurantId;
 
             dispatch(
               addToCart({
@@ -266,7 +273,7 @@ export default function RestaurantScreen() {
                 price: item.price,
                 quantity: 1,
                 image: item.image,
-                restaurantId: validRestaurantId, // Use MongoDB ObjectId
+                restaurantId: validRestaurantId, // Use MongoDB ObjectId or Mock ID
                 restaurantName: restaurant?.name || "Unknown",
                 veg: item.veg,
                 weight: item.weight,

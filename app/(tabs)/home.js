@@ -19,15 +19,15 @@ import {
   products,
   categories,
   foodOptions,
+  groceryStores,
+  restaurants, // [NEW] Mock Data
 } from "../../data/mockData";
 import { API_BASE_URL } from "../../constants/api";
 import { addToCart } from "../../store/slices/cartSlice";
 import {
-  fetchRestaurants,
-  fetchGroceries, // [NEW]
+  // fetchRestaurants, // REMOVED API CALL
   selectDataLoading,
-  selectRestaurants,
-  selectGroceries, // [NEW]
+  // selectRestaurants, // REMOVED REDUX SELECTOR
 } from "../../store/slices/dataSlice";
 import {
   selectLocation,
@@ -58,14 +58,21 @@ export default function HomeScreen() {
 
   const coords = useSelector(selectLocationCoords);
   const isDataLoading = useSelector(selectDataLoading);
-  const nearbyRestaurants = useSelector(selectRestaurants);
+  // const nearbyRestaurants = useSelector(selectRestaurants); // REMOVED
+  const nearbyRestaurants = restaurants; // USE MOCK DATA DIRECTLY
 
   // State
+  // Filter State
+  const [filterType, setFilterType] = useState("All"); // All, Veg, Non-Veg
+  const [priceRange, setPriceRange] = useState("All"); // All, Low, Medium, High
 
   // State for search
   const [searchQuery, setSearchQuery] = useState("");
-  const groceryItems = useSelector(selectGroceries); // [NEW]
+  // Mock Grocery Items directly from data
+  const groceryItems = groceryStores;
 
+  // REMOVED API EFFECT
+  /*
   useEffect(() => {
     if (!coords?.latitude || !coords?.longitude) return;
     dispatch(
@@ -74,15 +81,44 @@ export default function HomeScreen() {
         lon: coords.longitude,
       })
     );
-    dispatch(
-      fetchGroceries({
-        lat: coords.latitude,
-        lon: coords.longitude,
-      })
-    );
   }, [coords?.latitude, coords?.longitude, dispatch]);
+  */
 
-  // Update Search Results with useMemo for performance
+
+  // Derived Data with Filters
+  const filteredRestaurants = useMemo(() => {
+    let result = nearbyRestaurants || [];
+    // Note: detailed restaurant filtering (veg/price) would require more data fields
+    // For now, we assume restaurants match search query if applicable
+    if (searchQuery) {
+      // Search logic handled in searchResults below for global search
+    }
+    return result;
+  }, [nearbyRestaurants, filterType, priceRange]);
+
+  const filteredProductsDisplay = useMemo(() => {
+    let result = products;
+
+    // Filter by Type
+    if (filterType === "Veg") {
+      result = result.filter((p) => p.veg === true);
+    } else if (filterType === "Non-Veg") {
+      result = result.filter((p) => p.veg === false);
+    }
+
+    // Filter by Price
+    if (priceRange === "Low") { // 0-100
+      result = result.filter((p) => p.price < 100);
+    } else if (priceRange === "Medium") { // 100-200
+      result = result.filter((p) => p.price >= 100 && p.price <= 200);
+    } else if (priceRange === "High") { // 200+
+      result = result.filter((p) => p.price > 200);
+    }
+
+    return result;
+  }, [products, filterType, priceRange]);
+
+  // Update Search Results with useMemo
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
 
@@ -111,7 +147,8 @@ export default function HomeScreen() {
       ...filteredFood,
       ...filteredProducts,
     ];
-  }, [searchQuery]);
+  }, [searchQuery, nearbyRestaurants]); // removed unnecessary dependency
+
 
   // Handle restaurant click - save to MongoDB first
   const handleRestaurantClick = async (restaurant) => {
@@ -358,6 +395,65 @@ export default function HomeScreen() {
               <Ionicons name="search" size={22} color="#FC8019" />
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Filter Chips */}
+        <View style={{ backgroundColor: '#fff', paddingBottom: 10 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => setFilterType(filterType === "Veg" ? "All" : "Veg")}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                borderColor: filterType === "Veg" ? "#008000" : "#e0e0e0",
+                backgroundColor: filterType === "Veg" ? "#e6ffe6" : "#fff"
+              }}
+            >
+              <Text style={{ color: filterType === "Veg" ? "#008000" : "#333", fontWeight: "600" }}>Pure Veg 🟢</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setFilterType(filterType === "Non-Veg" ? "All" : "Non-Veg")}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                borderColor: filterType === "Non-Veg" ? "#D32F2F" : "#e0e0e0",
+                backgroundColor: filterType === "Non-Veg" ? "#ffebee" : "#fff"
+              }}
+            >
+              <Text style={{ color: filterType === "Non-Veg" ? "#D32F2F" : "#333", fontWeight: "600" }}>Non-Veg 🔴</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setPriceRange(priceRange === "Low" ? "All" : "Low")}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                borderColor: priceRange === "Low" ? "#FC8019" : "#e0e0e0",
+                backgroundColor: priceRange === "Low" ? "#FFF7ED" : "#fff"
+              }}
+            >
+              <Text style={{ color: priceRange === "Low" ? "#FC8019" : "#333", fontWeight: "600" }}>Under ₹100</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setPriceRange(priceRange === "Medium" ? "All" : "Medium")}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                borderColor: priceRange === "Medium" ? "#FC8019" : "#e0e0e0",
+                backgroundColor: priceRange === "Medium" ? "#FFF7ED" : "#fff"
+              }}
+            >
+              <Text style={{ color: priceRange === "Medium" ? "#FC8019" : "#333", fontWeight: "600" }}>₹100 - ₹200</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setPriceRange(priceRange === "High" ? "All" : "High")}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                borderColor: priceRange === "High" ? "#FC8019" : "#e0e0e0",
+                backgroundColor: priceRange === "High" ? "#FFF7ED" : "#fff"
+              }}
+            >
+              <Text style={{ color: priceRange === "High" ? "#FC8019" : "#333", fontWeight: "600" }}>₹200+</Text>
+            </TouchableOpacity>
+          </ScrollView>
         </View>
 
         <ScrollView
@@ -666,7 +762,7 @@ export default function HomeScreen() {
                     productLayoutWidth.current = e.nativeEvent.layout.width;
                   }}
                 >
-                  {products.map((item, index) => (
+                  {filteredProductsDisplay.map((item, index) => (
                     <TouchableOpacity
                       key={index}
                       style={
@@ -857,25 +953,19 @@ export default function HomeScreen() {
                     restaurantLayoutWidth.current = e.nativeEvent.layout.width;
                   }}
                 >
-                  {(!coords?.latitude || !coords?.longitude) ? (
-                    <View style={{ paddingHorizontal: 16, width: width - 32 }}>
-                      <Text style={{ color: "#6b7280" }}>
-                        Set your location from Profile → Addresses → "Use Current Location" to load nearby restaurants.
-                      </Text>
-                    </View>
-                  ) : isDataLoading && (!nearbyRestaurants || nearbyRestaurants.length === 0) ? (
+                  {isDataLoading && (!nearbyRestaurants || nearbyRestaurants.length === 0) ? (
                     <View style={{ paddingHorizontal: 16, width: width - 32 }}>
                       <Text style={{ color: "#6b7280" }}>
                         Loading nearby restaurants…
                       </Text>
                     </View>
-                  ) : (nearbyRestaurants || []).length === 0 ? (
+                  ) : filteredRestaurants.length === 0 ? (
                     <View style={{ paddingHorizontal: 16, width: width - 32 }}>
                       <Text style={{ color: "#6b7280" }}>
-                        No nearby restaurants found for this location.
+                        No restaurants match your filters.
                       </Text>
                     </View>
-                  ) : (nearbyRestaurants || []).map((item) =>
+                  ) : filteredRestaurants.map((item) =>
                     Platform.OS === "web" ? (
                       <TouchableOpacity
                         key={item.id}

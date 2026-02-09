@@ -1,75 +1,75 @@
 export const categories = [
   {
     name: "Munchies",
-    image: require("../assets/images/munchies.png"),
+    image: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500",
   },
   {
     name: "Sweet Tooth",
-    image: require("../assets/images/sweet_tooth.jpg"),
+    image: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=500",
   },
   {
     name: "Cold Drinks and Juices",
-    image: require("../assets/images/cold_drinks_juice.png"),
+    image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500",
   },
   {
     name: "Biscuits and Cakes",
-    image: require("../assets/images/biscuits_cakes.jpg"),
+    image: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500",
   },
   {
     name: "Instant and Frozen Food",
-    image: require("../assets/images/instant_frozen_updated.jpg"),
+    image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500",
   },
   {
     name: "Meat and Seafood",
-    image: require("../assets/images/meat_seafood_updated.jpg"),
+    image: "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=500",
   },
   {
     name: "Cereals and Breakfast",
-    image: require("../assets/images/cereals_breakfast.jpg"),
+    image: "https://images.unsplash.com/photo-1525351462161-f2fe835d9174?w=500",
   },
   {
     name: "Sauces and Spreads",
-    image: require("../assets/images/sauces_spreads.jpg"),
+    image: "https://images.unsplash.com/photo-1607301406259-2eeb2aa7d0fa?w=500",
   },
   {
     name: "Tea, Coffee and More",
-    image: require("../assets/images/tea_coffee.jpg"),
+    image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500",
   },
   {
     name: "Cleaning Essentials",
-    image: require("../assets/images/cleaning_essentials.jpg"),
+    image: "https://images.unsplash.com/photo-1585833805991-e07eb23eb46b?w=500",
   },
   {
     name: "Pharma and Hygiene",
-    image: require("../assets/images/pharma_hygiene.jpg"),
+    image: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=500",
   },
   {
     name: "Bath, Body and Hair",
-    image: require("../assets/images/bath_body_hair.jpg"),
+    image: "https://images.unsplash.com/photo-1556228720-1957be83f315?w=500",
   },
   {
     name: "Paan Corner",
-    image: require("../assets/images/paan_corner.jpg"),
+    image: "https://images.unsplash.com/photo-1533089862017-5f2670597e8d?w=500",
   },
   {
     name: "Home and Kitchen",
-    image: require("../assets/images/home_kitchen.jpg"),
+    image: "https://images.unsplash.com/photo-1556910103-1c02745a30bf?w=500",
   },
   {
     name: "Office and Electricals",
-    image: require("../assets/images/office_electricals.png"),
+    image: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?w=500",
   },
   {
     name: "Baby Care",
-    image: require("../assets/images/baby_care.png"),
+    image: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=500",
   },
   {
     name: "Pet Supplies",
-    image: require("../assets/images/pet_supplies.jpg"),
+    image: "https://images.unsplash.com/photo-1589924691195-41432c84c161?w=500",
   },
   {
     name: "Beauty and Grooming",
-    image: require("../assets/images/beauty_grooming.jpg"),
+    image: "https://images.unsplash.com/photo-1596462502278-27bfdd403cc2?w=500",
   },
 ];
 
@@ -81,7 +81,7 @@ export const products = [
     discountPrice: 38,
     weight: "500 ml",
     quantity: "500 ml",
-    image: require("../assets/images/amul_gold_milk.png"),
+    image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500",
     veg: true,
     category: "Dairy",
     supplier: "Amul",
@@ -94,7 +94,7 @@ export const products = [
   {
     id: "prod2",
     name: "BranO Plus Brown Bread",
-    image: require("../assets/images/branoplus_bread.png"),
+    image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500",
     price: 35,
     discountPrice: 38,
     weight: "300 g",
@@ -111,7 +111,7 @@ export const products = [
   {
     id: "prod3",
     name: "Nestle Milkmaid",
-    image: require("../assets/images/nestle_milkmaid.png"),
+    image: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=500",
     price: 380,
     discountPrice: 400,
     weight: "348 g",
@@ -128,7 +128,7 @@ export const products = [
   {
     id: "prod4",
     name: "Lay's Classic Salted Potato Chips",
-    image: require("../assets/images/lays_classic.png"),
+    image: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500",
     price: 16,
     discountPrice: 20,
     weight: "48 g",
@@ -145,7 +145,7 @@ export const products = [
   {
     id: "prod5",
     name: "Aashirvaad Shudh Chakki Atta",
-    image: require("../assets/images/aashirvaad_atta.png"),
+    image: "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500",
     price: 240,
     discountPrice: 260,
     weight: "5 kg",
@@ -162,7 +162,7 @@ export const products = [
   {
     id: "prod6",
     name: "Tata Salt",
-    image: require("../assets/images/tata_salt.png"),
+    image: "https://images.unsplash.com/photo-1627485937980-221c88ac04f9?w=500",
     price: 24,
     discountPrice: 28,
     weight: "1 kg",
@@ -179,7 +179,7 @@ export const products = [
   {
     id: "prod7",
     name: "Fortune Sun Lite Sunflower Oil",
-    image: require("../assets/images/oil.png"),
+    image: "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=500",
     price: 150,
     discountPrice: 170,
     weight: "1 L",
@@ -196,7 +196,7 @@ export const products = [
   {
     id: "prod8",
     name: "Maggi 2-Minute Noodles",
-    image: require("../assets/images/maggi_noodles.png"),
+    image: "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=500",
     price: 14,
     discountPrice: 15,
     weight: "70 g",
@@ -213,7 +213,7 @@ export const products = [
   {
     id: "prod9",
     name: "Coca-Cola Original Taste",
-    image: require("../assets/images/coca_cola.png"),
+    image: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500",
     price: 40,
     discountPrice: 45,
     weight: "750 ml",
@@ -230,7 +230,7 @@ export const products = [
   {
     id: "prod10",
     name: "Doritos Nacho Cheese",
-    image: require("../assets/images/doritos_nachos.png"),
+    image: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500",
     price: 90,
     discountPrice: 100,
     weight: "150 g",
@@ -247,36 +247,36 @@ export const products = [
 ];
 
 export const foodOptions = [
-  { id: "1", name: "Pizza", image: require("../assets/images/pizza.png") },
-  { id: "2", name: "Burger", image: require("../assets/images/burger.png") },
-  { id: "3", name: "Cake", image: require("../assets/images/cake.png") },
-  { id: "4", name: "Vada Pav", image: require("../assets/images/vadapav.png") },
-  { id: "5", name: "Rolls", image: require("../assets/images/rolls.png") },
-  { id: "6", name: "Biryani", image: require("../assets/images/biryani.png") },
-  { id: "7", name: "Noodles", image: require("../assets/images/noodles.png") },
+  { id: "1", name: "Pizza", image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500" },
+  { id: "2", name: "Burger", image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500" },
+  { id: "3", name: "Cake", image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500" },
+  { id: "4", name: "Vada Pav", image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500" }, // Fallback/generic
+  { id: "5", name: "Rolls", image: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=500" },
+  { id: "6", name: "Biryani", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500" },
+  { id: "7", name: "Noodles", image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=500" },
   {
     id: "8",
     name: "Pav Bhaji",
-    image: require("../assets/images/pavbhaji.png"),
+    image: "https://images.unsplash.com/photo-1606491956689-2ea287bc00f5?w=500",
   },
-  { id: "9", name: "Tea", image: require("../assets/images/tea.png") },
-  { id: "10", name: "Momo", image: require("../assets/images/momo.png") },
-  { id: "11", name: "Coffee", image: require("../assets/images/coffee.png") },
-  { id: "12", name: "Khichdi", image: require("../assets/images/khichdi.png") },
-  { id: "13", name: "Dhokla", image: require("../assets/images/dhokla.png") },
-  { id: "14", name: "Dosa", image: require("../assets/images/dosa.png") },
-  { id: "15", name: "Salad", image: require("../assets/images/salad.png") },
-  { id: "16", name: "Pastry", image: require("../assets/images/pastry.png") },
-  { id: "17", name: "Pasta", image: require("../assets/images/pasta.png") },
-  { id: "18", name: "Samosa", image: require("../assets/images/samosa.png") },
-  { id: "19", name: "Shake", image: require("../assets/images/shake.png") },
-  { id: "20", name: "Paratha", image: require("../assets/images/paratha.png") },
+  { id: "9", name: "Tea", image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500" },
+  { id: "10", name: "Momo", image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500" },
+  { id: "11", name: "Coffee", image: "https://images.unsplash.com/photo-1512568400610-43a04255954f?w=500" },
+  { id: "12", name: "Khichdi", image: "https://images.unsplash.com/photo-1544025162-d76690b67f11?w=500" },
+  { id: "13", name: "Dhokla", image: "https://images.unsplash.com/photo-1544025162-d76690b67f11?w=500" },
+  { id: "14", name: "Dosa", image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500" },
+  { id: "15", name: "Salad", image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=500" },
+  { id: "16", name: "Pastry", image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500" },
+  { id: "17", name: "Pasta", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500" },
+  { id: "18", name: "Samosa", image: "https://images.unsplash.com/photo-1603569769395-5cb391e46950?w=500" },
+  { id: "19", name: "Shake", image: "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=500" },
+  { id: "20", name: "Paratha", image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500" },
   {
     id: "21",
     name: "Shawarma",
-    image: require("../assets/images/shawarma.png"),
+    image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500",
   },
-  { id: "22", name: "Vada", image: require("../assets/images/vada.png") },
+  { id: "22", name: "Vada", image: "https://images.unsplash.com/photo-1606491956689-2ea287bc00f5?w=500" },
 ];
 
 export const restaurants = [
@@ -336,7 +336,7 @@ export const restaurants = [
     priceForTwo: "₹300 for two",
     cuisine: "Pizzas • Italian",
     location: "Navrangpura, Ahmedabad",
-    image: require("../assets/images/dominos_pizza.jpg"),
+    image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500",
     discount: "40% off on select items",
   },
   {
@@ -347,7 +347,7 @@ export const restaurants = [
     priceForTwo: "₹500 for two",
     cuisine: "Burgers • Fast Food",
     location: "CG Road, Ahmedabad",
-    image: require("../assets/images/kfc.jpg"),
+    image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500",
     discount: "Free Chicken Roll with bucket meal",
   },
   {
@@ -370,7 +370,7 @@ export const restaurants = [
     priceForTwo: "₹350 for two",
     cuisine: "Breakfast • Continental",
     location: "Vastrapur, Ahmedabad",
-    image: require("../assets/images/breakfast_club.jpg"),
+    image: "https://images.unsplash.com/photo-1525351462161-f2fe835d9174?w=500",
     discount: "Free coffee with breakfast combo",
   },
   {
@@ -440,7 +440,7 @@ export const restaurantItems = {
       description:
         "Classic cheese pizza with fresh basil leaves and tangy tomato sauce on a thin crust.",
       price: 350,
-      image: require("../assets/images/margherita_pizza_peppers.jpg"),
+      image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500",
       veg: true,
       rating: 4.3,
       ratingCount: 120,
@@ -456,7 +456,7 @@ export const restaurantItems = {
       description:
         "Spicy pork pepperoni slices layered on a cheesy base with our signature sauce.",
       price: 550,
-      image: require("../assets/images/pepperoni_pizza.jpg"),
+      image: "https://images.unsplash.com/photo-1628840042765-356cda07504e?w=500",
       veg: false,
       rating: 4.7,
       ratingCount: 210,
@@ -475,7 +475,7 @@ export const restaurantItems = {
         "Golden crispy potato patty topped with fresh lettuce, onions, and creamy mayo.",
       price: 120,
       image:
-        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1000&auto=format&fit=crop&q=80&ixlib=rb-4.0.3",
+        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
       veg: true,
       rating: 4.0,
       ratingCount: 50,
@@ -491,7 +491,7 @@ export const restaurantItems = {
       description:
         "Flame-grilled chicken patty served with juicy tomatoes and onions in a soft bun.",
       price: 190,
-      image: require("../assets/images/chicken_whopper.jpg"),
+      image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500",
       veg: false,
       rating: 4.5,
       ratingCount: 150,
@@ -509,7 +509,7 @@ export const restaurantItems = {
       description:
         "Long-grain aromatic basmati rice cooked with fresh vegetables and secret spices.",
       price: 280,
-      image: require("../assets/images/hyderabadi_veg_biryani_naivedyam.jpg"),
+      image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=500",
       veg: true,
       rating: 4.2,
       ratingCount: 95,
@@ -527,7 +527,7 @@ export const restaurantItems = {
       description:
         "Decadent and rich chocolate layer cake covered with smooth chocolate ganache.",
       price: 600,
-      image: require("../assets/images/chocolate_truffle_cake.jpg"),
+      image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=500",
       veg: false,
       rating: 4.6,
       ratingCount: 40,
@@ -543,7 +543,7 @@ export const restaurantItems = {
       description:
         "Classic chocolate sponge layered with whipped cream and cherries, topped with chocolate shavings.",
       price: 650,
-      image: require("../assets/images/black_forest_cake.jpg"),
+      image: "https://images.unsplash.com/photo-1606313564200-e75d5e30476d?w=500",
       veg: false,
       rating: 4.7,
       ratingCount: 55,
@@ -641,7 +641,7 @@ export const restaurantItems = {
       name: "Bucket Meal",
       description: "A hearty meal of crispy fried chicken pieces.",
       price: 599,
-      image: require("../assets/images/bucket_meal.jpg"),
+      image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500",
       veg: false,
       rating: 4.3,
       ratingCount: 200,
@@ -718,7 +718,7 @@ export const restaurantItems = {
       name: "Masala Dosa",
       description: "Crispy rice crepe filled with spiced potato mash.",
       price: 120,
-      image: require("../assets/images/masala_dosa_naivedyam.jpg"),
+      image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500",
       veg: true,
       rating: 4.4,
       ratingCount: 200,
@@ -733,7 +733,7 @@ export const restaurantItems = {
       name: "Idli Sambar",
       description: "Steamed rice cakes served with lentil soup.",
       price: 80,
-      image: require("../assets/images/idli_sambar_naivedyam.jpg"),
+      image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=500",
       veg: true,
       rating: 4.5,
       ratingCount: 150,
@@ -748,7 +748,7 @@ export const restaurantItems = {
       name: "Mendu Vada",
       description: "Crispy fried lentil donuts served with chutney.",
       price: 90,
-      image: require("../assets/images/mendu_vada_naivedyam.jpg"),
+      image: "https://images.unsplash.com/photo-1606491956689-2ea287bc00f5?w=500",
       veg: true,
       rating: 4.3,
       ratingCount: 100,
@@ -763,7 +763,7 @@ export const restaurantItems = {
       name: "Uttapam",
       description: "Thick savory pancake topped with onions and tomatoes.",
       price: 110,
-      image: require("../assets/images/uttapam_naivedyam.jpg"),
+      image: "https://images.unsplash.com/photo-1606491956689-2ea287bc00f5?w=500",
       veg: true,
       rating: 4.2,
       ratingCount: 90,
@@ -796,7 +796,7 @@ export const restaurantItems = {
       description:
         "Flavorful trio of juicy paneer, crisp capsicum and spicy red paprika.",
       price: 400,
-      image: require("../assets/images/peppy_paneer.jpg"),
+      image: "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=500",
       veg: true,
       rating: 4.4,
       ratingCount: 400,
@@ -843,7 +843,7 @@ export const restaurantItems = {
       name: "Garlic Breadsticks",
       description: "Baked breadsticks with garlic butter and herbs.",
       price: 120,
-      image: require("../assets/images/garlic_breadsticks.jpg"),
+      image: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=500",
       veg: true,
       rating: 4.7,
       ratingCount: 600,
@@ -875,7 +875,7 @@ export const restaurantItems = {
       name: "Veg Lasagna",
       description: "Layered pasta with vegetable filling and cheese sauce.",
       price: 380,
-      image: require("../assets/images/veg_lasagna_uppercrust.jpg"),
+      image: "https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?w=500",
       veg: true,
       rating: 4.3,
       ratingCount: 80,
@@ -1925,3 +1925,51 @@ export const getGroceryInventory = (storeId) => {
   // Simulate unavailability of some items
   return groceryItems.filter(() => Math.random() > 0.2);
 };
+
+// Helper to get restaurant menu from restaurantItems grouped by category
+export const getRestaurantMenu = (restaurantId) => {
+  const allItems = [];
+  Object.values(restaurantItems).forEach((categoryItems) => {
+    categoryItems.forEach((item) => {
+      if (item.restaurantId === restaurantId) {
+        allItems.push(item);
+      }
+    });
+  });
+  return allItems;
+};
+
+export const groceryStores = [
+  {
+    id: "g1",
+    name: "Instamart",
+    rating: 4.8,
+    time: "15-25 mins",
+    address: "Satellite, Ahmedabad",
+    image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800",
+  },
+  {
+    id: "g2",
+    name: "BigBasket",
+    rating: 4.5,
+    time: "20-30 mins",
+    address: "Vastrapur, Ahmedabad",
+    image: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800",
+  },
+  {
+    id: "g3",
+    name: "D Mart Ready",
+    rating: 4.3,
+    time: "30-60 mins",
+    address: "SG Highway, Ahmedabad",
+    image: "https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?w=800",
+  },
+  {
+    id: "g4",
+    name: "Nature's Basket",
+    rating: 4.6,
+    time: "25-35 mins",
+    address: "Navrangpura, Ahmedabad",
+    image: "https://images.unsplash.com/photo-1543168256-418811576931?w=800",
+  },
+];
