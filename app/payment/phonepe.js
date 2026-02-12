@@ -34,10 +34,22 @@ export default function PhonePePaymentScreen() {
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [transactionId, setTransactionId] = useState("");
-  const [showPin, setShowPin] = useState(true); // Start with PIN screen
+  const [showPin, setShowPin] = useState(false); // [MODIFIED] Start with Details screen
   const [pin, setPin] = useState("");
   const timerRef = useRef(null);
   const redirectTimerRef = useRef(null);
+
+  // Handle Pay button click - SHOW PIN SCREEN FIRST
+  const handlePayClick = useCallback(() => {
+    setShowPin(true);
+  }, []);
+
+  const handleCancelPayment = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    showToast("Payment cancelled");
+    router.back();
+  }, [router, showToast]);
 
   // Animation values for success screen
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -234,7 +246,119 @@ export default function PhonePePaymentScreen() {
               </TouchableOpacity>
             </Animated.View>
           </View>
-        ) : null}
+        ) : (
+          // Initial Payment Screen (Bill Details)
+          <View style={styles.initialContainer}>
+            <Image
+              source={{
+                uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/1200px-PhonePe_Logo.svg.png",
+              }}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+
+            {/* Bill Details Card */}
+            <View style={styles.billDetailsCard}>
+              <Text style={styles.billDetailsTitle}>Bill Details</Text>
+
+              {(() => {
+                try {
+                  const orderData = params.orderData
+                    ? JSON.parse(params.orderData)
+                    : null;
+                  const billDetails = orderData?.billDetails;
+
+                  if (billDetails) {
+                    return (
+                      <>
+                        <View style={styles.billRow}>
+                          <Text style={styles.billLabel}>Item Total</Text>
+                          <Text style={styles.billValue}>
+                            <RupeeSymbol />
+                            {billDetails.itemTotal}
+                          </Text>
+                        </View>
+
+                        <View style={styles.billRow}>
+                          <Text style={styles.billLabel}>GST (5%)</Text>
+                          <Text style={styles.billValue}>
+                            <RupeeSymbol />
+                            {billDetails.taxes}
+                          </Text>
+                        </View>
+
+                        <View style={styles.billRow}>
+                          <Text style={styles.billLabel}>Delivery Fee</Text>
+                          <Text style={styles.billValue}>
+                            <RupeeSymbol />
+                            {billDetails.deliveryFee}
+                          </Text>
+                        </View>
+
+                        {billDetails.discount > 0 && (
+                          <View style={styles.billRow}>
+                            <Text style={styles.billLabel}>Discount</Text>
+                            <Text
+                              style={[styles.billValue, styles.discountText]}
+                            >
+                              - <RupeeSymbol />
+                              {billDetails.discount}
+                            </Text>
+                          </View>
+                        )}
+
+                        <View style={styles.billDivider} />
+
+                        <View style={styles.billRow}>
+                          <Text style={styles.billTotalLabel}>
+                            Total Amount
+                          </Text>
+                          <Text style={styles.billTotalValue}>
+                            <RupeeSymbol />
+                            {amount}
+                          </Text>
+                        </View>
+                      </>
+                    );
+                  }
+                } catch (error) {
+                  console.error("Error parsing bill details:", error);
+                }
+
+                return (
+                  <View style={styles.billRow}>
+                    <Text style={styles.billTotalLabel}>Amount to Pay</Text>
+                    <Text style={styles.billTotalValue}>
+                      <RupeeSymbol />
+                      {amount}
+                    </Text>
+                  </View>
+                );
+              })()}
+            </View>
+
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={styles.payButton}
+                onPress={handlePayClick}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.payButtonText}>
+                  Pay <RupeeSymbol />
+                  {amount}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelButtonAlt}
+                onPress={handleCancelPayment}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelButtonAltText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -247,10 +371,13 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   // PIN Styles
   pinContainer: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#f5f5f5',
     justifyContent: 'space-between'
   },
@@ -329,6 +456,7 @@ const styles = StyleSheet.create({
   // Processing
   processingContainer: {
     flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff'
@@ -361,6 +489,7 @@ const styles = StyleSheet.create({
   // Success
   successContainer: {
     flex: 1,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -430,5 +559,104 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold'
-  }
+  },
+  // Initial Screen Styles
+  initialContainer: {
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 400,
+    padding: 24,
+  },
+  billDetailsCard: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: Platform.OS === "web" ? 24 : 20,
+    marginTop: 32,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  billDetailsTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 16,
+  },
+  billRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  billLabel: {
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+  billValue: {
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "600",
+  },
+  discountText: {
+    color: "#22c55e",
+  },
+  billDivider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginVertical: 12,
+  },
+  billTotalLabel: {
+    fontSize: 16,
+    color: "#111827",
+    fontWeight: "700",
+  },
+  billTotalValue: {
+    fontSize: 20,
+    color: "#5f259f",
+    fontWeight: "bold",
+  },
+  buttonContainer: {
+    width: "100%",
+    gap: 12,
+  },
+  payButton: {
+    width: "100%",
+    backgroundColor: "#5f259f",
+    paddingVertical: Platform.OS === "web" ? 16 : 14,
+    borderRadius: 12,
+    alignItems: "center",
+    shadowColor: "#5f259f",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    ...Platform.select({ web: { cursor: "pointer" } }),
+  },
+  payButtonText: {
+    color: "#fff",
+    fontSize: Platform.OS === "web" ? 17 : 16,
+    fontWeight: "bold",
+  },
+  cancelButtonAlt: {
+    width: "100%",
+    backgroundColor: "#fff",
+    paddingVertical: Platform.OS === "web" ? 16 : 14,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#e5e7eb",
+    ...Platform.select({ web: { cursor: "pointer" } }),
+  },
+  cancelButtonAltText: {
+    color: "#6b7280",
+    fontSize: Platform.OS === "web" ? 17 : 16,
+    fontWeight: "600",
+  },
 });

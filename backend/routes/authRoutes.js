@@ -12,6 +12,7 @@ const {
   requestProfileUpdateOtp,
   verifyProfileUpdateOtp,
   addToHistory,
+  updatePushToken,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -26,5 +27,6 @@ router.post("/reset-password", resetPassword);
 router.post("/profile/otp/request", requestProfileUpdateOtp);
 router.post("/profile/otp/verify", verifyProfileUpdateOtp);
 router.post("/profile/history", protect, addToHistory);
+router.put("/push-token", protect, updatePushToken);
 
 module.exports = router;

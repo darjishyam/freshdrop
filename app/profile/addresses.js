@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import { Stack, useRouter } from "expo-router";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -26,6 +26,7 @@ import {
 
 export default function ManageAddressScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams(); // Get params
   const dispatch = useDispatch();
   const { showToast } = useToast();
   const location = useSelector(selectLocation);
@@ -139,7 +140,12 @@ export default function ManageAddressScreen() {
       // Don't block the save if geocoding fails
     }
 
-    router.back();
+    // Check if we need to redirect to Home (Onboarding flow)
+    if (params.isOnboarding === "true") {
+      router.replace("/home");
+    } else {
+      router.back();
+    }
   };
 
   return (

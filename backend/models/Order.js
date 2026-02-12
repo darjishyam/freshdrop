@@ -12,6 +12,12 @@ const orderSchema = new mongoose.Schema(
       ref: "Restaurant",
       required: true,
     },
+    // New: Explicit Link to Driver
+    driver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Driver",
+      default: null
+    },
     items: [
       {
         product: {
@@ -53,7 +59,7 @@ const orderSchema = new mongoose.Schema(
       },
       transactionId: String,
     },
-    // Driver/Delivery Partner Information
+    // Driver Details (Legacy + Display)
     driverDetails: {
       name: String,
       phone: String,

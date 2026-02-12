@@ -21,7 +21,9 @@ import { useToast } from "../../context/ToastContext";
 import { restaurantItems, restaurants, getRestaurantMenu } from "../../data/mockData";
 import { addToCart } from "../../store/slices/cartSlice";
 import { loadReviews, selectReviews } from "../../store/slices/reviewsSlice";
+
 import { selectUser } from "../../store/slices/userSlice";
+import { API_BASE_URL } from "../../constants/api";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();
@@ -108,35 +110,50 @@ export default function RestaurantScreen() {
     },
   ];
 
-  // Fetch restaurant data from API (MOCK IMPL)
+  // Fetch restaurant data from API
   useEffect(() => {
     const fetchRestaurant = async () => {
+      if (!restaurantId) return;
+
       try {
         setLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-          // Find restaurant details from mock data
-          // If ID matches a mock ID, use it. Otherwise default to first one for demo.
-          let mockRestaurant = restaurants.find(r => r.id === restaurantId);
+        console.log("Fetching restaurant details for ID:", restaurantId);
 
-          if (!mockRestaurant) {
-            // Fallback: If passed ID is not in mock data (e.g. Mongo ID), use the first mock restaurant
-            // But try to be smart: if we have many, maybe random? No, consistent is better.
-            mockRestaurant = restaurants[0];
-            console.log("Restaurant ID not found in mock data, falling back to:", mockRestaurant.name);
+        // Check if it's a valid MongoDB ObjectId (24 hex chars)
+        const isMongoId = /^[0-9a-fA-F]{24}$/.test(restaurantId);
+
+        if (isMongoId) {
+          // Fetch from Backend
+          const response = await fetch(`${API_BASE_URL}/restaurants/${restaurantId}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            // Transform data to match UI expectations if needed
+            // Backend returns: { _id, name, ... products: [] }
+            setRestaurant(data);
+            // If backend provides products, use them. Else fallback to defaults or empty.
+            // The controller getRestaurantById should return products.
+            const hasProducts = data.products && Array.isArray(data.products) && data.products.length > 0;
+            setMenuItems(hasProducts ? data.products : defaultMenuItems);
+          } else {
+            throw new Error(data.message || "Failed to fetch restaurant");
           }
+        } else {
+          // Fallback for Mock IDs
+          console.log("Using Mock Data for ID:", restaurantId);
+          let mockRestaurant = restaurants.find(r => r.id === restaurantId);
+          if (!mockRestaurant) mockRestaurant = restaurants[0];
 
-          // Find menu items
           const mockMenu = getRestaurantMenu(mockRestaurant.id);
-
           setRestaurant(mockRestaurant);
           setMenuItems(mockMenu.length > 0 ? mockMenu : defaultMenuItems);
-          setError(null);
-          setLoading(false);
-        }, 500);
+        }
+
+        setError(null);
       } catch (err) {
         console.error("Error fetching restaurant:", err);
         setError(err.message);
+      } finally {
         setLoading(false);
       }
     };
@@ -268,13 +285,13 @@ export default function RestaurantScreen() {
 
             dispatch(
               addToCart({
-                id: item.id,
+                id: item._id || item.id, // Use _id if available (backend product), else mock id
                 name: item.name,
                 price: item.price,
                 quantity: 1,
                 image: item.image,
-                restaurantId: validRestaurantId, // Use MongoDB ObjectId or Mock ID
-                restaurantName: restaurant?.name || "Unknown",
+                restaurantId: restaurant?._id || restaurant?.id || restaurantId, // Stronger Fallback
+                restaurantName: restaurant?.name || "Unknown Restaurant",
                 veg: item.veg,
                 weight: item.weight,
                 supplier: item.supplier,

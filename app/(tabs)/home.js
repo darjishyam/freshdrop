@@ -25,9 +25,9 @@ import {
 import { API_BASE_URL } from "../../constants/api";
 import { addToCart } from "../../store/slices/cartSlice";
 import {
-  // fetchRestaurants, // REMOVED API CALL
+  fetchRestaurants,
   selectDataLoading,
-  // selectRestaurants, // REMOVED REDUX SELECTOR
+  selectRestaurants,
 } from "../../store/slices/dataSlice";
 import {
   selectLocation,
@@ -46,6 +46,7 @@ const SEARCH_ITEMS = [
   " 'Pizza'",
   " 'Milk'",
   " 'Cake'",
+  " 'Thali'",
 ];
 
 export default function HomeScreen() {
@@ -58,8 +59,7 @@ export default function HomeScreen() {
 
   const coords = useSelector(selectLocationCoords);
   const isDataLoading = useSelector(selectDataLoading);
-  // const nearbyRestaurants = useSelector(selectRestaurants); // REMOVED
-  const nearbyRestaurants = restaurants; // USE MOCK DATA DIRECTLY
+  const nearbyRestaurants = useSelector(selectRestaurants); // USE REDUX DATA
 
   // State
   // Filter State
@@ -68,13 +68,13 @@ export default function HomeScreen() {
 
   // State for search
   const [searchQuery, setSearchQuery] = useState("");
-  // Mock Grocery Items directly from data
+  // Mock Grocery Items directly from data (for now, or fetch similarly if needed)
   const groceryItems = groceryStores;
 
-  // REMOVED API EFFECT
-  /*
+  // FETCH RESTAURANTS API
   useEffect(() => {
     if (!coords?.latitude || !coords?.longitude) return;
+    console.log("Fetching restaurants for:", coords);
     dispatch(
       fetchRestaurants({
         lat: coords.latitude,
@@ -82,7 +82,6 @@ export default function HomeScreen() {
       })
     );
   }, [coords?.latitude, coords?.longitude, dispatch]);
-  */
 
 
   // Derived Data with Filters
@@ -517,198 +516,202 @@ export default function HomeScreen() {
           ) : (
             // STANDARD DASHBOARD VIEW
             <>
-              {/* Best Food Options */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>
-                    Order our best food options
-                  </Text>
-                  <View style={styles.navButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !foodCanScrollLeft && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollFood("left")}
-                      disabled={!foodCanScrollLeft}
-                    >
-                      <Ionicons
-                        name="arrow-back"
-                        size={20}
-                        color={foodCanScrollLeft ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !foodCanScrollRight && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollFood("right")}
-                      disabled={!foodCanScrollRight}
-                    >
-                      <Ionicons
-                        name="arrow-forward"
-                        size={20}
-                        color={foodCanScrollRight ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
+              {/* Best Food Options - Hidden when any filter is active */}
+              {(priceRange === "All" && filterType === "All") && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>
+                      Order our best food options
+                    </Text>
+                    <View style={styles.navButtons}>
+                      <TouchableOpacity
+                        style={[
+                          styles.navBtn,
+                          !foodCanScrollLeft && styles.navBtnDisabled,
+                        ]}
+                        onPress={() => scrollFood("left")}
+                        disabled={!foodCanScrollLeft}
+                      >
+                        <Ionicons
+                          name="arrow-back"
+                          size={20}
+                          color={foodCanScrollLeft ? "#4b5563" : "#9ca3af"}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.navBtn,
+                          !foodCanScrollRight && styles.navBtnDisabled,
+                        ]}
+                        onPress={() => scrollFood("right")}
+                        disabled={!foodCanScrollRight}
+                      >
+                        <Ionicons
+                          name="arrow-forward"
+                          size={20}
+                          color={foodCanScrollRight ? "#4b5563" : "#9ca3af"}
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-                <ScrollView
-                  ref={foodScrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[
-                    styles.horizontalList,
-                    Platform.OS === "web" && styles.webHorizontalScroll,
-                  ]}
-                  onScroll={handleFoodScroll}
-                  scrollEventThrottle={16}
-                  onContentSizeChange={(w) => {
-                    foodContentWidth.current = w;
-                  }}
-                  onLayout={(e) => {
-                    foodLayoutWidth.current = e.nativeEvent.layout.width;
-                  }}
-                >
-                  {Platform.OS === "web"
-                    ? Array.from({
-                      length: Math.ceil(foodOptions.length / 2),
-                    }).map((_, i) => {
-                      const item1 = foodOptions[i * 2];
-                      const item2 = foodOptions[i * 2 + 1];
-                      return (
-                        <View key={i} style={{ marginRight: 20 }}>
-                          <TouchableOpacity
-                            style={[styles.webItemValues, { marginRight: 0 }]}
-                            onPress={() =>
-                              router.push({
-                                pathname: "/collection/[id]",
-                                params: { id: item1.name },
-                              })
-                            }
-                          >
-                            <View style={styles.webFoodImageContainer}>
-                              <Image
-                                source={getImageSource(item1.image)}
-                                style={styles.webFoodImage}
-                                resizeMode="cover"
-                              />
-                            </View>
-                            <Text style={styles.webItemText}>
-                              {item1.name}
-                            </Text>
-                          </TouchableOpacity>
-                          {item2 && (
+                  <ScrollView
+                    ref={foodScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[
+                      styles.horizontalList,
+                      Platform.OS === "web" && styles.webHorizontalScroll,
+                    ]}
+                    onScroll={handleFoodScroll}
+                    scrollEventThrottle={16}
+                    onContentSizeChange={(w) => {
+                      foodContentWidth.current = w;
+                    }}
+                    onLayout={(e) => {
+                      foodLayoutWidth.current = e.nativeEvent.layout.width;
+                    }}
+                  >
+                    {Platform.OS === "web"
+                      ? Array.from({
+                        length: Math.ceil(foodOptions.length / 2),
+                      }).map((_, i) => {
+                        const item1 = foodOptions[i * 2];
+                        const item2 = foodOptions[i * 2 + 1];
+                        return (
+                          <View key={i} style={{ marginRight: 20 }}>
                             <TouchableOpacity
-                              style={[
-                                styles.webItemValues,
-                                { marginRight: 0, marginTop: 24 },
-                              ]}
+                              style={[styles.webItemValues, { marginRight: 0 }]}
                               onPress={() =>
                                 router.push({
                                   pathname: "/collection/[id]",
-                                  params: { id: item2.name },
+                                  params: { id: item1.name },
                                 })
                               }
                             >
                               <View style={styles.webFoodImageContainer}>
                                 <Image
-                                  source={getImageSource(item2.image)}
+                                  source={getImageSource(item1.image)}
                                   style={styles.webFoodImage}
                                   resizeMode="cover"
                                 />
                               </View>
                               <Text style={styles.webItemText}>
-                                {item2.name}
+                                {item1.name}
                               </Text>
                             </TouchableOpacity>
-                          )}
-                        </View>
-                      );
-                    })
-                    : foodOptions.map((item) => (
+                            {item2 && (
+                              <TouchableOpacity
+                                style={[
+                                  styles.webItemValues,
+                                  { marginRight: 0, marginTop: 24 },
+                                ]}
+                                onPress={() =>
+                                  router.push({
+                                    pathname: "/collection/[id]",
+                                    params: { id: item2.name },
+                                  })
+                                }
+                              >
+                                <View style={styles.webFoodImageContainer}>
+                                  <Image
+                                    source={getImageSource(item2.image)}
+                                    style={styles.webFoodImage}
+                                    resizeMode="cover"
+                                  />
+                                </View>
+                                <Text style={styles.webItemText}>
+                                  {item2.name}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })
+                      : foodOptions.map((item) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.foodItem}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/collection/[id]",
+                              params: { id: item.name },
+                            })
+                          }
+                        >
+                          <View style={styles.foodImageContainer}>
+                            <Image
+                              source={getImageSource(item.image)}
+                              style={styles.foodOptionImage}
+                              resizeMode="cover"
+                            />
+                          </View>
+                          <Text style={styles.itemLabel}>{item.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                  </ScrollView>
+                  {Platform.OS === "web" && (
+                    <View style={styles.webSectionDivider} />
+                  )}
+                </View>
+              )}
+
+              {/* Near By Grocery - Hidden when any filter is active */}
+              {(priceRange === "All" && filterType === "All") && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Near By Grocery</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[
+                      styles.horizontalList,
+                      Platform.OS === "web" && styles.webHorizontalScroll,
+                    ]}
+                  >
+                    {groceryItems.map((item) => (
                       <TouchableOpacity
                         key={item.id}
-                        style={styles.foodItem}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/collection/[id]",
-                            params: { id: item.name },
-                          })
-                        }
+                        style={{
+                          marginRight: 16,
+                          alignItems: "center",
+                          width: 100,
+                        }}
+                        onPress={() => router.push({
+                          pathname: "/grocery/[id]",
+                          params: {
+                            id: item.id,
+                            name: item.name,
+                            address: item.address,
+                            rating: item.rating,
+                            time: item.time,
+                            image: item.image
+                          }
+                        })}
                       >
-                        <View style={styles.foodImageContainer}>
-                          <Image
-                            source={getImageSource(item.image)}
-                            style={styles.foodOptionImage}
-                            resizeMode="cover"
-                          />
-                        </View>
-                        <Text style={styles.itemLabel}>{item.name}</Text>
+                        <Image
+                          source={{ uri: item.image }}
+                          style={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: 40, // Circular
+                            marginBottom: 8,
+                            resizeMode: 'contain',
+                            backgroundColor: '#f0f0f0'
+                          }}
+                        />
+                        <Text style={[styles.itemLabel, { textAlign: 'center' }]} numberOfLines={2}>
+                          {item.name}
+                        </Text>
                       </TouchableOpacity>
                     ))}
-                </ScrollView>
-                {Platform.OS === "web" && (
-                  <View style={styles.webSectionDivider} />
-                )}
-              </View>
+                  </ScrollView>
 
-              {/* Near By Grocery (Spoonacular) */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Near By Grocery</Text>
+                  {Platform.OS === "web" && (
+                    <View style={styles.webSectionDivider} />
+                  )}
                 </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={[
-                    styles.horizontalList,
-                    Platform.OS === "web" && styles.webHorizontalScroll,
-                  ]}
-                >
-                  {groceryItems.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={{
-                        marginRight: 16,
-                        alignItems: "center",
-                        width: 100,
-                      }}
-                      onPress={() => router.push({
-                        pathname: "/grocery/[id]",
-                        params: {
-                          id: item.id,
-                          name: item.name,
-                          address: item.address,
-                          rating: item.rating,
-                          time: item.time,
-                          image: item.image
-                        }
-                      })}
-                    >
-                      <Image
-                        source={{ uri: item.image }}
-                        style={{
-                          width: 80,
-                          height: 80,
-                          borderRadius: 40, // Circular
-                          marginBottom: 8,
-                          resizeMode: 'contain',
-                          backgroundColor: '#f0f0f0'
-                        }}
-                      />
-                      <Text style={[styles.itemLabel, { textAlign: 'center' }]} numberOfLines={2}>
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                {Platform.OS === "web" && (
-                  <View style={styles.webSectionDivider} />
-                )}
-              </View>
+              )}
 
               {/* Suggested Products (NEW) */}
               <View style={styles.section}>
@@ -902,176 +905,178 @@ export default function HomeScreen() {
                   ))}
                 </ScrollView>
               </View>
-              {/* RESTAURANTS SECTION */}
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>
-                    Discover best restaurants
-                  </Text>
-                  <View style={styles.navButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !restaurantCanScrollLeft && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollRestaurant("left")}
-                      disabled={!restaurantCanScrollLeft}
-                    >
-                      <Ionicons
-                        name="arrow-back"
-                        size={20}
-                        color={restaurantCanScrollLeft ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !restaurantCanScrollRight && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollRestaurant("right")}
-                      disabled={!restaurantCanScrollRight}
-                    >
-                      <Ionicons
-                        name="arrow-forward"
-                        size={20}
-                        color={restaurantCanScrollRight ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <ScrollView
-                  ref={restaurantScrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalList}
-                  onScroll={handleRestaurantScroll}
-                  scrollEventThrottle={16}
-                  onContentSizeChange={(w) => {
-                    restaurantContentWidth.current = w;
-                  }}
-                  onLayout={(e) => {
-                    restaurantLayoutWidth.current = e.nativeEvent.layout.width;
-                  }}
-                >
-                  {isDataLoading && (!nearbyRestaurants || nearbyRestaurants.length === 0) ? (
-                    <View style={{ paddingHorizontal: 16, width: width - 32 }}>
-                      <Text style={{ color: "#6b7280" }}>
-                        Loading nearby restaurants…
-                      </Text>
-                    </View>
-                  ) : filteredRestaurants.length === 0 ? (
-                    <View style={{ paddingHorizontal: 16, width: width - 32 }}>
-                      <Text style={{ color: "#6b7280" }}>
-                        No restaurants match your filters.
-                      </Text>
-                    </View>
-                  ) : filteredRestaurants.map((item) =>
-                    Platform.OS === "web" ? (
+              {/* RESTAURANTS SECTION - Hidden when any filter is active */}
+              {(priceRange === "All" && filterType === "All") && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>
+                      Discover best restaurants
+                    </Text>
+                    <View style={styles.navButtons}>
                       <TouchableOpacity
-                        key={item.id}
-                        style={styles.webRestCard}
-                        onPress={() => handleRestaurantClick(item)}
+                        style={[
+                          styles.navBtn,
+                          !restaurantCanScrollLeft && styles.navBtnDisabled,
+                        ]}
+                        onPress={() => scrollRestaurant("left")}
+                        disabled={!restaurantCanScrollLeft}
                       >
-                        <Image
-                          source={getImageSource(item.image)}
-                          style={styles.webRestImage}
-                          resizeMode="cover"
+                        <Ionicons
+                          name="arrow-back"
+                          size={20}
+                          color={restaurantCanScrollLeft ? "#4b5563" : "#9ca3af"}
                         />
-                        <View style={styles.webRestInfo}>
-                          <Text style={styles.webRestName}>{item.name}</Text>
-                          <Text style={styles.webRestMeta}>
-                            {item.rating} • {item.time}
-                          </Text>
-                          <Text style={styles.webRestCuisine}>
-                            {item.cuisine}
-                          </Text>
-                          <Text style={styles.webDiscountText}>
-                            {item.discount}
-                          </Text>
-                        </View>
                       </TouchableOpacity>
-                    ) : (
                       <TouchableOpacity
-                        key={item.id}
-                        style={styles.restaurantCard}
-                        onPress={() => handleRestaurantClick(item)}
+                        style={[
+                          styles.navBtn,
+                          !restaurantCanScrollRight && styles.navBtnDisabled,
+                        ]}
+                        onPress={() => scrollRestaurant("right")}
+                        disabled={!restaurantCanScrollRight}
                       >
-                        <View style={styles.restImageContainer}>
+                        <Ionicons
+                          name="arrow-forward"
+                          size={20}
+                          color={restaurantCanScrollRight ? "#4b5563" : "#9ca3af"}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <ScrollView
+                    ref={restaurantScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalList}
+                    onScroll={handleRestaurantScroll}
+                    scrollEventThrottle={16}
+                    onContentSizeChange={(w) => {
+                      restaurantContentWidth.current = w;
+                    }}
+                    onLayout={(e) => {
+                      restaurantLayoutWidth.current = e.nativeEvent.layout.width;
+                    }}
+                  >
+                    {isDataLoading && (!nearbyRestaurants || nearbyRestaurants.length === 0) ? (
+                      <View style={{ paddingHorizontal: 16, width: width - 32 }}>
+                        <Text style={{ color: "#6b7280" }}>
+                          Loading nearby restaurants…
+                        </Text>
+                      </View>
+                    ) : filteredRestaurants.length === 0 ? (
+                      <View style={{ paddingHorizontal: 16, width: width - 32 }}>
+                        <Text style={{ color: "#6b7280" }}>
+                          No restaurants match your filters.
+                        </Text>
+                      </View>
+                    ) : filteredRestaurants.map((item) =>
+                      Platform.OS === "web" ? (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.webRestCard}
+                          onPress={() => handleRestaurantClick(item)}
+                        >
                           <Image
                             source={getImageSource(item.image)}
-                            style={styles.restImage}
+                            style={styles.webRestImage}
                             resizeMode="cover"
                           />
-                          <View style={styles.promotedTag}>
-                            <Text style={styles.promotedText}>Promoted</Text>
-                          </View>
-                          <View style={styles.restDiscountBadge}>
-                            <Text style={styles.restDiscountText}>
+                          <View style={styles.webRestInfo}>
+                            <Text style={styles.webRestName}>{item.name}</Text>
+                            <Text style={styles.webRestMeta}>
+                              {item.rating} • {item.time}
+                            </Text>
+                            <Text style={styles.webRestCuisine}>
+                              {item.cuisine}
+                            </Text>
+                            <Text style={styles.webDiscountText}>
                               {item.discount}
                             </Text>
                           </View>
-                          <View style={styles.bookmarkIcon}>
-                            <Ionicons
-                              name="bookmark-outline"
-                              size={20}
-                              color="#fff"
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.restaurantCard}
+                          onPress={() => handleRestaurantClick(item)}
+                        >
+                          <View style={styles.restImageContainer}>
+                            <Image
+                              source={getImageSource(item.image)}
+                              style={styles.restImage}
+                              resizeMode="cover"
                             />
-                          </View>
-                        </View>
-                        <View style={styles.restInfo}>
-                          <View style={styles.restHeader}>
-                            <Text style={styles.restName} numberOfLines={1}>
-                              {item.name}
-                            </Text>
-                            <View style={styles.ratingBadge}>
-                              <Text style={styles.ratingVal}>
-                                {item.rating}
+                            <View style={styles.promotedTag}>
+                              <Text style={styles.promotedText}>Promoted</Text>
+                            </View>
+                            <View style={styles.restDiscountBadge}>
+                              <Text style={styles.restDiscountText}>
+                                {item.discount}
                               </Text>
+                            </View>
+                            <View style={styles.bookmarkIcon}>
                               <Ionicons
-                                name="star"
-                                size={10}
+                                name="bookmark-outline"
+                                size={20}
                                 color="#fff"
-                                style={{ marginLeft: 2 }}
                               />
                             </View>
                           </View>
-                          <View style={styles.restMetaRow}>
-                            <Text style={styles.cuisineText} numberOfLines={1}>
-                              {item.cuisine}
-                            </Text>
-                            <Text style={styles.priceText}>
-                              {item.priceForTwo || item.price}
-                            </Text>
+                          <View style={styles.restInfo}>
+                            <View style={styles.restHeader}>
+                              <Text style={styles.restName} numberOfLines={1}>
+                                {item.name}
+                              </Text>
+                              <View style={styles.ratingBadge}>
+                                <Text style={styles.ratingVal}>
+                                  {item.rating}
+                                </Text>
+                                <Ionicons
+                                  name="star"
+                                  size={10}
+                                  color="#fff"
+                                  style={{ marginLeft: 2 }}
+                                />
+                              </View>
+                            </View>
+                            <View style={styles.restMetaRow}>
+                              <Text style={styles.cuisineText} numberOfLines={1}>
+                                {item.cuisine}
+                              </Text>
+                              <Text style={styles.priceText}>
+                                {item.priceForTwo || item.price}
+                              </Text>
+                            </View>
+                            <View style={styles.restLocationRow}>
+                              <Ionicons
+                                name="location-outline"
+                                size={14}
+                                color="#9ca3af"
+                              />
+                              <Text style={styles.locationText} numberOfLines={1}>
+                                {(item.location || item.address)} • {item.time}
+                              </Text>
+                            </View>
+                            <View style={styles.bookingRow}>
+                              <Ionicons
+                                name="calendar-outline"
+                                size={14}
+                                color="#059669"
+                              />
+                              <Text style={styles.bookingText}>
+                                Table booking available
+                              </Text>
+                            </View>
                           </View>
-                          <View style={styles.restLocationRow}>
-                            <Ionicons
-                              name="location-outline"
-                              size={14}
-                              color="#9ca3af"
-                            />
-                            <Text style={styles.locationText} numberOfLines={1}>
-                              {(item.location || item.address)} • {item.time}
-                            </Text>
-                          </View>
-                          <View style={styles.bookingRow}>
-                            <Ionicons
-                              name="calendar-outline"
-                              size={14}
-                              color="#059669"
-                            />
-                            <Text style={styles.bookingText}>
-                              Table booking available
-                            </Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    )
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </ScrollView>
+                  {Platform.OS === "web" && (
+                    <View style={styles.webSectionDivider} />
                   )}
-                </ScrollView>
-                {Platform.OS === "web" && (
-                  <View style={styles.webSectionDivider} />
-                )}
-              </View>
+                </View>
+              )}
               {/* Promo Banner Example */}
             </>
           )}

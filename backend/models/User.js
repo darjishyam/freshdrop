@@ -35,6 +35,9 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    pushToken: {
+      type: String, // Expo Push Token
+    },
     // Temporary storage for verifying profile updates (email/phone)
     tempUpdate: {
       field: String, // 'email' or 'phone'

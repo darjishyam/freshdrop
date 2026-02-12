@@ -475,14 +475,38 @@ const googleLogin = async (req, res) => {
     // 1. Get token from frontend
     const { token, action } = req.body; // action: 'login' or 'signup'
 
-    // 2. Verify ID TOKEN (Native) with Google
-    const response = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`
-    );
-    const googleUser = await response.json();
+    // 2. Verify Token (ID Token OR Access Token)
+    let googleUser = null;
+
+    // Try verifying as ID Token (Native/Android)
+    try {
+      const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+      const data = await response.json();
+      if (data.email) {
+        googleUser = data;
+      }
+    } catch (e) {
+      console.log("ID Token verification failed, checking Access Token...");
+    }
+
+    // If ID Token failed, try verifying as Access Token (Web)
+    if (!googleUser) {
+      try {
+        const response = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.email) {
+          googleUser = data;
+        }
+      } catch (e) {
+        console.log("Access Token verification failed.");
+      }
+    }
+
     console.log("Google Token Verification Response:", googleUser);
 
-    if (!googleUser.email) {
+    if (!googleUser || !googleUser.email) {
       return res.status(400).json({ message: "Google authentication failed", details: googleUser });
     }
 
@@ -906,6 +930,30 @@ const verifyProfileUpdateOtp = async (req, res) => {
   }
 };
 
+// @desc    Update Push Token
+// @route   PUT /api/auth/push-token
+const updatePushToken = async (req, res) => {
+  try {
+    const { pushToken } = req.body;
+
+    if (!pushToken) {
+      return res.status(400).json({ message: "Push token is required" });
+    }
+
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      user.pushToken = pushToken;
+      await user.save();
+      res.json({ message: "Push token updated" });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -918,4 +966,5 @@ module.exports = {
   requestProfileUpdateOtp,
   verifyProfileUpdateOtp,
   addToHistory,
+  updatePushToken,
 };

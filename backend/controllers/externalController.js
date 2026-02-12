@@ -1,6 +1,8 @@
 const axios = require("axios");
 
-// @desc    Get restaurants from Overpass API
+const Restaurant = require("../models/Restaurant"); // Import Restaurant Model
+
+// @desc    Get restaurants from Overpass API + Local DB
 // @route   GET /api/external/restaurants
 // @access  Public (or Protected if needed)
 const getRestaurants = async (req, res) => {
@@ -13,6 +15,51 @@ const getRestaurants = async (req, res) => {
         .json({ message: "Latitude and Longitude are required" });
     }
 
+    // 1. Fetch Local Restaurants from MongoDB
+    let localRestaurants = [];
+    try {
+      // Simple find all for now (optimize with geospatial later if needed)
+      // Or filter by distance here if we want to be strict
+      const allLocal = await Restaurant.find({});
+
+      localRestaurants = allLocal.map(r => {
+        const rLat = r.address?.coordinates?.lat || 0;
+        const rLon = r.address?.coordinates?.lon || 0;
+
+        // Simple Distance Check (optional, but good to filter relevant ones)
+        const dist = Math.sqrt(Math.pow(rLat - parseFloat(lat), 2) + Math.pow(rLon - parseFloat(lon), 2)) * 111; // Approx km
+
+        // Only include if within ~20km (generous radius for test)
+        if (dist > 50) return null;
+
+        return {
+          id: r._id.toString(),
+          name: r.name,
+          cuisine: r.cuisines.join(", "),
+          lat: rLat,
+          lon: rLon,
+          address: `${r.address.street}, ${r.address.city}`,
+          distance: `${dist.toFixed(1)} km`,
+          rating: r.rating || 4.5,
+          time: r.deliveryTime || "30-40 min",
+          price: r.priceRange || "₹200 for two",
+          discount: r.discount || "",
+          promoted: r.isPromoted,
+          image: r.image,
+          tags: [...r.cuisines, "Fast Delivery"],
+          coordinates: { lat: rLat, lng: rLon },
+          location: r.address.city,
+          isLocal: true // Flag to identify our DB restaurants
+        };
+      }).filter(Boolean);
+
+      console.log(`🏠 Found ${localRestaurants.length} local restaurants`);
+
+    } catch (err) {
+      console.error("Local DB Fetch Error:", err);
+    }
+
+    // 2. Fetch Overpass Data
     // Overpass QL query
     const query = `
       [out:json];
@@ -24,51 +71,58 @@ const getRestaurants = async (req, res) => {
     `;
 
     const overpassUrl = "https://overpass-api.de/api/interpreter";
-    const response = await axios.get(overpassUrl, {
-      params: { data: query },
-      timeout: 25000, // Increased to 25s for slower connections
-      headers: {
-        "User-Agent": "FreshDrop/1.0 (professorshyam123@gmail.com)", // Required by Overpass
-      },
-    });
+    let externalRestaurants = [];
 
-    const elements = response.data.elements || [];
+    try {
+      const response = await axios.get(overpassUrl, {
+        params: { data: query },
+        timeout: 25000,
+        headers: { "User-Agent": "FreshDrop/1.0 (professorshyam123@gmail.com)" },
+      });
 
-    // Mock Images List
-    const restaurantImages = [
-      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80",
-      "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500&q=80",
-      "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=500&q=80",
-      "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80",
-      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=80",
-    ];
+      const elements = response.data.elements || [];
 
-    const restaurants = elements.map((el, index) => {
-      const lat = el.lat || el.center?.lat;
-      const lon = el.lon || el.center?.lon;
-      const cuisine = el.tags?.cuisine || el.tags?.amenity || "Multi-Cuisine";
+      // Mock Images List
+      const restaurantImages = [
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500&q=80",
+        "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500&q=80",
+        "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=500&q=80",
+        "https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=500&q=80",
+        "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=80",
+      ];
 
-      return {
-        id: el.id.toString(),
-        name: el.tags?.name || "Local Restaurant",
-        cuisine: cuisine.split(";").join(", "),
-        lat: lat,
-        lon: lon,
-        address: el.tags?.["addr:street"] || "Nearby",
-        distance: "Nearby", // Can calculate exact distance if needed
-        rating: (Math.random() * (4.9 - 3.5) + 3.5).toFixed(1),
-        time: `${Math.floor(Math.random() * 20) + 25} min`,
-        price: "₹200 for two",
-        discount: Math.random() > 0.7 ? "50% OFF" : "",
-        promoted: Math.random() > 0.9,
-        image: restaurantImages[index % restaurantImages.length],
-        tags: [cuisine, "Fast Delivery"],
-        coordinates: { lat, lng: lon }, // Match frontend structure
-        location: el.tags?.["addr:city"] || "City",
-      };
-    });
+      externalRestaurants = elements.map((el, index) => {
+        const lat = el.lat || el.center?.lat;
+        const lon = el.lon || el.center?.lon;
+        const cuisine = el.tags?.cuisine || el.tags?.amenity || "Multi-Cuisine";
 
-    res.json(restaurants);
+        return {
+          id: el.id.toString(),
+          name: el.tags?.name || "Local Restaurant",
+          cuisine: cuisine.split(";").join(", "),
+          lat: lat,
+          lon: lon,
+          address: el.tags?.["addr:street"] || "Nearby",
+          distance: "Nearby",
+          rating: (Math.random() * (4.9 - 3.5) + 3.5).toFixed(1),
+          time: `${Math.floor(Math.random() * 20) + 25} min`,
+          price: "₹200 for two",
+          discount: Math.random() > 0.7 ? "50% OFF" : "",
+          promoted: Math.random() > 0.9,
+          image: restaurantImages[index % restaurantImages.length],
+          tags: [cuisine, "Fast Delivery"],
+          coordinates: { lat, lng: lon },
+          location: el.tags?.["addr:city"] || "City",
+        };
+      });
+    } catch (error) {
+      console.warn("Overpass Fetch Failed:", error.message);
+      // Don't fail entire request if external API fails, just return local
+    }
+
+    // Combine: Local First
+    const combinedRestaurants = [...localRestaurants, ...externalRestaurants];
+    res.json(combinedRestaurants);
   } catch (error) {
     if (error.response && error.response.status === 429) {
       console.warn("Overpass API Rate Limit (429) hit - serving empty list.");

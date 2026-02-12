@@ -66,11 +66,12 @@ export default function CartScreen() {
   // Calculate taxes and fees based on cart total
   const taxes = Math.round(cartTotal * 0.05); // 5% GST
 
-  // Dynamic delivery fee like Swiggy/Zomato
-  // Free delivery for orders above ₹500
-  // ₹25 for orders between ₹200-₹500
-  // ₹40 for orders below ₹200
-  const deliveryFee = cartTotal >= 500 ? 0 : cartTotal >= 200 ? 25 : 40;
+  // Tiered delivery fee based on number of items
+  // 1-2 items: ₹40
+  // 3-5 items: ₹60
+  // 6+ items: ₹80
+  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const deliveryFee = itemCount <= 2 ? 40 : itemCount <= 5 ? 60 : 80;
 
   const grandTotal = Math.round(cartTotal + taxes + deliveryFee);
 
@@ -102,27 +103,24 @@ export default function CartScreen() {
     );
     const restaurantImage = restaurant?.image || firstItem?.image;
 
-    // Create order object
-    // Helper to generate 24-char ObjectId from a string
-    const toObjectId = (str = "") => {
-      const hex = str.toString().split("").map(c => c.charCodeAt(0).toString(16)).join("");
-      return (hex + "000000000000000000000000").slice(0, 24);
-    };
-
-    // Helper to validation regex for ObjectId
+    // Updated Validation
     const isValidObjectId = (id) => {
+      // Check for 24-char hex string (MongoDB ObjectId)
       return typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id);
     };
 
-    // Get restaurant ID from first cart item
     let restaurantId = firstItem?.restaurantId;
 
-    // If restaurantId is missing OR isn't a valid ObjectId (e.g. it's a name like "Peppers"), generate one
     if (!isValidObjectId(restaurantId)) {
-      console.log("Invalid or missing restaurantId:", restaurantId, "Generating new one from name...");
-      restaurantId = toObjectId(firstItem?.restaurantName || firstItem?.restaurantId || "default");
-    } else {
-      restaurantId = restaurantId || toObjectId("1");
+      console.error("Invalid Restaurant ID in Cart:", restaurantId);
+      Alert.alert(
+        "Cart Error",
+        "Your cart contains invalid data (possibly from a previous session). Please clear your cart and try again.",
+        [
+          { text: "OK", onPress: () => dispatch(clearCart()) }
+        ]
+      );
+      return;
     }
 
     // Debug: Log what we're sending
@@ -132,21 +130,15 @@ export default function CartScreen() {
 
     // Create order object matching Backend Schema
     const newOrder = {
-      restaurantId: restaurantId, // Use actual restaurant ID from cart
+      restaurantId: restaurantId,
       items: cartItems.map((item) => ({
-        product: toObjectId(item.id || "1"), // Map 'id' to 'product' for backend reference
+        product: isValidObjectId(item.id) ? item.id : null,
         name: item.name,
         price: item.price,
         quantity: item.quantity,
-        // Send image as string.
-        // If it's an object (Web asset), stringify it.
-        // If it's a number (require ID) or string (URL), send as is (Mongoose casts number to string).
-        image:
-          typeof item.image === "object" && item.image !== null
-            ? JSON.stringify(item.image)
-            : item.image,
+        image: typeof item.image === "object" && item.image !== null ? JSON.stringify(item.image) : item.image,
       })),
-      totalAmount: grandTotal, // Backend expects top-level totalAmount
+      totalAmount: grandTotal,
       billDetails: {
         itemTotal: cartTotal,
         deliveryFee: deliveryFee,
@@ -159,7 +151,6 @@ export default function CartScreen() {
         city: userLocationType || "Home",
         lat: userCoords?.latitude || 0,
         lon: userCoords?.longitude || 0,
-        // Send these for backend compatibility
         type: userLocationType || "Home",
         address: userAddress || "Address not set"
       },

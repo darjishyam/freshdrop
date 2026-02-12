@@ -47,9 +47,7 @@ import {
 import { configureGoogleSignIn, signInWithGoogle } from "../../utils/googleSignInConfig";
 
 // Configure Google Sign-In
-configureGoogleSignIn();
-
-
+// Moved to component mount
 
 // Memoized input field component
 const InputField = React.memo(
@@ -121,14 +119,15 @@ export default function SignupScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
+  const router = useRouter();
   const dispatch = useDispatch();
   const isLoading = useSelector(selectIsLoading);
   const error = useSelector(selectError);
   const { showToast } = useToast();
 
-
-
-
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
 
   // Memoized validations
   const validations = useMemo(
@@ -157,10 +156,15 @@ export default function SignupScreen() {
   // Callbacks for input changes
   const handleNameChange = useCallback(
     (text) => {
+      // Check for digits
+      if (/\d/.test(text)) {
+        showToast("Name cannot contain numbers", "error");
+        return;
+      }
       setName(text);
       if (error) dispatch(clearError());
     },
-    [error, dispatch]
+    [error, dispatch, showToast]
   );
 
   const handleEmailChange = useCallback(
@@ -183,7 +187,15 @@ export default function SignupScreen() {
   // Callback for signup
   const handleSignup = useCallback(async () => {
     if (!isFormValid) {
-      Alert.alert("Invalid Input", "Please fill all fields correctly");
+      if (!validateName(name)) {
+        showToast("Name must be at least 2 characters", "error");
+      } else if (!validateEmail(email)) {
+        showToast("Please enter a valid email address", "error");
+      } else if (!validatePhone(phoneNumber)) {
+        showToast("Please enter a valid 10-digit phone number", "error");
+      } else {
+        showToast("Please fill all fields correctly", "error");
+      }
       return;
     }
 
@@ -232,7 +244,7 @@ export default function SignupScreen() {
       } else {
         // Just in case, if they have phone but no address
         console.log("User has phone, checking location...");
-        router.replace("/profile/addresses");
+        router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
       }
     } catch (err) {
       console.error("Google Signup Error:", err);

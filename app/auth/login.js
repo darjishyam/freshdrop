@@ -39,13 +39,11 @@ import {
 } from "../../store/slices/authSlice";
 import { updateUser } from "../../store/slices/userSlice";
 import { useToast } from "../../context/ToastContext";
-import { validatePhone } from "../../utils/authUtils";
+import { validatePhone, validateEmail } from "../../utils/authUtils";
 import { configureGoogleSignIn, signInWithGoogle } from "../../utils/googleSignInConfig";
 
 // Configure Google Sign-In
-configureGoogleSignIn();
-
-
+// Moved to component mount to ensure safety on Web
 
 // Memoized button component
 const LoginButton = React.memo(({ onPress, disabled, loading, text }) => (
@@ -68,6 +66,10 @@ export default function LoginScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    configureGoogleSignIn();
+  }, []);
 
   const [step, setStep] = useState('credentials'); // 'credentials' | 'otp'
   const [identifier, setIdentifier] = useState("");
@@ -110,6 +112,20 @@ export default function LoginScreen() {
 
   // Step 1: Request OTP
   const handleSendOtp = useCallback(async () => {
+    // Validate Input
+    const isPhone = /^\d+$/.test(identifier);
+    if (isPhone) {
+      if (!validatePhone(identifier)) {
+        showToast("Please enter a valid 10-digit phone number", "error");
+        return;
+      }
+    } else {
+      if (!validateEmail(identifier)) {
+        showToast("Please enter a valid email address", "error");
+        return;
+      }
+    }
+
     try {
       // Pass only identifier (email) to request OTP
       const response = await dispatch(requestOTP({ phone: identifier })).unwrap();
@@ -199,7 +215,7 @@ export default function LoginScreen() {
       // LOGIC: Existing users go Home. New users go to complete profile.
       if (result.isNewUser) {
         console.log("New Google User, redirecting to address setup");
-        router.replace("/profile/addresses");
+        router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
         return;
       }
 
@@ -217,7 +233,7 @@ export default function LoginScreen() {
 
       if (!savedCoords || savedCoords === "null") {
         console.log("User missing location, redirecting to addresses");
-        router.replace("/profile/addresses");
+        router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
       } else {
         // Everything set, go home
         router.replace("/home");

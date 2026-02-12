@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -135,9 +135,25 @@ const GUJARAT_CITIES = [
   "Sankheda",
 ];
 
+// Wrapper component that checks if Redux Provider is ready
 export default function UnifiedAuthScreen() {
+  const { ReactReduxContext } = require('react-redux');
+  const contextValue = useContext(ReactReduxContext);
+
+  // If Provider not ready, return a loading placeholder
+  if (!contextValue) {
+    return <View style={{ flex: 1, backgroundColor: '#fff' }} />;
+  }
+
+  // Provider is ready, render the actual component
+  return <_UnifiedAuthScreenContent />;
+}
+
+// Actual component that safely uses Redux hooks
+function _UnifiedAuthScreenContent() {
   const user = useSelector(selectUser);
   const dispatch = useDispatch();
+
   const { showToast } = useToast();
   const { width: windowWidth } = useWindowDimensions();
   const isMobileWeb = IS_WEB && windowWidth < 768;

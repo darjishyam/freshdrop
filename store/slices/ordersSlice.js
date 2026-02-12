@@ -55,7 +55,18 @@ const ordersSlice = createSlice({
     isLoading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    orderUpdated: (state, action) => {
+      const updatedOrder = action.payload;
+      const index = state.items.findIndex(o => o._id === updatedOrder._id || o.id === updatedOrder._id);
+      if (index !== -1) {
+        state.items[index] = updatedOrder;
+      } else {
+        // If not found (e.g. new order), add to top
+        state.items.unshift(updatedOrder);
+      }
+    }
+  },
   extraReducers: (builder) => {
     builder
       // Load Orders
@@ -90,6 +101,7 @@ const ordersSlice = createSlice({
   },
 });
 
+export const { orderUpdated } = ordersSlice.actions;
 export const selectOrders = (state) => state.orders.items;
 export const selectOrdersLoading = (state) => state.orders.isLoading;
 

@@ -100,6 +100,24 @@ const sampleRestaurants = [
     menuCategories: ["Chicken", "Burgers", "Sides"],
     isOpen: true,
   },
+  {
+    name: "Swiggy Test - Mehsana",
+    image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400",
+    rating: 4.8,
+    ratingCount: 50,
+    deliveryTime: "20-30 min",
+    priceRange: "₹150 for two",
+    cuisines: ["Gujarati", "North Indian", "Thali"],
+    address: {
+      street: "Panchot Circle",
+      city: "Mehsana",
+      coordinates: { lat: 23.63, lon: 72.37 }, // Approx Panchot/Mehsana coords
+    },
+    isPromoted: true,
+    discount: "20% OFF",
+    menuCategories: ["Thali", "Sabzi", "Roti"],
+    isOpen: true,
+  },
 ];
 
 const seedDatabase = async () => {
@@ -257,6 +275,38 @@ const seedDatabase = async () => {
       isMustTry: true,
       quantityDetails: "2 Pieces",
     });
+
+    // Mehsana Test Products
+    const mehsanaRest = restaurants[5];
+    if (mehsanaRest) {
+      products.push(
+        {
+          restaurant: mehsanaRest._id,
+          name: "Gujarati Thali",
+          image: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=300",
+          price: 120,
+          description: "Full Gujarati meal",
+          category: "Thali",
+          isVeg: true,
+          rating: 4.9,
+          votes: 45,
+          isBestSeller: true,
+          quantityDetails: "Serves 1",
+        },
+        {
+          restaurant: mehsanaRest._id,
+          name: "Paneer Butter Masala",
+          image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=300",
+          price: 180,
+          description: "Rich creamy gravy",
+          category: "Sabzi",
+          isVeg: true,
+          rating: 4.7,
+          votes: 30,
+          quantityDetails: "Serves 2",
+        }
+      );
+    }
 
     await Product.insertMany(products);
     console.log(`✅ Created ${products.length} products`);

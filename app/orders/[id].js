@@ -15,8 +15,9 @@ import { VegNonVegIcon } from "../../components/VegNonVegIcon";
 import {
   cancelOrder as cancelOrderAction,
   selectOrders,
-  updateOrderStatuses,
+  orderUpdated,
 } from "../../store/slices/ordersSlice";
+import SocketService from "../../services/socketService";
 
 // Helpers
 const formatDate = (dateString) => {
@@ -116,14 +117,33 @@ export default function OrderDetailsScreen() {
     }
   }, [id, orders]);
 
-  // Poll for status updates while on this screen
+  // Real-time Status Updates via Socket
   useEffect(() => {
-    const interval = setInterval(() => {
-      dispatch(updateOrderStatuses());
-    }, 1000); // Check every second to match list screen
+    let cleanupSocket = () => { };
 
-    return () => clearInterval(interval);
-  }, [dispatch]);
+    const setupSocket = async () => {
+      await SocketService.connect();
+
+      const eventName = `order_${id}`;
+      console.log("Listening for updates on:", eventName);
+
+      SocketService.on(eventName, (updatedOrder) => {
+        console.log("Received update for order:", updatedOrder._id, updatedOrder.status);
+        dispatch(orderUpdated(updatedOrder));
+        setOrder(updatedOrder); // Update local state immediately for smoother UX
+      });
+
+      cleanupSocket = () => {
+        SocketService.off(eventName);
+      };
+    };
+
+    setupSocket();
+
+    return () => {
+      cleanupSocket();
+    };
+  }, [id, dispatch]);
 
   if (!order)
     return (
@@ -269,8 +289,29 @@ export default function OrderDetailsScreen() {
                 <Ionicons name="call" size={20} color="#fc8019" />
               </TouchableOpacity>
             </View>
+            {/* Rate Driver Button - Only if Delivered */}
+            {order.status === "Delivered" && (
+              <TouchableOpacity
+                style={styles.rateDriverBtn}
+                onPress={() =>
+                  router.push({
+                    pathname: "/reviews/add",
+                    params: {
+                      orderId: order._id || order.id,
+                      driverId: order.driverDetails.id || order.driver._id || order.driver,
+                      driverName: order.driverDetails.name,
+                      productName: "Delivery Partner", // Generic name for review screen
+                    },
+                  })
+                }
+              >
+                <Ionicons name="star-outline" size={16} color="#FC8019" />
+                <Text style={styles.rateDriverText}>Rate Driver</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+        )
+        }
 
         {/* Items Section */}
         <View style={styles.section}>
@@ -391,74 +432,78 @@ export default function OrderDetailsScreen() {
         </View>
 
         {/* Cancel Order Button */}
-        {canCancelOrder(order.status) && (
-          <TouchableOpacity
-            style={styles.cancelOrderButton}
-            onPress={handleCancelOrder}
-          >
-            <Ionicons name="close-circle-outline" size={20} color="#ef4444" />
-            <Text style={styles.cancelOrderText}>Cancel Order</Text>
-          </TouchableOpacity>
-        )}
+        {
+          canCancelOrder(order.status) && (
+            <TouchableOpacity
+              style={styles.cancelOrderButton}
+              onPress={handleCancelOrder}
+            >
+              <Ionicons name="close-circle-outline" size={20} color="#ef4444" />
+              <Text style={styles.cancelOrderText}>Cancel Order</Text>
+            </TouchableOpacity>
+          )
+        }
 
         {/* Write Review Section - Only for Delivered Orders */}
-        {order.status === "Delivered" && (
-          <View style={styles.reviewSection}>
-            <Text style={styles.reviewSectionTitle}>How was your order?</Text>
-            <Text style={styles.reviewSectionSubtitle}>Rate your experience</Text>
-            {order.items.map((item, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={styles.reviewItemCard}
-                onPress={() =>
-                  router.push({
-                    pathname: "/reviews/add",
-                    params: {
-                      orderId: order._id || order.id,
-                      restaurantId: order.restaurant?._id || order.restaurant,
-                      productId: item.product || item.id || item.name,
-                      productName: item.name,
-                      productImage: item.image,
-                    },
-                  })
-                }
-              >
-                <View style={styles.reviewItemInfo}>
-                  {item.image && (
-                    <Image
-                      source={(() => {
-                        const img = item.image;
-                        if (typeof img === "string") {
-                          if (img.trim().startsWith("{")) {
-                            try {
-                              return JSON.parse(img);
-                            } catch (e) { }
+        {
+          order.status === "Delivered" && (
+            <View style={styles.reviewSection}>
+              <Text style={styles.reviewSectionTitle}>How was your order?</Text>
+              <Text style={styles.reviewSectionSubtitle}>Rate your experience</Text>
+              {order.items.map((item, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.reviewItemCard}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/reviews/add",
+                      params: {
+                        orderId: order._id || order.id,
+                        restaurantId: order.restaurant?._id || order.restaurant,
+                        productId: item.product || item.id || item.name,
+                        productName: item.name,
+                        productImage: item.image,
+                      },
+                    })
+                  }
+                >
+                  <View style={styles.reviewItemInfo}>
+                    {item.image && (
+                      <Image
+                        source={(() => {
+                          const img = item.image;
+                          if (typeof img === "string") {
+                            if (img.trim().startsWith("{")) {
+                              try {
+                                return JSON.parse(img);
+                              } catch (e) { }
+                            }
+                            if (
+                              !isNaN(img) &&
+                              img.trim() !== "" &&
+                              !img.startsWith("http")
+                            )
+                              return parseInt(img);
+                            return { uri: img };
                           }
-                          if (
-                            !isNaN(img) &&
-                            img.trim() !== "" &&
-                            !img.startsWith("http")
-                          )
-                            return parseInt(img);
-                          return { uri: img };
-                        }
-                        return img;
-                      })()}
-                      style={styles.reviewItemImage}
-                    />
-                  )}
-                  <Text style={styles.reviewItemName}>{item.name}</Text>
-                </View>
-                <View style={styles.reviewButton}>
-                  <Ionicons name="star-outline" size={18} color="#FC8019" />
-                  <Text style={styles.reviewButtonText}>Rate</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-    </View>
+                          return img;
+                        })()}
+                        style={styles.reviewItemImage}
+                      />
+                    )}
+                    <Text style={styles.reviewItemName}>{item.name}</Text>
+                  </View>
+                  <View style={styles.reviewButton}>
+                    <Ionicons name="star-outline" size={18} color="#FC8019" />
+                    <Text style={styles.reviewButtonText}>Rate</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )
+        }
+      </ScrollView >
+    </View >
   );
 }
 
@@ -603,6 +648,23 @@ const styles = StyleSheet.create({
   driverName: { fontWeight: "bold", fontSize: 16 },
   driverStatus: { color: "#666", fontSize: 12 },
   callBtn: { padding: 10, backgroundColor: "#FFF5E6", borderRadius: 20 },
+  rateDriverBtn: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#FC8019",
+    borderRadius: 8,
+    gap: 8,
+  },
+  rateDriverText: {
+    color: "#FC8019",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
 
   itemRow: {
     flexDirection: "row",

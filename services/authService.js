@@ -286,6 +286,34 @@ export const googleAuth = async (token, action = 'signup') => {
   }
 };
 
+/**
+ * Update Push Token
+ * PUT /api/auth/push-token
+ */
+export const updatePushToken = async (pushToken) => {
+  try {
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+    if (!token) return;
+
+    const response = await fetch(`${API_URL}/auth/push-token`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ pushToken })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      console.warn("Failed to update push token", data.message);
+    }
+    return data;
+  } catch (error) {
+    console.error("Error updating push token:", error);
+  }
+};
+
 // Default user init is not needed for real backend, but kept empty for safety imports
 export const initializeDefaultUser = async () => {
   return;

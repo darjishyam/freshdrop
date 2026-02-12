@@ -117,7 +117,9 @@ export const ToastProvider = ({ children }) => {
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error("useToast must be used within a ToastProvider");
+    // Provider not ready yet (race condition on mobile) - return no-op function
+    console.warn('ToastProvider not ready yet, returning no-op showToast');
+    return { showToast: () => { } };
   }
   return context;
 };

@@ -9,20 +9,23 @@ const Restaurant = require("../models/Restaurant");
 // @access  Private
 const addReview = async (req, res) => {
     try {
-        const { restaurantId, productId, productName, rating, comment, userName, userImage } = req.body;
+        const { restaurantId, driverId, productId, productName, rating, comment, userName, userImage } = req.body;
         const userId = req.user.id;
 
-        if (!restaurantId || !rating || !comment) {
+        if ((!restaurantId && !driverId) || !rating || !comment) {
             return res.status(400).json({ message: "Please provide all required fields" });
         }
 
         // Check if productId is a valid ObjectId
         const isValidProductId = productId && /^[0-9a-fA-F]{24}$/.test(productId);
+        const isValidDriverId = driverId && /^[0-9a-fA-F]{24}$/.test(driverId);
+        const isValidRestaurantId = restaurantId && /^[0-9a-fA-F]{24}$/.test(restaurantId);
 
         // Create review
         const review = await Review.create({
             user: userId,
-            restaurant: restaurantId,
+            restaurant: isValidRestaurantId ? restaurantId : null,
+            driver: isValidDriverId ? driverId : null,
             product: isValidProductId ? productId : null, // Set null if not valid ObjectId
             productName: productName, // Save the name (or mock ID) for filtering
             rating,
@@ -31,9 +34,8 @@ const addReview = async (req, res) => {
             userImage: userImage || req.user.image,
         });
 
-        // Update Restaurant Rating only if it's a valid real restaurant
-        // Skip for placeholder dummy ID
-        if (restaurantId !== "000000000000000000000001") {
+        // Update Restaurant Rating
+        if (isValidRestaurantId && restaurantId !== "000000000000000000000001") {
             try {
                 const reviews = await Review.find({ restaurant: restaurantId });
                 const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
@@ -45,6 +47,23 @@ const addReview = async (req, res) => {
                 });
             } catch (err) {
                 console.log("Skipping restaurant update (likely mock ID):", err.message);
+            }
+        }
+
+        // Update Driver Rating
+        if (isValidDriverId) {
+            try {
+                const Driver = require("../models/Driver");
+                const reviews = await Review.find({ driver: driverId });
+                const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+                const avgRating = (totalRating / reviews.length).toFixed(1);
+
+                await Driver.findByIdAndUpdate(driverId, {
+                    rating: avgRating,
+                    ratingCount: reviews.length,
+                });
+            } catch (err) {
+                console.error("Error updating driver rating:", err);
             }
         }
 

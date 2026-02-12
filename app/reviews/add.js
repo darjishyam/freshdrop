@@ -22,7 +22,7 @@ export default function AddReviewScreen() {
   const dispatch = useDispatch();
   const { showToast } = useToast();
   const user = useSelector(selectUser);
-  const { orderId, productId, productName, productImage, restaurantId } =
+  const { orderId, productId, productName, productImage, restaurantId, driverId, driverName } =
     useLocalSearchParams();
 
   const [rating, setRating] = useState(0);
@@ -41,12 +41,16 @@ export default function AddReviewScreen() {
         ? restaurantId
         : "000000000000000000000001"; // Default placeholder ObjectId
 
+      // If driverId provided, use it.
+      const validDriverId = driverId && driverId.length === 24 ? driverId : null;
+
       await dispatch(
         addReview({
           orderId,
           restaurantId: validRestaurantId,
+          driverId: validDriverId, // Pass driverId
           productId,
-          productName,
+          productName: driverName || productName, // Use driver name if available
           rating,
           comment,
           image: productImage,
@@ -101,9 +105,13 @@ export default function AddReviewScreen() {
           </View>
 
           <View style={styles.content}>
-            <Text style={styles.question}>How was your {productName}?</Text>
+            <Text style={styles.question}>
+              How was {driverName ? "your delivery partner?" : `your ${productName}?`}
+            </Text>
             <Text style={styles.subQuestion}>
-              Your feedback helps others make better choices.
+              {driverName
+                ? `Rate ${driverName}'s service.`
+                : "Your feedback helps others make better choices."}
             </Text>
 
             <View style={styles.starsContainer}>
@@ -160,9 +168,13 @@ export default function AddReviewScreen() {
           </View>
 
           <View style={styles.content}>
-            <Text style={styles.question}>How was your {productName}?</Text>
+            <Text style={styles.question}>
+              How was {driverName ? "your delivery partner?" : `your ${productName}?`}
+            </Text>
             <Text style={styles.subQuestion}>
-              Your feedback helps others make better choices.
+              {driverName
+                ? `Rate ${driverName}'s service.`
+                : "Your feedback helps others make better choices."}
             </Text>
 
             <View style={styles.starsContainer}>
