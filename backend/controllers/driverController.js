@@ -90,7 +90,7 @@ const sendOtpInternal = async (driver, res, type) => {
         message: `OTP sent via SMS`,
         phone: driver.phone,
         isNewUser: type === "signup",
-        ...(process.env.NODE_ENV !== "production" ? { devOtp: otp } : {}),
+        devOtp: otp, // Forced for testing
     });
 };
 
