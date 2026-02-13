@@ -446,6 +446,10 @@ const verifyOtp = async (req, res) => {
 
         await user.save();
 
+        // Fetch User's Default Address
+        const Address = require("../models/Address");
+        const defaultAddress = await Address.findOne({ user: user.id }).sort({ isDefault: -1, createdAt: -1 });
+
         res.json({
           _id: user.id,
           name: user.name,
@@ -454,6 +458,7 @@ const verifyOtp = async (req, res) => {
           token: generateToken(user.id),
           message: "OTP Verified Login Success",
           isNewUser: !user.isVerified, // Flag for frontend navigation
+          address: defaultAddress, // Return default address if exists
         });
       } else {
         // Matching but Expired

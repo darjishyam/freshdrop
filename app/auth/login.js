@@ -37,7 +37,7 @@ import {
   selectIsLoading,
   selectError,
 } from "../../store/slices/authSlice";
-import { updateUser } from "../../store/slices/userSlice";
+import { updateUser, updateLocation, updateLocationType, updateLocationCoords } from "../../store/slices/userSlice";
 import { useToast } from "../../context/ToastContext";
 import { validatePhone, validateEmail } from "../../utils/authUtils";
 import { configureGoogleSignIn, signInWithGoogle } from "../../utils/googleSignInConfig";
@@ -164,8 +164,18 @@ export default function LoginScreen() {
       // Update user slice immediately
       dispatch(updateUser(result));
 
-      // Success = Redux state updates, usually triggering navigation in _layout or here
-      router.replace("/home");
+      // Check if user has an address
+      if (result.address) {
+        dispatch(updateLocation(result.address.city));
+        dispatch(updateLocationType(result.address.type));
+        if (result.address.coordinates) {
+          dispatch(updateLocationCoords(result.address.coordinates));
+        }
+        router.replace("/home");
+      } else {
+        // No address found, redirect to address setup
+        router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
+      }
     } catch (err) {
       showToast(err || "Invalid OTP", "error");
     }

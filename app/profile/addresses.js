@@ -58,7 +58,10 @@ export default function ManageAddressScreen() {
         return;
       }
 
-      // Get current position
+      // 2. Clear state and show loading
+      setAddress("Locating current address...");
+
+      // 3. Get current position
       const currentLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
@@ -68,7 +71,36 @@ export default function ManageAddressScreen() {
       // Persist coords for nearby restaurants API usage
       dispatch(updateLocationCoords({ latitude, longitude }));
 
-      // Fetch Address from OpenStreetMap (Nominatim) - Force English
+      // --- Method 1: Expo Native Geocoding (More reliable on devices) ---
+      try {
+        const reverseGeocode = await Location.reverseGeocodeAsync({
+          latitude,
+          longitude,
+        });
+
+        if (reverseGeocode && reverseGeocode.length > 0) {
+          const addr = reverseGeocode[0];
+          // Construct a readable address from components, filtering out Plus Codes (e.g., J8GQ+4CV)
+          const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2,}/;
+          const readableAddress = [
+            addr.name && !plusCodeRegex.test(addr.name) ? addr.name : null,
+            addr.street,
+            addr.district || addr.subregion,
+            addr.city || addr.region,
+            addr.postalCode
+          ].filter(Boolean).join(", ");
+
+          if (readableAddress && readableAddress.length > 5) {
+            setAddress(readableAddress);
+            showToast("Location detected!");
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Expo reverseGeocode failed:", e);
+      }
+
+      // --- Method 2: OpenStreetMap (Nominatim) Fallback ---
       try {
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
@@ -80,25 +112,24 @@ export default function ManageAddressScreen() {
           }
         );
 
-        if (!response.ok) throw new Error("OSM Fetch Failed");
-
-        const data = await response.json();
-
-        if (data && data.display_name) {
-          setAddress(data.display_name);
-          showToast("Address fetched from OpenStreetMap!");
-        } else {
-          setAddress(`${latitude}, ${longitude}`);
-          showToast("Coordinates set (Address not found)");
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.display_name) {
+            setAddress(data.display_name);
+            showToast("Address fetched from OpenStreetMap!");
+            return;
+          }
         }
       } catch (err) {
         console.warn("OSM error:", err);
-        // Fallback to Expo if network fails or OSM down?
-        // Simplest fallback is coord
-        setAddress(`${latitude}, ${longitude}`);
       }
+
+      // If both fail:
+      setAddress(""); // Clear the "Locating..." text
+      showToast("Could not determine address. Please type it manually.");
     } catch (error) {
       console.error("Error getting location:", error);
+      setAddress("");
       Alert.alert("Error", "Failed to access location. Please check settings.");
     } finally {
       setLoadingLocation(false);

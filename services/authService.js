@@ -124,7 +124,9 @@ export const verifyOTP = async (phone, otp) => {
       name: data.name,
       email: data.email,
       phone: data.phone,
-      token: data.token
+      token: data.token,
+      address: data.address, // Include address
+      isNewUser: data.isNewUser
     };
 
     // Save session
@@ -133,8 +135,7 @@ export const verifyOTP = async (phone, otp) => {
 
     return {
       success: true,
-      user: user,
-      isNewUser: data.isNewUser
+      user
     };
   } catch (error) {
     console.error("Error verifying OTP:", error);
