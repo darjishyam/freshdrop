@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const sendSms = require("../utils/smsSender");
 const sendEmail = require("../utils/emailSender");
 const axios = require("axios");
+const { sendPushNotification } = require("../services/notificationService");
 
 const shouldLogOtp = () =>
     process.env.LOG_OTPS === "true" || process.env.NODE_ENV !== "production";
@@ -668,6 +669,20 @@ const updateDriverPushToken = async (req, res) => {
             driver.pushToken = pushToken;
             await driver.save();
             console.log(`✅ Push token saved for driver: ${driver.name} (${driver._id})`);
+
+            // Send Instant Feedback Notification
+            try {
+                await sendPushNotification(
+                    [{ userId: driver._id, pushToken: pushToken }],
+                    "Notifications Active! 🔔",
+                    "You are now ready to receive delivery orders.",
+                    { type: "SYSTEM" },
+                    "Driver"
+                );
+            } catch (notifError) {
+                console.error("Failed to send welcome notification:", notifError);
+            }
+
             res.json({ message: "Push token updated" });
         } else {
             console.log(`❌ Driver not found: ${req.user.id}`);
