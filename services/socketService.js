@@ -1,21 +1,17 @@
-import { io } from "socket.io-client";
-import { Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../constants/api";
 
-// Match the URL in utils/api.js or constants/api.js (if exists)
-const getBaseUrl = () => {
-    if (Platform.OS === "web") return "http://localhost:5000";
-    return "http://10.102.43.131:5000"; // Unified Backend Port
-};
-
-const SOCKET_URL = getBaseUrl();
+const SOCKET_URL = API_BASE_URL;
 
 class SocketService {
-    socket = null;
+    listeners = []; // Queue for listeners before connection
+
+    constructor() {
+        console.log("User App SocketService Initialized with Listener Queue");
+    }
 
     connect = async () => {
         try {
-            const token = await AsyncStorage.getItem("userToken"); // or however token is stored in SwiggyClone
+            const token = await AsyncStorage.getItem("userToken");
 
             if (this.socket?.connected) return;
 
@@ -26,6 +22,10 @@ class SocketService {
 
             this.socket.on("connect", () => {
                 console.log("User Socket connected:", this.socket.id);
+                // Attach queued listeners
+                this.listeners.forEach(({ event, callback }) => {
+                    this.socket.on(event, callback);
+                });
             });
 
             this.socket.on("disconnect", () => {
@@ -45,14 +45,24 @@ class SocketService {
     };
 
     on = (event, callback) => {
+        // Always store in queue/list so we can re-attach if needed or attach later
+        this.listeners.push({ event, callback });
+
         if (this.socket) {
             this.socket.on(event, callback);
         }
     };
 
-    off = (event) => {
+    off = (event, callback) => {
+        // Remove from local list
+        this.listeners = this.listeners.filter(l => l.event !== event);
+
         if (this.socket) {
-            this.socket.off(event);
+            if (callback) {
+                this.socket.off(event, callback);
+            } else {
+                this.socket.off(event);
+            }
         }
     };
 }

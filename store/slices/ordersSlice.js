@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { fetchUserOrders, createNewOrder } from "../../services/orderService";
+import { fetchUserOrders, createNewOrder, cancelOrderAPI } from "../../services/orderService";
 
 // Load orders from Backend
 export const loadOrders = createAsyncThunk(
@@ -33,9 +33,12 @@ export const addOrder = createAsyncThunk(
 export const cancelOrder = createAsyncThunk(
   "orders/cancelOrder",
   async (orderId, { rejectWithValue }) => {
-    // Requires backend endpoint for cancellation (not implemented yet)
-    // For now, just simulated error
-    return rejectWithValue("Cancellation not implemented in backend yet");
+    try {
+      const updatedOrder = await cancelOrderAPI(orderId);
+      return updatedOrder;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
   }
 );
 
@@ -97,6 +100,14 @@ const ordersSlice = createSlice({
       // Clear orders on logout
       .addCase("auth/logout/fulfilled", (state) => {
         state.items = [];
+      })
+      // Cancel Order
+      .addCase(cancelOrder.fulfilled, (state, action) => {
+        const updatedOrder = action.payload;
+        const index = state.items.findIndex(o => o._id === updatedOrder._id || o.id === updatedOrder._id);
+        if (index !== -1) {
+          state.items[index] = updatedOrder;
+        }
       });
   },
 });

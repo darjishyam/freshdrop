@@ -75,3 +75,36 @@ export const createNewOrder = async (orderData) => {
         throw error;
     }
 };
+
+/**
+ * Cancel Order
+ * PUT /api/orders/:id/cancel
+ */
+export const cancelOrderAPI = async (orderId) => {
+    try {
+        const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+
+        if (!token) {
+            throw new Error("You must be logged in to cancel an order");
+        }
+
+        const response = await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Failed to cancel order");
+        }
+
+        return data.order;
+    } catch (error) {
+        console.error("Error cancelling order:", error);
+        throw error;
+    }
+};

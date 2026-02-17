@@ -70,12 +70,17 @@ export default function OrdersScreen() {
   const handleReorder = (order) => {
     // Simple reorder logic - trying to add items back
     if (order.items && order.items.length > 0) {
+      const restaurantId = order.restaurant?._id || order.restaurant;
       order.items.forEach((item) => {
         dispatch(
           addToCart({
             ...item,
             id: item.id || item.name,
             quantity: item.quantity || 1,
+            restaurantId: restaurantId,
+            restaurantName: order.restaurant?.name || order.restaurantName,
+            restaurantImage: order.restaurant?.image || order.image,
+            image: item.image // Ensure image is passed
           })
         );
       });
@@ -98,10 +103,18 @@ export default function OrdersScreen() {
     router.push("/cart");
   };
 
-  const handleCancel = (item) => {
+  const handleCancel = async (item) => {
     // Confirm before cancelling
-    dispatch(cancelOrderAction(item._id || item.id));
-    showToast("Order canceled.");
+    try {
+      const resultAction = await dispatch(cancelOrderAction(item._id || item.id));
+      if (cancelOrderAction.fulfilled.match(resultAction)) {
+        showToast("Order canceled.");
+      } else {
+        showToast(resultAction.payload || "Failed to cancel order");
+      }
+    } catch (error) {
+      showToast("An unexpected error occurred");
+    }
   };
 
   const renderOrder = ({ item }) => (

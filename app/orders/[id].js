@@ -96,10 +96,19 @@ export default function OrderDetailsScreen() {
     return index !== -1 ? index : 0;
   };
 
-  const handleCancelOrder = () => {
+  const handleCancelOrder = async () => {
     if (order) {
-      dispatch(cancelOrderAction(order.id));
-      router.back();
+      try {
+        const resultAction = await dispatch(cancelOrderAction(order._id || order.id));
+        if (cancelOrderAction.fulfilled.match(resultAction)) {
+          router.back();
+        } else {
+          // You might have a showToast helper here, if not, it will be handled by the slice errors
+          console.error("Failed to cancel order:", resultAction.payload);
+        }
+      } catch (error) {
+        console.error("Unexpected error during cancellation:", error);
+      }
     }
   };
 
