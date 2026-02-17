@@ -1,8 +1,16 @@
+const fs = require("fs");
+const path = require("path");
 const Order = require("../models/Order");
 const User = require("../models/User");
 const Driver = require("../models/Driver");
 const Restaurant = require("../models/Restaurant");
 const { sendPushNotification } = require("../services/notificationService");
+
+const logFile = path.join(__dirname, "../logs/order_dispatch.log");
+// Ensure logs directory exists
+if (!fs.existsSync(path.dirname(logFile))) {
+    fs.mkdirSync(path.dirname(logFile), { recursive: true });
+}
 
 // @desc    Place a new order
 // @route   POST /api/orders
@@ -60,7 +68,6 @@ const createOrder = async (req, res) => {
             },
             deliveryAddress,
             paymentMethod,
-            paymentMethod,
             paymentStatus: paymentMethod === "COD" ? "Pending" : "Completed",
             status: "Order Placed", // FORCE STATUS
             eta: "30-40 mins",
@@ -85,40 +92,111 @@ const createOrder = async (req, res) => {
         // Find Nearby Drivers (5km Radius)
         if (restaurant.address && restaurant.address.coordinates) {
             const { lat, lon } = restaurant.address.coordinates;
+            const targetCity = restaurant.address.city || "";
 
-            // GeoJSON Query: Drivers within 5km of Restaurant
-            const nearbyDrivers = await Driver.find({
+            // Normalize city for comparison (Mehsana vs Mahesana vs Mehasana)
+            const mehsanaSynonyms = ["mehsana", "mahesana", "mehasana"];
+            const normalizedTarget = targetCity.toLowerCase().trim();
+            const isMehsana = mehsanaSynonyms.includes(normalizedTarget) || normalizedTarget.match(/m[ae]h[ae]?sana/);
+
+            // 1. Define City Query
+            let cityQuery;
+            if (isMehsana) {
+                cityQuery = { $regex: /m[ae]h[ae]?sana/i };
+            } else if (targetCity) {
+                cityQuery = { $regex: new RegExp(`^${targetCity}$`, "i") };
+            } else {
+                // If NO city in restaurant, don't filter by city in the PRIMARY geo-search
+                // This allows GPS-only matching for cityless restaurants
+                cityQuery = { $exists: true };
+            }
+
+            // 1. Primary GeoJSON Query: Drivers within 5km of Restaurant AND in same City
+            let nearbyDrivers = await Driver.find({
                 location: {
                     $near: {
                         $geometry: {
                             type: "Point",
                             coordinates: [lon, lat] // MongoDB uses [lon, lat]
                         },
-                        $maxDistance: 5000 // 5km in meters
+                        $maxDistance: 10000 // Increased to 10km for wider real-time reach
                     }
                 },
                 isOnline: true,
-                status: "ACTIVE" // Only ACTIVE drivers
+                status: { $in: ["ACTIVE", "onboarding", "PENDING"] },
+                city: cityQuery
             });
 
-            console.log(`Found ${nearbyDrivers.length} nearby drivers for Order ${createdOrder._id}`);
+            // 2. FALLBACK: Search by City Only if no drivers found by GPS 
+            // OR if it's Mehsana (Small city, notify everyone for better testing/reliability)
+            if (nearbyDrivers.length === 0 || isMehsana) {
+                const searchMsg = isMehsana
+                    ? `[ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.\n`
+                    : `[ORDER_CREATE] No drivers found within 10km. Falling back to City Search for: ${targetCity}\n`;
+
+                console.log(searchMsg);
+                try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + searchMsg); } catch (e) { }
+
+                const cityDrivers = await Driver.find({
+                    isOnline: true,
+                    status: { $in: ["ACTIVE", "onboarding", "PENDING"] },
+                    city: cityQuery,
+                    _id: { $nin: nearbyDrivers.map(d => d._id) } // Don't duplicate
+                });
+
+                nearbyDrivers = [...nearbyDrivers, ...cityDrivers];
+
+                const countMsg = `[ORDER_CREATE] Final notification list size: ${nearbyDrivers.length} drivers.\n`;
+                console.log(countMsg);
+                try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + countMsg); } catch (e) { }
+            }
+
+            if (nearbyDrivers.length > 0) {
+                nearbyDrivers.forEach(d => {
+                    const detailMsg = `   -> Driver: ${d._id} City: ${d.city} Loc: ${d.location?.coordinates}\n`;
+                    console.log(detailMsg);
+                    try { fs.appendFileSync(logFile, detailMsg); } catch (e) { }
+                });
+            }
 
             // Alert Drivers via Socket
             const io = req.app.get('io');
+
+            // NEW: Broadcast to entire city room
+            // This ensures "Available Orders" tab updates for EVERYONE in the city
+            const getBroadcastCity = (c) => {
+                if (!c) return "unknown";
+                const normalized = c.toLowerCase().trim();
+                if (normalized.match(/m[ae]h[ae]?sana/i)) return "mehsana";
+                return normalized.replace(/\s+/g, '_');
+            };
+            const cityRoom = `city_${getBroadcastCity(targetCity)}`;
+
             if (io) {
+                // 1. Notify targeted GPS drivers (Personalized)
                 nearbyDrivers.forEach(driver => {
                     io.to(`driver_${driver._id}`).emit('newOrder', {
                         ...populatedOrder.toObject(),
-                        restaurantLocation: { latitude: lat, longitude: lon } // Send for distance calc
+                        restaurantLocation: { latitude: lat, longitude: lon }
                     });
-                    console.log(`Emitted newOrder to driver_${driver._id}`);
                 });
+
+                // 2. Broadcast to city room (General update for Available Orders Tab)
+                io.to(cityRoom).emit('newOrder', {
+                    ...populatedOrder.toObject(),
+                    restaurantLocation: { latitude: lat, longitude: lon }
+                });
+                console.log(`📡 Broadcasted newOrder to ${cityRoom} and ${nearbyDrivers.length} targeted drivers`);
             }
 
             // Send Push Notifications to Nearby Drivers
             const recipients = nearbyDrivers
                 .filter(driver => driver.pushToken)
                 .map(driver => ({ userId: driver._id, pushToken: driver.pushToken }));
+
+            const recipientLogs = `[ORDER_CREATE] Push Recipients: ${JSON.stringify(recipients)}\n`;
+            console.log(recipientLogs);
+            try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + recipientLogs); } catch (e) { }
 
             if (recipients.length > 0) {
                 try {
@@ -171,23 +249,52 @@ const getAvailableOrders = async (req, res) => {
     try {
         const { latitude, longitude } = req.query; // Driver's location
 
-        // Find unassigned orders
-        const orders = await Order.find({
+        // 1. Get Driver's City from DB
+        const driver = await Driver.findById(req.user._id);
+        const driverCity = driver?.city;
+
+        // Filter: Last 3 Hours Only
+        const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);
+
+        // Find unassigned orders, sorted by newest first
+        let query = {
             status: "Order Placed",
-            driver: null
-        }).populate("restaurant");
+            driver: null,
+            createdAt: { $gt: threeHoursAgo }
+        };
 
-        // Simple distance filter if lat/lon provided (Fallback since we don't store Order location in GeoJSON yet)
-        // Ideally we use $geoNear aggregation, but accessing restaurant location via lookup is complex in simple query.
-        // So we filter in code for now.
+        const orders = await Order.find(query)
+            .sort({ createdAt: -1 }) // Newest First
+            .populate("restaurant");
 
-        let availableOrders = orders;
+        // Filter by City & Distance
+        let availableOrders = orders.filter(order => {
+            // 2. City Check (with spelling normalization)
+            const getNormalizedCity = (c) => {
+                if (!c) return "";
+                const normalized = c.toLowerCase().trim();
+                // Match anything like mehsana/mahesana/mehasana/mehshana
+                if (normalized.match(/m[ae]h[ae]?sana/i)) return "mehsana";
+                return normalized;
+            };
+
+            const restaurantCityRaw = order.restaurant?.address?.city || "";
+            const restaurantCity = getNormalizedCity(restaurantCityRaw);
+            const dCity = getNormalizedCity(driverCity);
+
+            // If both have city data, and they don't match, filter out.
+            // BUT: If restaurant has NO city, we'll let it pass to the GPS check.
+            if (dCity && restaurantCity && restaurantCity !== dCity) {
+                return false;
+            }
+            return true;
+        });
 
         if (latitude && longitude) {
             const driverLat = parseFloat(latitude);
             const driverLon = parseFloat(longitude);
 
-            availableOrders = orders.filter(order => {
+            availableOrders = availableOrders.filter(order => {
                 if (order.restaurant && order.restaurant.address && order.restaurant.address.coordinates) {
                     const rLat = order.restaurant.address.coordinates.lat;
                     const rLon = order.restaurant.address.coordinates.lon;
@@ -203,9 +310,15 @@ const getAvailableOrders = async (req, res) => {
                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
                     const d = R * c; // Distance in km
 
-                    return d <= 15; // Increased to 15km Radius for testing
+                    // If it's in the same city, be very lenient (100km)
+                    // If no city match was done (restaurantCity empty), be strict (15km)
+                    const restaurantCityRaw = order.restaurant?.address?.city || "";
+                    const isCityMatch = restaurantCityRaw && driverCity &&
+                        restaurantCityRaw.toLowerCase() === driverCity.toLowerCase();
+
+                    return isCityMatch ? d <= 100 : d <= 15;
                 }
-                return false;
+                return true;
             });
         }
 
@@ -219,17 +332,39 @@ const getAvailableOrders = async (req, res) => {
 
 // @desc    Accept Order (Driver)
 // @route   POST /api/orders/:id/accept
+// @desc    Accept Order (Driver)
+// @route   POST /api/orders/:id/accept
 const acceptOrder = async (req, res) => {
     try {
         const orderId = req.params.id;
         const driverId = req.user.id;
 
+        console.log(`[RACE_DEBUG] Driver ${driverId} attempting to accept Order ${orderId}`);
+
+        // 1. Initial State Check (Optional, for debugging)
+        const initialCheck = await Order.findById(orderId);
+        if (!initialCheck) {
+            console.log(`[RACE_DEBUG] Order ${orderId} NOT FOUND`);
+            return res.status(404).json({ message: "Order not found" });
+        }
+        console.log(`[RACE_DEBUG] Order ${orderId} current driver: ${initialCheck.driver}`);
+
+        if (initialCheck.driver) {
+            console.log(`[RACE_DEBUG] REJECTING: Order ${orderId} already has driver ${initialCheck.driver}`);
+            return res.status(400).json({
+                message: "Order already accepted by another driver",
+                code: "ORDER_ALREADY_TAKEN",
+                currentDriver: initialCheck.driver
+            });
+        }
+
+        // 2. Atomic Update
         // Use atomic findOneAndUpdate to prevent race conditions
         // This ensures only ONE driver can accept the order
         const order = await Order.findOneAndUpdate(
             {
                 _id: orderId,
-                driver: null  // Only update if driver is still null
+                driver: null  // CRITICAL: Only update if driver is null
             },
             {
                 $set: {
@@ -253,13 +388,23 @@ const acceptOrder = async (req, res) => {
             { new: true }  // Return the updated document
         );
 
-        // If order is null, it means another driver already accepted it
+        // 3. Post-Update Verification
         if (!order) {
+            // If order is null, it means the query { _id: orderId, driver: null } failed to find a match.
+            // Since we know the order exists (from initialCheck), it means 'driver' was NOT null.
+            console.log(`[RACE_DEBUG] FAILED: Driver ${driverId} failed to acquire lock on Order ${orderId}`);
+
+            // Fetch checks to see who got it
+            const finalCheck = await Order.findById(orderId);
+            console.log(`[RACE_DEBUG] Order ${orderId} was taken by Driver ${finalCheck?.driver}`);
+
             return res.status(400).json({
                 message: "Order already accepted by another driver",
                 code: "ORDER_ALREADY_TAKEN"
             });
         }
+
+        console.log(`[RACE_DEBUG] SUCCESS: Driver ${driverId} successfully accepted Order ${orderId}`);
 
         const updatedOrder = await Order.findById(orderId)
             .populate("restaurant")
@@ -272,6 +417,7 @@ const acceptOrder = async (req, res) => {
             io.emit(`order_${orderId}`, updatedOrder);
 
             // Remove from other drivers' lists
+            console.log(`[RACE_DEBUG] Emitting orderTaken for ${orderId}`);
             io.emit('orderTaken', orderId);
         }
 
@@ -390,6 +536,65 @@ const getDriverHistory = async (req, res) => {
     }
 }
 
+// @desc    Cancel Order (User)
+// @route   PUT /api/orders/:id/cancel
+const cancelOrder = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const userId = req.user._id;
+
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        // 1. Verify Ownership
+        if (order.user.toString() !== userId.toString()) {
+            return res.status(403).json({ message: "Not authorized to cancel this order" });
+        }
+
+        // 2. Verify Status (Only "Order Placed" can be cancelled)
+        if (order.status !== "Order Placed") {
+            return res.status(400).json({
+                message: `Cannot cancel order in ${order.status} status. It may already be confirmed or prepared.`,
+                status: order.status
+            });
+        }
+
+        // 3. Perform Cancellation
+        order.status = "Cancelled";
+        order.timeline.push({
+            status: "Cancelled",
+            time: new Date(),
+            description: "Order has been cancelled by the user"
+        });
+
+        await order.save();
+
+        const populatedOrder = await Order.findById(orderId)
+            .populate("restaurant", "name image address")
+            .populate("driver", "name phone vehicleNumber image");
+
+        // Notify Driver if assigned (though for "Order Placed" it's usually null)
+        const io = req.app.get('io');
+        if (io) {
+            // Notify other drivers to remove from their available list
+            io.emit('orderCancelled', orderId);
+            // Notify status room
+            io.emit(`order_${orderId}`, populatedOrder);
+        }
+
+        res.json({
+            message: "Order cancelled successfully",
+            order: populatedOrder
+        });
+
+    } catch (error) {
+        console.error("Cancel Order Error:", error);
+        res.status(500).json({ message: "Failed to cancel order" });
+    }
+}
+
 module.exports = {
     createOrder,
     getUserOrders,
@@ -397,5 +602,6 @@ module.exports = {
     acceptOrder,
     updateOrderStatus,
     getDriverActiveOrder,
-    getDriverHistory
+    getDriverHistory,
+    cancelOrder
 };

@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { getNearbyData, getRestaurantById, saveExternalRestaurant } = require("../controllers/restaurantController");
+const { getNearbyData, getRestaurantById, saveExternalRestaurant, getMockRestaurants } = require("../controllers/restaurantController");
 
 router.get("/nearby", getNearbyData);
+router.get("/mock", getMockRestaurants); // New Mock Route
 router.post("/save-external", saveExternalRestaurant);
 router.get("/:id", getRestaurantById);
 

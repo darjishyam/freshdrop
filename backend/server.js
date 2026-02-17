@@ -32,6 +32,13 @@ io.on("connection", (socket) => {
     console.log(`Driver ${driverId} joined room driver_${driverId}`);
   });
 
+  socket.on("joinCityRoom", (city) => {
+    if (!city) return;
+    const normalizedCity = city.toLowerCase().trim().replace(/\s+/g, '_');
+    socket.join(`city_${normalizedCity}`);
+    console.log(`Socket ${socket.id} joined city room: city_${normalizedCity}`);
+  });
+
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
   });
@@ -45,6 +52,11 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // Request Logging Middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  if (req.method === 'POST' || req.method === 'PUT') {
+    const bodyStr = JSON.stringify(req.body);
+    const logBody = bodyStr.length > 200 ? bodyStr.substring(0, 200) + "..." : bodyStr;
+    console.log(`Payload: ${logBody}`);
+  }
   next();
 });
 

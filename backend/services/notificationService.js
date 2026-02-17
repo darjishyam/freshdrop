@@ -37,6 +37,13 @@ const sendPushNotification = async (recipients, title, body, data = {}, recipien
             title: title,
             body: body,
             data: data,
+            priority: 'high',
+            channelId: 'default',
+            color: '#fc8019', // FreshDrop Orange
+            // icon: "..." // DO NOT send URL here. It must be a local android resource name. 
+            // Letting it default to app icon is safer.
+            // Standard way for Expanded Image is not supported directly in Expo Push API without data payload or `image` (if supported in newer versions, but usually handled by client).
+            // However, let's keep it simple.
         });
     }
 
@@ -69,11 +76,12 @@ const sendPushNotification = async (recipients, title, body, data = {}, recipien
 
     for (let chunk of chunks) {
         try {
+            console.log(`[PUSH] Sending chunk of ${chunk.length} messages`);
             let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-            console.log("Notification Ticket Chunk:", ticketChunk);
+            console.log("[PUSH] Ticket Chunk Response:", JSON.stringify(ticketChunk));
             tickets.push(...ticketChunk);
         } catch (error) {
-            console.error("Error sending notification chunk:", error);
+            console.error("[PUSH] Error sending notification chunk:", error);
         }
     }
 };

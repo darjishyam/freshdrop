@@ -1,0 +1,161 @@
+2026-02-16T08:27:11.851Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: mehasana
+2026-02-16T08:27:11.884Z [ORDER_CREATE] Fallback found 0 drivers in mehasana.
+2026-02-16T08:27:11.886Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T08:35:08.551Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: mehasana
+2026-02-16T08:35:08.579Z [ORDER_CREATE] Fallback found 0 drivers in mehasana.
+2026-02-16T08:35:08.581Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T08:40:38.764Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: City
+2026-02-16T08:40:38.798Z [ORDER_CREATE] Fallback found 0 drivers in City.
+2026-02-16T08:40:38.799Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T08:40:38.802Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T08:41:52.716Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: Mehsana
+2026-02-16T08:41:52.742Z [ORDER_CREATE] Fallback found 0 drivers in Mehsana.
+2026-02-16T08:41:52.744Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T08:41:52.746Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T08:45:25.853Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: City
+2026-02-16T08:45:25.880Z [ORDER_CREATE] Fallback found 0 drivers in City.
+2026-02-16T08:45:25.881Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T08:45:25.883Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T08:46:53.883Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: City
+2026-02-16T08:46:53.911Z [ORDER_CREATE] Fallback found 0 drivers in City.
+2026-02-16T08:46:53.913Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T08:46:53.914Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T08:49:09.054Z [ORDER_CREATE] Found 1 drivers.
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.3805702,23.5941358
+2026-02-16T08:49:09.060Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T08:50:06.692Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: Mehsana
+2026-02-16T08:50:06.723Z [ORDER_CREATE] Fallback found 0 drivers in Mehsana.
+2026-02-16T08:50:06.725Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T08:50:06.727Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T09:05:43.059Z [ORDER_CREATE] Found 1 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-16T09:05:43.077Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T09:06:38.250Z [ORDER_CREATE] Found 1 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-16T09:06:38.254Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T09:07:40.834Z [ORDER_CREATE] Found 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.4044779,23.6060229
+2026-02-16T09:07:40.844Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T09:40:42.929Z [ORDER_CREATE] No drivers found within 5km. Falling back to City Search for: City
+2026-02-16T09:40:42.961Z [ORDER_CREATE] Fallback found 0 drivers in City.
+2026-02-16T09:40:42.962Z [ORDER_CREATE] Found 0 drivers.
+2026-02-16T09:40:42.964Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T09:48:57.836Z [ORDER_CREATE] Found 1 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-16T09:48:57.850Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T09:52:52.703Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T09:52:52.734Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.4044779,23.6060229
+2026-02-16T09:58:32.476Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T09:58:32.504Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.4044779,23.6060229
+2026-02-16T09:59:39.731Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T09:59:39.757Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.4044779,23.6060229
+2026-02-16T10:03:20.085Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T10:03:20.117Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.4044779,23.6060229
+2026-02-16T10:03:20.128Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T10:04:25.838Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T10:04:25.866Z [ORDER_CREATE] Final notification list size: 1 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-16T10:04:25.873Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T10:25:45.435Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T10:25:45.465Z [ORDER_CREATE] Final notification list size: 1 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-16T10:25:45.474Z [ORDER_CREATE] Push Recipients: []
+2026-02-16T10:27:57.427Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T10:27:57.455Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-16T10:27:57.462Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T10:38:22.592Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T10:38:22.619Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-16T10:38:22.632Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T10:39:59.919Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T10:39:59.946Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-16T10:39:59.959Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T11:02:59.755Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T11:02:59.789Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-16T11:02:59.802Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T11:03:52.957Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T11:03:52.991Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-16T11:03:53.001Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T11:44:25.039Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T11:44:25.072Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-16T11:44:25.080Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-16T11:45:10.517Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-16T11:45:10.547Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-16T11:45:10.559Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T04:06:35.746Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T04:06:35.868Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T04:06:35.886Z [ORDER_CREATE] Push Recipients: [{"userId":"6992b53a4b627a8cd36d74e3","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T04:15:28.954Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T04:15:29.070Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-17T04:15:29.093Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T04:19:26.182Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T04:19:26.232Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T04:19:26.243Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T04:26:08.099Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T04:26:08.130Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T04:26:08.152Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T04:30:03.165Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T04:30:03.268Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-17T04:30:03.278Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T05:11:07.810Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T05:11:07.956Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T05:11:07.968Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T05:12:03.880Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T05:12:03.975Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T05:12:03.983Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T05:18:44.373Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T05:18:44.465Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T05:18:44.473Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[uGmRuoPa-SaZG2InE1FgwF]"}]
+2026-02-17T05:19:59.349Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T05:19:59.389Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T05:19:59.397Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[XXdUKiNTRT7VJD8jGleCim]"}]
+2026-02-17T05:34:16.436Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T05:34:16.520Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+2026-02-17T05:34:16.537Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[XXdUKiNTRT7VJD8jGleCim]"}]
+2026-02-17T05:35:26.624Z [ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.
+2026-02-17T05:35:26.653Z [ORDER_CREATE] Final notification list size: 2 drivers.
+   -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
+   -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
+2026-02-17T05:35:26.663Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[XXdUKiNTRT7VJD8jGleCim]"}]

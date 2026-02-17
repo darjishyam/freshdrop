@@ -220,8 +220,77 @@ const saveExternalRestaurant = async (req, res) => {
   }
 };
 
+// @desc    Get Mock Restaurants for Testing (Mahesana)
+// @route   GET /api/restaurants/mock
+// @access  Public
+const getMockRestaurants = async (req, res) => {
+  try {
+    const mockData = [
+      {
+        _id: "mock_1",
+        name: "Samrat Restaurant",
+        image: "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500&q=80",
+        cuisines: ["North Indian", "Gujarati", "Thali"],
+        rating: 4.5,
+        deliveryTime: "25-30 min",
+        priceRange: "₹300 for two",
+        address: {
+          street: "Samrat Nagar, Modhera Char rasta",
+          city: "Mahesana",
+          coordinates: { lat: 23.5880, lon: 72.3693 }
+        },
+        aggregatedDiscountInfoV3: {
+          header: "20% OFF",
+          subHeader: "UPTO ₹50"
+        }
+      },
+      {
+        _id: "mock_2",
+        name: "Gujarat Thali House",
+        image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80",
+        cuisines: ["Gujarati", "Desserts"],
+        rating: 4.2,
+        deliveryTime: "30-40 min",
+        priceRange: "₹200 for two",
+        address: {
+          street: "Mahesana Taluka",
+          city: "Mahesana",
+          coordinates: { lat: 23.6000, lon: 72.4000 }
+        },
+        aggregatedDiscountInfoV3: {
+          header: "Free Delivery",
+          subHeader: ""
+        }
+      },
+      {
+        _id: "mock_3",
+        name: "Pizza Point Mahesana",
+        image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80",
+        cuisines: ["Pizza", "Fast Food"],
+        rating: 3.8,
+        deliveryTime: "40-50 min",
+        priceRange: "₹400 for two",
+        address: {
+          street: "Modhera Road",
+          city: "Mahesana",
+          coordinates: { lat: 23.5900, lon: 72.3800 }
+        }
+      }
+    ];
+
+    res.json({
+      restaurants: mockData,
+      restaurantItems: {} // No items for now, or add if needed
+    });
+  } catch (error) {
+    console.error("Mock API Error:", error);
+    res.status(500).json({ message: "Mock API Failed" });
+  }
+};
+
 module.exports = {
   getNearbyData,
   getRestaurantById,
   saveExternalRestaurant,
+  getMockRestaurants
 };
