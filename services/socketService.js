@@ -1,3 +1,5 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { io } from "socket.io-client";
 import { API_BASE_URL } from "../constants/api";
 
 const SOCKET_URL = API_BASE_URL;
@@ -11,7 +13,7 @@ class SocketService {
 
     connect = async () => {
         try {
-            const token = await AsyncStorage.getItem("userToken");
+            const token = await AsyncStorage.getItem("auth_token");
 
             if (this.socket?.connected) return;
 

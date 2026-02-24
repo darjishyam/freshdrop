@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  Alert,
 } from "react-native";
 import Animated, {
   Easing,
@@ -31,12 +32,10 @@ import {
   categories,
   foodOptions,
   products,
-  restaurantItems,
-  restaurants,
 } from "../data/mockData";
-import { fetchGroceries, selectGroceries } from "../store/slices/dataSlice";
-import { addToCart } from "../store/slices/cartSlice";
-import { selectUser } from "../store/slices/userSlice";
+import { fetchGroceries, selectGroceries, fetchRestaurants, selectRestaurants, selectRestaurantItems } from "../store/slices/dataSlice";
+import { addToCart, clearCart, selectCartRestaurant } from "../store/slices/cartSlice";
+import { selectUser, selectLocationCoords } from "../store/slices/userSlice";
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -152,6 +151,7 @@ export default function UnifiedAuthScreen() {
 // Actual component that safely uses Redux hooks
 function _UnifiedAuthScreenContent() {
   const user = useSelector(selectUser);
+  const cartRestaurant = useSelector(selectCartRestaurant);
   const dispatch = useDispatch();
 
   const { showToast } = useToast();
@@ -168,24 +168,39 @@ function _UnifiedAuthScreenContent() {
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
 
   const groceryItems = useSelector(selectGroceries); // [GROCERY FEATURE - REDUX]
+  const restaurants = useSelector(selectRestaurants); // [REAL DATA]
+  const restaurantItems = useSelector(selectRestaurantItems) || {}; // [REAL DATA]
 
-  // Fetch Groceries (Landing Page - use default or user location)
+  // Derived products for search/handpicked (Flatten all items)
+  const products = Object.values(restaurantItems).flat();
+
+  const coords = useSelector(selectLocationCoords);
+
+  // Fetch Groceries & Restaurants (Landing Page)
   useEffect(() => {
-    // Default to Mumbai or user location
-    const lat = 19.0760;
-    const lon = 72.8777;
-    dispatch(fetchGroceries({ lat, lon }));
-  }, [dispatch]);
+    // Default to Mehsana if no coords found (Fallback)
+    const lat = coords?.latitude || 23.5880;
+    const lon = coords?.longitude || 72.3693;
 
+    console.log("Landing Page: Fetching data for:", { lat, lon });
+    dispatch(fetchGroceries({ lat, lon }));
+    dispatch(fetchRestaurants({ lat, lon }));
+  }, [dispatch, coords?.latitude, coords?.longitude]);
+
+  // Auth Redirect
+  // Auth Redirect
   // Auth Redirect
   useEffect(() => {
     if (user.phone) {
-      router.replace("/(tabs)/home");
+      // User Request: ALWAYS ask for address on login/startup to ensure location is correct.
+      // Redirect to Address Setup (Mandatory)
+      router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
+
     } else if (!IS_WEB) {
       // Mobile users without login should go to proper login screen
       router.replace("/auth/login");
     }
-  }, [user.phone]);
+  }, [user.phone]); // Removed user.location dependency to avoid skipping checks
 
   // Debounce Effect - Reduced to 300ms for better UX
   useEffect(() => {
@@ -1099,7 +1114,8 @@ function _UnifiedAuthScreenContent() {
                           address: item.address,
                           rating: item.rating,
                           time: item.time,
-                          image: item.image
+                          image: item.image,
+                          isLocal: item.isLocal ? "true" : "false"
                         }
                       })}
                     >
@@ -1228,22 +1244,54 @@ function _UnifiedAuthScreenContent() {
                                       return (hex + "000000000000000000000000").slice(0, 24);
                                     };
 
-                                    const restaurantId = item.restaurantId || toObjectId(item.restaurantName || "General");
+                                    const targetRestaurantId = item.restaurantId || toObjectId(item.restaurantName || "General");
+                                    const targetRestaurantName = item.restaurantName || "General";
 
-                                    dispatch(
-                                      addToCart({
-                                        id: item.id || item.name,
-                                        name: item.name,
-                                        price: item.price,
-                                        quantity: 1,
-                                        image: item.image,
-                                        veg: item.veg,
-                                        restaurantId: restaurantId, // Add restaurantId
-                                        restaurantName:
-                                          item.restaurantName || "General",
-                                      })
-                                    );
-                                    showToast(`${item.name} added to cart`);
+                                    const handleAdd = () => {
+                                      dispatch(
+                                        addToCart({
+                                          id: item.id || item.name,
+                                          name: item.name,
+                                          price: item.price,
+                                          quantity: 1,
+                                          image: item.image,
+                                          veg: item.veg,
+                                          restaurantId: targetRestaurantId,
+                                          restaurantName: targetRestaurantName,
+                                        })
+                                      );
+                                      showToast(`${item.name} added to cart`);
+                                    };
+
+                                    // Validation: Single Restaurant check
+                                    if (cartRestaurant.id && cartRestaurant.id !== targetRestaurantId) {
+                                      const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
+
+                                      if (Platform.OS === 'web') {
+                                        if (window.confirm(msg)) {
+                                          dispatch(clearCart());
+                                          handleAdd();
+                                        }
+                                      } else {
+                                        Alert.alert(
+                                          "Replace cart item?",
+                                          msg,
+                                          [
+                                            { text: "Cancel", style: "cancel" },
+                                            {
+                                              text: "Clear & Add",
+                                              onPress: () => {
+                                                dispatch(clearCart());
+                                                handleAdd();
+                                              }
+                                            }
+                                          ]
+                                        );
+                                      }
+                                      return;
+                                    }
+
+                                    handleAdd();
                                   }
                                 }}
                               >
@@ -1745,10 +1793,18 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   webItem: {
-    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
     marginBottom: 10,
-    width: 140, // Standardize width
+    width: 160,
     marginRight: 20,
+    padding: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
   },
   webFoodImage: {
     width: 120,
@@ -1757,10 +1813,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   webCatImage: {
-    width: 140, // Increased size for better resolution
-    height: 140, // Square aspect ratio
-    marginBottom: 8,
-    borderRadius: 70, // Circular
+    width: "100%",
+    height: 120,
+    marginBottom: 12,
+    borderRadius: 8,
   },
   webItemText: {
     fontSize: 16,

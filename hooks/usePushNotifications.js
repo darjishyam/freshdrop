@@ -2,13 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_BASE_URL } from '../constants/api';
 
-// Safe import for expo-device to prevent crashes if native module is missing
+// Safe import for expo-device
 let Device = null;
 try {
     Device = require('expo-device');
 } catch (error) {
-    console.warn("expo-device module not found. Push notifications may not work correctly on physical devices.");
+    console.warn("expo-device module not found.");
 }
 
 Notifications.setNotificationHandler({
@@ -19,17 +21,60 @@ Notifications.setNotificationHandler({
     }),
 });
 
+/**
+ * Send the Expo push token to the backend so the server can
+ * send notifications to this device.
+ */
+export const sendPushTokenToBackend = async (token) => {
+    try {
+        const authToken = await AsyncStorage.getItem('auth_token');
+        if (!authToken || !token) return;
+
+        await fetch(`${API_BASE_URL}/auth/push-token`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({ pushToken: token }),
+        });
+        console.log('✅ Push token sent to backend:', token);
+    } catch (error) {
+        console.error('Failed to send push token to backend:', error);
+    }
+};
+
+/**
+ * Remove push token from backend — called when user disables notifications.
+ */
+export const removePushTokenFromBackend = async () => {
+    try {
+        const authToken = await AsyncStorage.getItem('auth_token');
+        if (!authToken) return;
+
+        await fetch(`${API_BASE_URL}/auth/push-token`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+            },
+        });
+        console.log('🔕 Push token removed from backend');
+    } catch (error) {
+        console.error('Failed to remove push token from backend:', error);
+    }
+};
+
 export const usePushNotifications = () => {
     const [expoPushToken, setExpoPushToken] = useState('');
     const [notification, setNotification] = useState(false);
+    const [notificationResponse, setNotificationResponse] = useState(null);
     const notificationListener = useRef();
     const responseListener = useRef();
 
     async function registerForPushNotificationsAsync() {
         let token;
 
-        // Check if Device module is available and if it's a physical device
-        const isDevice = Device ? Device.isDevice : true; // Default to true if check fails, but log warning above
+        const isDevice = Device ? Device.isDevice : true;
 
         if (Platform.OS === 'android') {
             await Notifications.setNotificationChannelAsync('default', {
@@ -51,12 +96,6 @@ export const usePushNotifications = () => {
                 alert('Failed to get push token for push notification!');
                 return;
             }
-            // Learn more about projectId:
-            // https://docs.expo.dev/push-notifications/push-notifications-setup/#configure-projectid
-            // EAS projectId is strictly required for Expo Go to work on physical devices correctly in some contexts, but usually handled by app.json
-            if (!Constants.expoConfig?.extra?.eas?.projectId) {
-                console.log("Missing projectId in app.json extra.eas.projectId");
-            }
 
             try {
                 const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
@@ -73,24 +112,37 @@ export const usePushNotifications = () => {
     }
 
     useEffect(() => {
-        registerForPushNotificationsAsync().then(token => setExpoPushToken(token));
+        // Check if user has notifications enabled before registering
+        AsyncStorage.getItem('notificationsEnabled').then(async (val) => {
+            // Default is enabled (null = first time = enabled)
+            const isEnabled = val === null || val === 'true';
+
+            if (isEnabled) {
+                const token = await registerForPushNotificationsAsync();
+                if (token) {
+                    setExpoPushToken(token);
+                    // Automatically send token to backend
+                    await sendPushTokenToBackend(token);
+                }
+            } else {
+                console.log('🔕 Notifications are disabled by user preference. Skipping token registration.');
+            }
+        });
 
         notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
             setNotification(notification);
         });
 
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-            console.log(response);
+            console.log("Notification Tapped:", response);
+            setNotificationResponse(response);
         });
 
         return () => {
-            Notifications.removeNotificationSubscription(notificationListener.current);
-            Notifications.removeNotificationSubscription(responseListener.current);
+            if (notificationListener.current) notificationListener.current.remove();
+            if (responseListener.current) responseListener.current.remove();
         };
     }, []);
 
-    return {
-        expoPushToken,
-        notification,
-    };
+    return { expoPushToken, notification, notificationResponse };
 };

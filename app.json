@@ -2,7 +2,6 @@
   "expo": {
     "name": "FreshDrop",
     "slug": "fresh-drop",
-    "owner": "professor_fan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -49,7 +48,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7bbf1ed2-bcdf-4662-ab06-e8cfb36da126"
+        "projectId": "28560021-199d-42f0-b765-b99ba9dd0ba5"
       }
     },
     "notification": {

@@ -945,12 +945,33 @@ const updatePushToken = async (req, res) => {
       return res.status(400).json({ message: "Push token is required" });
     }
 
-    const user = await User.findById(req.user._id);
-
     if (user) {
+      // --- NEW: Ensure uniqueness ---
+      // If this token is already used by another user, clear it from them first
+      await User.updateMany(
+        { pushToken: pushToken, _id: { $ne: user._id } },
+        { $set: { pushToken: null } }
+      );
+
       user.pushToken = pushToken;
       await user.save();
       res.json({ message: "Push token updated" });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE /auth/push-token — Remove push token to stop notifications
+const removePushToken = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.pushToken = null;
+      await user.save();
+      res.json({ message: "Push token removed. Notifications disabled." });
     } else {
       res.status(404).json({ message: "User not found" });
     }
@@ -972,4 +993,5 @@ module.exports = {
   verifyProfileUpdateOtp,
   addToHistory,
   updatePushToken,
+  removePushToken,
 };

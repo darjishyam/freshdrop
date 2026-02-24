@@ -110,115 +110,47 @@ const createOrder = async (req, res) => {
                 // This allows GPS-only matching for cityless restaurants
                 cityQuery = { $exists: true };
             }
+        } // Close if (restaurant.address...)
 
-            // 1. Primary GeoJSON Query: Drivers within 5km of Restaurant AND in same City
-            let nearbyDrivers = await Driver.find({
-                location: {
-                    $near: {
-                        $geometry: {
-                            type: "Point",
-                            coordinates: [lon, lat] // MongoDB uses [lon, lat]
-                        },
-                        $maxDistance: 10000 // Increased to 10km for wider real-time reach
-                    }
-                },
-                isOnline: true,
-                status: { $in: ["ACTIVE", "onboarding", "PENDING"] },
-                city: cityQuery
-            });
+        // Find Nearby Drivers (Logic Moved to updateRestaurantOrderStatus on Ready)
+        // Order is now silent until marked Ready by restaurant
+        console.log(`[ORDER_CREATE] Order ${createdOrder._id} placed. Waiting for restaurant to Mark Ready.`);
 
-            // 2. FALLBACK: Search by City Only if no drivers found by GPS 
-            // OR if it's Mehsana (Small city, notify everyone for better testing/reliability)
-            if (nearbyDrivers.length === 0 || isMehsana) {
-                const searchMsg = isMehsana
-                    ? `[ORDER_CREATE] Mehsana order detected. Notifying ALL online drivers in city.\n`
-                    : `[ORDER_CREATE] No drivers found within 10km. Falling back to City Search for: ${targetCity}\n`;
-
-                console.log(searchMsg);
-                try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + searchMsg); } catch (e) { }
-
-                const cityDrivers = await Driver.find({
-                    isOnline: true,
-                    status: { $in: ["ACTIVE", "onboarding", "PENDING"] },
-                    city: cityQuery,
-                    _id: { $nin: nearbyDrivers.map(d => d._id) } // Don't duplicate
-                });
-
-                nearbyDrivers = [...nearbyDrivers, ...cityDrivers];
-
-                const countMsg = `[ORDER_CREATE] Final notification list size: ${nearbyDrivers.length} drivers.\n`;
-                console.log(countMsg);
-                try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + countMsg); } catch (e) { }
-            }
-
-            if (nearbyDrivers.length > 0) {
-                nearbyDrivers.forEach(d => {
-                    const detailMsg = `   -> Driver: ${d._id} City: ${d.city} Loc: ${d.location?.coordinates}\n`;
-                    console.log(detailMsg);
-                    try { fs.appendFileSync(logFile, detailMsg); } catch (e) { }
-                });
-            }
-
-            // Alert Drivers via Socket
-            const io = req.app.get('io');
-
-            // NEW: Broadcast to entire city room
-            // This ensures "Available Orders" tab updates for EVERYONE in the city
-            const getBroadcastCity = (c) => {
-                if (!c) return "unknown";
-                const normalized = c.toLowerCase().trim();
-                if (normalized.match(/m[ae]h[ae]?sana/i)) return "mehsana";
-                return normalized.replace(/\s+/g, '_');
-            };
-            const cityRoom = `city_${getBroadcastCity(targetCity)}`;
-
-            if (io) {
-                // 1. Notify targeted GPS drivers (Personalized)
-                nearbyDrivers.forEach(driver => {
-                    io.to(`driver_${driver._id}`).emit('newOrder', {
-                        ...populatedOrder.toObject(),
-                        restaurantLocation: { latitude: lat, longitude: lon }
-                    });
-                });
-
-                // 2. Broadcast to city room (General update for Available Orders Tab)
-                io.to(cityRoom).emit('newOrder', {
-                    ...populatedOrder.toObject(),
-                    restaurantLocation: { latitude: lat, longitude: lon }
-                });
-                console.log(`📡 Broadcasted newOrder to ${cityRoom} and ${nearbyDrivers.length} targeted drivers`);
-            }
-
-            // Send Push Notifications to Nearby Drivers
-            const recipients = nearbyDrivers
-                .filter(driver => driver.pushToken)
-                .map(driver => ({ userId: driver._id, pushToken: driver.pushToken }));
-
-            const recipientLogs = `[ORDER_CREATE] Push Recipients: ${JSON.stringify(recipients)}\n`;
-            console.log(recipientLogs);
-            try { fs.appendFileSync(logFile, new Date().toISOString() + ' ' + recipientLogs); } catch (e) { }
-
-            if (recipients.length > 0) {
-                try {
-                    await sendPushNotification(
-                        recipients,
-                        "New Order Available! 🛵",
-                        `New delivery from ${restaurant.name}. Earn ₹${deliveryFee}!`,
-                        {
-                            orderId: createdOrder._id.toString(),
-                            restaurantName: restaurant.name,
-                            deliveryFee: deliveryFee.toString(),
-                            type: "new_order"
-                        },
-                        "Driver" // Recipient Model
-                    );
-                    console.log(`Push notifications sent to ${recipients.length} drivers`);
-                } catch (notifError) {
-                    console.error("Failed to send push notifications:", notifError);
-                    // Don't fail the order if notifications fail
-                }
-            }
+        // --- NEW: Notify Restaurant (Real-Time & Push) ---
+        const io = req.app.get('io');
+        if (io) {
+            const restaurantRoom = `restaurant_${restaurantId}`;
+            io.to(restaurantRoom).emit('restaurantNewOrder', populatedOrder);
+            console.log(`📡 Emitted 'restaurantNewOrder' to ${restaurantRoom}`);
         }
+
+        // Fetch Restaurant details for Push Token
+        try {
+            const restaurantDoc = await Restaurant.findById(restaurantId);
+            if (restaurantDoc && restaurantDoc.pushToken) {
+                console.log(`🔔 Sending Push Notification to Restaurant: ${restaurantDoc.name}`);
+                await sendPushNotification(
+                    [restaurantDoc.pushToken],
+                    "🍔 New Order Received",
+                    `${itemCount} items • Tap to review and accept`,
+                    { orderId: createdOrder._id, type: 'NEW_ORDER', restaurantId: restaurantId }
+                );
+            }
+
+            // --- NEW: User Notification (ORDER_PLACED) ---
+            if (req.user.pushToken) {
+                await sendPushNotification(
+                    [{ userId: req.user._id, pushToken: req.user.pushToken }],
+                    "✅ Order placed successfully",
+                    "We’re confirming your order with the restaurant.",
+                    { type: 'ORDER_PLACED', orderId: createdOrder._id },
+                    'User'
+                );
+            }
+        } catch (pushError) {
+            console.error("Failed to send push notifications:", pushError);
+        }
+        // ------------------------------------------
 
         res.status(201).json(populatedOrder);
     } catch (error) {
@@ -258,7 +190,7 @@ const getAvailableOrders = async (req, res) => {
 
         // Find unassigned orders, sorted by newest first
         let query = {
-            status: "Order Placed",
+            status: { $in: ["Ready"] }, // STRICT: Only show Ready orders
             driver: null,
             createdAt: { $gt: threeHoursAgo }
         };
@@ -332,8 +264,6 @@ const getAvailableOrders = async (req, res) => {
 
 // @desc    Accept Order (Driver)
 // @route   POST /api/orders/:id/accept
-// @desc    Accept Order (Driver)
-// @route   POST /api/orders/:id/accept
 const acceptOrder = async (req, res) => {
     try {
         const orderId = req.params.id;
@@ -361,6 +291,7 @@ const acceptOrder = async (req, res) => {
         // 2. Atomic Update
         // Use atomic findOneAndUpdate to prevent race conditions
         // This ensures only ONE driver can accept the order
+        // NOTE: We DO NOT change status to "Confirmed". It stays "Ready" (or whatever it was).
         const order = await Order.findOneAndUpdate(
             {
                 _id: orderId,
@@ -369,7 +300,7 @@ const acceptOrder = async (req, res) => {
             {
                 $set: {
                     driver: driverId,
-                    status: "Confirmed",
+                    // status: "Confirmed", // REMOVED: Keep existing status (expected "Ready")
                     driverDetails: {
                         name: req.user.name,
                         phone: req.user.phone,
@@ -379,9 +310,9 @@ const acceptOrder = async (req, res) => {
                 },
                 $push: {
                     timeline: {
-                        status: "Confirmed",
+                        status: "Ready", // Assume Ready since we filter for Ready
                         time: new Date(),
-                        description: `${req.user.name} has accepted your order`
+                        description: `${req.user.name} has accepted your order (FIXED)`
                     }
                 }
             },
@@ -415,6 +346,23 @@ const acceptOrder = async (req, res) => {
         if (io) {
             // Notify User (if they are in a room, or we broadcast)
             io.emit(`order_${orderId}`, updatedOrder);
+
+            // --- NEW: User Notification (DRIVER_ASSIGNED) ---
+            try {
+                const userDoc = await User.findById(updatedOrder.user);
+                if (userDoc && userDoc.pushToken) {
+                    const driverFirstName = req.user.name ? req.user.name.split(' ')[0] : 'Delivery partner';
+                    await sendPushNotification(
+                        [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
+                        "🚚 Delivery partner assigned",
+                        `${driverFirstName} is on the way to pick up your order.`,
+                        { type: 'DRIVER_ASSIGNED', orderId: orderId },
+                        'User'
+                    );
+                }
+            } catch (uPushErr) {
+                console.log("User push notification (Driver Assigned) err:", uPushErr.message);
+            }
 
             // Remove from other drivers' lists
             console.log(`[RACE_DEBUG] Emitting orderTaken for ${orderId}`);
@@ -478,6 +426,33 @@ const updateOrderStatus = async (req, res) => {
         const io = req.app.get('io');
         if (io) {
             io.emit(`order_${orderId}`, updatedOrder);
+
+            // --- NEW: User Push Notification ---
+            try {
+                const userDoc = await User.findById(updatedOrder.user);
+                if (userDoc && userDoc.pushToken) {
+                    let title = "Order Update";
+                    let body = `Your order status is now: ${status}`;
+
+                    if (status === 'Out for Delivery') {
+                        title = "🛵 Your delivery partner is on the way";
+                        body = `Arriving soon! Your order from ${updatedOrder.restaurant?.name || 'the restaurant'} has been picked up.`;
+                    } else if (status === 'Delivered') {
+                        title = "🍔 Enjoy your meal!";
+                        body = `Your order from ${updatedOrder.restaurant?.name || 'the restaurant'} has been delivered. Bon appétit!`;
+                    }
+
+                    sendPushNotification(
+                        [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
+                        title,
+                        body,
+                        { type: 'ORDER_UPDATE', orderId: orderId },
+                        'User'
+                    );
+                }
+            } catch (uPushErr) {
+                console.log("User push notification err:", uPushErr.message);
+            }
         }
 
         res.json(updatedOrder);
@@ -595,6 +570,184 @@ const cancelOrder = async (req, res) => {
     }
 }
 
+
+
+
+// @desc    Get Active Orders for Restaurant
+// @route   GET /api/orders/restaurant/:id/active
+const getRestaurantActiveOrders = async (req, res) => {
+    try {
+        const restaurantId = req.params.id;
+        const orders = await Order.find({
+            restaurant: restaurantId,
+            status: { $nin: ["Delivered", "Cancelled"] }
+        }).sort({ createdAt: -1 }).populate("user", "name phone address");
+        res.json(orders);
+    } catch (error) {
+        console.error("Fetch Restaurant Active Orders Error:", error);
+        res.status(500).json({ message: "Failed to fetch active orders" });
+    }
+};
+
+// @desc    Update Order Status (Restaurant)
+// @route   PUT /api/orders/:id/restaurant-status
+const updateRestaurantOrderStatus = async (req, res) => {
+    const fs = require('fs');
+    const path = require('path');
+    const logPath = path.join(__dirname, '../debug_requests.log');
+    const log = (msg) => { try { fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`); } catch (e) { } };
+
+    try {
+        log(`REQ: ${req.params.id} -> ${req.body.status}`);
+        const { status } = req.body;
+        const order = await Order.findById(req.params.id);
+
+        if (!order) { return res.status(404).json({ message: "Order not found" }); }
+
+        order.status = status;
+        const lastTimeline = order.timeline[order.timeline.length - 1];
+        if (!lastTimeline || lastTimeline.status !== status) {
+            order.timeline.push({
+                status,
+                time: new Date(),
+                description: status === 'Ready' ? 'Your food is ready for pickup' : `Order is ${status}`
+            });
+        }
+        await order.save();
+        log(`SAVED: ${status}`);
+
+        const io = req.app.get('io');
+
+        if (io) {
+            io.emit(`order_${order._id}`, order);
+            if (order.user) {
+                io.to(`user_${order.user}`).emit('orderStatusUpdate', { orderId: order._id, status: order.status });
+
+                // --- NEW: User Push Notification ---
+                try {
+                    const userDoc = await User.findById(order.user);
+                    const populatedOrder = await Order.findById(order._id).populate("restaurant");
+                    if (userDoc && userDoc.pushToken) {
+                        let title = "";
+                        let body = "";
+
+                        // Realistic Flow: Only notify for milestone moments
+                        if (status === 'Confirmed' || status === 'Preparing') {
+                            title = "🍽️ Restaurant confirmed your order";
+                            body = `${populatedOrder.restaurant?.name || 'The restaurant'} is preparing your food.`;
+                        }
+                        // Note: Swiggy/Zomato do NOT notify for "Ready" internally. 
+                        // They only notify when "Out for Delivery" (which is handled by Driver move)
+
+                        if (title) {
+                            sendPushNotification(
+                                [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
+                                title,
+                                body,
+                                { type: 'ORDER_UPDATE', orderId: order._id },
+                                'User'
+                            );
+                        }
+                    }
+                } catch (userPushErr) {
+                    console.error("Failed to send user push notification:", userPushErr);
+                }
+            }
+            io.emit('orderUpdated', order);
+
+            // DRIVER NOTIFICATION (READY only)
+            console.log(`[DEBUG] Checking condition: status '${status}' === 'Ready'`);
+            if (status === 'Ready') {
+                log(`STATUS READY: Notifying Drivers...`);
+                console.log(`[DEBUG] Status IS Ready. Proceeding to find drivers...`);
+
+                const populatedOrder = await Order.findById(order._id).populate("restaurant");
+                const restaurant = populatedOrder.restaurant;
+                console.log(`[DEBUG] Restaurant found: ${restaurant ? restaurant.name : 'NULL'}`);
+                console.log(`[DEBUG] Restaurant Coordinates: ${JSON.stringify(restaurant?.address?.coordinates)}`);
+
+                if (restaurant?.address?.coordinates) {
+                    const { lat, lon } = restaurant.address.coordinates;
+                    console.log(`[DEBUG] Searching drivers near ${lat}, ${lon}`);
+
+                    let nearbyDrivers = await Driver.find({
+                        location: { $near: { $geometry: { type: "Point", coordinates: [lon, lat] }, $maxDistance: 10000 } },
+                        isOnline: true, status: { $in: ["ACTIVE", "onboarding", "PENDING"] }
+                    });
+
+                    if (nearbyDrivers.length === 0) {
+                        log("No drivers found via GeoQuery. Falling back to ALL online drivers.");
+                        // console.log("[DEBUG] GeoSearch found 0. Fallback to ALL.");
+                        nearbyDrivers = await Driver.find({ isOnline: true, status: { $in: ["ACTIVE", "onboarding", "PENDING"] } });
+                    }
+
+                    log(`Found ${nearbyDrivers.length} drivers to notify.`);
+                    // console.log(`[DEBUG] Total Drivers Found: ${nearbyDrivers.length}`);
+
+                    // Collect tokens for Push Notification
+                    const pushCandidates = nearbyDrivers
+                        .filter(d => d.pushToken)
+                        .map(d => ({ userId: d._id, pushToken: d.pushToken }));
+
+                    if (pushCandidates.length > 0) {
+                        log(`Sending Push to ${pushCandidates.length} drivers`);
+                        sendPushNotification(
+                            pushCandidates,
+                            "🛍️ Pickup Ready!",
+                            `Order from ${restaurant?.name || 'Restaurant'} is ready for pickup.`,
+                            { type: 'NEW_ORDER', orderId: order._id },
+                            'Driver'
+                        );
+                    }
+
+                    nearbyDrivers.forEach(driver => {
+                        log(`Targeting Driver: ${driver._id} (${driver.name})`);
+                        // console.log(`[DEBUG] Emitting newOrder to driver_${driver._id}`);
+                        io.to(`driver_${driver._id}`).emit('newOrder', populatedOrder);
+                        log(`Notified: ${driver._id}`);
+                    });
+                    // City Room
+                    if (restaurant.address.city) {
+                        const cityRoom = `city_${restaurant.address.city.toLowerCase().replace(/\s+/g, '_')}`;
+                        // console.log(`[DEBUG] Emitting to city room: ${cityRoom}`);
+                        io.to(cityRoom).emit('newOrder', populatedOrder);
+                    }
+                } else {
+                    // console.log("[DEBUG] Restaurant has no coordinates!");
+                }
+            } else {
+                // console.log(`[DEBUG] Status is NOT Ready (it is '${status}')`);
+                // log(`Status is NOT Ready: ${status}`);
+            }
+        } else {
+            // console.log("[DEBUG] IO Object IS MISSING!");
+        }
+        res.json(order);
+    } catch (error) {
+        log(`ERROR: ${error.message}`);
+        res.status(500).json({ message: "Server Error" });
+    }
+};
+
+// @desc    Get Order by ID
+// @route   GET /api/orders/:id
+const getOrderById = async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id)
+            .populate('user', 'name email phone')
+            .populate('restaurant', 'name image address')
+            .populate('items.product');
+
+        if (order) {
+            res.json(order);
+        } else {
+            res.status(404).json({ message: 'Order not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createOrder,
     getUserOrders,
@@ -603,5 +756,8 @@ module.exports = {
     updateOrderStatus,
     getDriverActiveOrder,
     getDriverHistory,
-    cancelOrder
+    cancelOrder,
+    getRestaurantActiveOrders,
+    updateRestaurantOrderStatus,
+    getOrderById
 };

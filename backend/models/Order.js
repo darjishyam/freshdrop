@@ -73,6 +73,7 @@ const orderSchema = new mongoose.Schema(
         "Order Placed",
         "Confirmed",
         "Preparing",
+        "Ready",
         "Out for Delivery",
         "Delivered",
         "Cancelled",
@@ -96,6 +97,11 @@ const orderSchema = new mongoose.Schema(
       },
     ],
     eta: String, // Estimated time of arrival
+    // Track sent proximity alerts to avoid spamming
+    proximityAlerts: {
+      "500m": { type: Boolean, default: false },
+      "100m": { type: Boolean, default: false }
+    }
   },
   { timestamps: true }
 );

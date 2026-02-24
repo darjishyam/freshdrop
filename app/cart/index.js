@@ -487,7 +487,15 @@ export default function CartScreen() {
                   onPress={() =>
                     router.push({
                       pathname: "/product/[id]",
-                      params: { id: item.name },
+                      params: {
+                        id: item.id || item.name,
+                        name: item.name,
+                        price: item.price,
+                        image: typeof item.image === "string" ? item.image : undefined,
+                        isVeg: item.veg,
+                        restaurantId: item.restaurantId,
+                        restaurantName: item.restaurantName,
+                      },
                     })
                   }
                   activeOpacity={0.7}

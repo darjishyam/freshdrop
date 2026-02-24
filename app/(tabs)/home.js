@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AppState,
   Dimensions,
   Image,
   Platform,
@@ -26,8 +27,13 @@ import { API_BASE_URL } from "../../constants/api";
 import { addToCart } from "../../store/slices/cartSlice";
 import {
   fetchRestaurants,
+  fetchGroceries,
+  fetchFeaturedProducts,
+  updateRestaurantStatus,
   selectDataLoading,
   selectRestaurants,
+  selectGroceries,
+  selectFeaturedProducts,
 } from "../../store/slices/dataSlice";
 import {
   selectLocation,
@@ -35,6 +41,9 @@ import {
   selectLocationType,
   selectUser,
 } from "../../store/slices/userSlice";
+import { io } from "socket.io-client";
+
+const RESTAURANT_SOCKET_URL = "http://192.168.1.7:5000";
 
 
 const { width } = Dimensions.get("window");
@@ -60,6 +69,8 @@ export default function HomeScreen() {
   const coords = useSelector(selectLocationCoords);
   const isDataLoading = useSelector(selectDataLoading);
   const nearbyRestaurants = useSelector(selectRestaurants); // USE REDUX DATA
+  const groceryItems = useSelector(selectGroceries); // [NEW] Use fetched data
+  const featuredProducts = useSelector(selectFeaturedProducts); // [NEW]
 
   // State
   // Filter State
@@ -68,20 +79,53 @@ export default function HomeScreen() {
 
   // State for search
   const [searchQuery, setSearchQuery] = useState("");
-  // Mock Grocery Items directly from data (for now, or fetch similarly if needed)
-  const groceryItems = groceryStores;
 
-  // FETCH RESTAURANTS API
+  // FETCH DATA API
   useEffect(() => {
     if (!coords?.latitude || !coords?.longitude) return;
-    console.log("Fetching restaurants for:", coords);
-    dispatch(
-      fetchRestaurants({
-        lat: coords.latitude,
-        lon: coords.longitude,
-      })
-    );
+    console.log("Fetching home data for:", coords);
+    const doFetch = () => {
+      dispatch(
+        fetchRestaurants({
+          lat: coords.latitude,
+          lon: coords.longitude,
+        })
+      );
+      dispatch(
+        fetchGroceries({
+          lat: coords.latitude,
+          lon: coords.longitude,
+        })
+      );
+      dispatch(fetchFeaturedProducts()); // [NEW] Fetch products
+    };
+    doFetch();
+    // Re-fetch whenever app comes back to foreground (catches isOpen/stock changes)
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") doFetch();
+    });
+    return () => sub.remove();
   }, [coords?.latitude, coords?.longitude, dispatch]);
+
+  // Real-time socket: listen for restaurant open/close toggle
+  useEffect(() => {
+    const socket = io(RESTAURANT_SOCKET_URL);
+
+    socket.on("connect", () => {
+      console.log("🔌 Connected to Restaurant socket for real-time status");
+    });
+
+    socket.on("connect_error", (err) => {
+      console.warn("❌ Restaurant socket error:", err.message);
+    });
+
+    socket.on("restaurantStatusChanged", ({ restaurantId, isOpen }) => {
+      console.log(`📡 Restaurant ${restaurantId} isOpen=${isOpen}`);
+      dispatch(updateRestaurantStatus({ restaurantId, isOpen }));
+    });
+
+    return () => socket.disconnect();
+  }, [dispatch]);
 
 
   // Derived Data with Filters
@@ -96,13 +140,14 @@ export default function HomeScreen() {
   }, [nearbyRestaurants, filterType, priceRange]);
 
   const filteredProductsDisplay = useMemo(() => {
-    let result = products;
+    let result = featuredProducts || [];
 
     // Filter by Type
     if (filterType === "Veg") {
-      result = result.filter((p) => p.veg === true);
+      result = result.filter((p) => p.isVeg === true); // Note: schema uses isVeg boolean
     } else if (filterType === "Non-Veg") {
-      result = result.filter((p) => p.veg === false);
+      // Schema uses isVeg=false for Non-Veg
+      result = result.filter((p) => p.isVeg === false);
     }
 
     // Filter by Price
@@ -115,7 +160,7 @@ export default function HomeScreen() {
     }
 
     return result;
-  }, [products, filterType, priceRange]);
+  }, [featuredProducts, filterType, priceRange]);
 
   // Update Search Results with useMemo
   const searchResults = useMemo(() => {
@@ -136,7 +181,7 @@ export default function HomeScreen() {
       .filter((f) => f.name.toLowerCase().includes(query))
       .map((f) => ({ type: "Food", data: f }));
     // Filter Products
-    const filteredProducts = products
+    const filteredProducts = (featuredProducts || [])
       .filter((p) => p.name.toLowerCase().includes(query))
       .map((p) => ({ type: "Product", data: p }));
 
@@ -145,13 +190,26 @@ export default function HomeScreen() {
       ...filteredCategories,
       ...filteredFood,
       ...filteredProducts,
+      // ...groceryItems.map(g => ({ type: "Grocery", data: g })) // Optional
     ];
-  }, [searchQuery, nearbyRestaurants]); // removed unnecessary dependency
+  }, [searchQuery, nearbyRestaurants, featuredProducts]);
 
 
   // Handle restaurant click - save to MongoDB first
   const handleRestaurantClick = async (restaurant) => {
     try {
+      // Check if it's already a MongoDB ID (24 hex chars)
+      // The backend 'getNearbyData' maps _id -> id
+      const isMongoId = /^[0-9a-fA-F]{24}$/.test(restaurant.id);
+
+      if (restaurant._id || isMongoId) {
+        router.push({
+          pathname: "/restaurant/[id]",
+          params: { id: restaurant._id || restaurant.id },
+        });
+        return;
+      }
+
       // Use centralized API_BASE_URL
       const response = await fetch(`${API_BASE_URL}/restaurants/save-external`, {
         method: 'POST',
@@ -483,7 +541,16 @@ export default function HomeScreen() {
                       } else if (item.type === "Product") {
                         router.push({
                           pathname: "/product/[id]",
-                          params: { id: item.data.name },
+                          params: {
+                            id: item.data._id || item.data.id || item.data.name,
+                            name: item.data.name,
+                            price: item.data.price,
+                            image: item.data.image,
+                            description: item.data.description,
+                            isVeg: item.data.isVeg ?? item.data.veg,
+                            restaurantId: item.data.restaurantId || item.data.restaurant,
+                            restaurantName: item.data.restaurantName,
+                          },
                         });
                       }
                     }}
@@ -516,8 +583,8 @@ export default function HomeScreen() {
           ) : (
             // STANDARD DASHBOARD VIEW
             <>
-              {/* Best Food Options - Hidden when any filter is active */}
-              {(priceRange === "All" && filterType === "All") && (
+              {/* Best Food Options - Using Real Featured Products */}
+              {(priceRange === "All" && filterType === "All" && featuredProducts.length > 0) && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>
@@ -571,83 +638,41 @@ export default function HomeScreen() {
                       foodLayoutWidth.current = e.nativeEvent.layout.width;
                     }}
                   >
-                    {Platform.OS === "web"
-                      ? Array.from({
-                        length: Math.ceil(foodOptions.length / 2),
-                      }).map((_, i) => {
-                        const item1 = foodOptions[i * 2];
-                        const item2 = foodOptions[i * 2 + 1];
-                        return (
-                          <View key={i} style={{ marginRight: 20 }}>
-                            <TouchableOpacity
-                              style={[styles.webItemValues, { marginRight: 0 }]}
-                              onPress={() =>
-                                router.push({
-                                  pathname: "/collection/[id]",
-                                  params: { id: item1.name },
-                                })
-                              }
-                            >
-                              <View style={styles.webFoodImageContainer}>
-                                <Image
-                                  source={getImageSource(item1.image)}
-                                  style={styles.webFoodImage}
-                                  resizeMode="cover"
-                                />
-                              </View>
-                              <Text style={styles.webItemText}>
-                                {item1.name}
-                              </Text>
-                            </TouchableOpacity>
-                            {item2 && (
-                              <TouchableOpacity
-                                style={[
-                                  styles.webItemValues,
-                                  { marginRight: 0, marginTop: 24 },
-                                ]}
-                                onPress={() =>
-                                  router.push({
-                                    pathname: "/collection/[id]",
-                                    params: { id: item2.name },
-                                  })
-                                }
-                              >
-                                <View style={styles.webFoodImageContainer}>
-                                  <Image
-                                    source={getImageSource(item2.image)}
-                                    style={styles.webFoodImage}
-                                    resizeMode="cover"
-                                  />
-                                </View>
-                                <Text style={styles.webItemText}>
-                                  {item2.name}
-                                </Text>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        );
-                      })
-                      : foodOptions.map((item) => (
-                        <TouchableOpacity
-                          key={item.id}
-                          style={styles.foodItem}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/collection/[id]",
-                              params: { id: item.name },
-                            })
-                          }
-                        >
-                          <View style={styles.foodImageContainer}>
-                            <Image
-                              source={getImageSource(item.image)}
-                              style={styles.foodOptionImage}
-                              resizeMode="cover"
-                            />
-                          </View>
-                          <Text style={styles.itemLabel}>{item.name}</Text>
-                        </TouchableOpacity>
-                      ))}
+                    {featuredProducts.map((item) => (
+                      <TouchableOpacity
+                        key={item._id}
+                        style={styles.foodItem}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/product/[id]",
+                            params: {
+                              id: item._id,
+                              name: item.name,
+                              price: item.price,
+                              image: item.image,
+                              description: item.description,
+                              category: item.category,
+                              isVeg: item.isVeg,
+                              restaurantId: item.restaurant?._id || item.restaurant, // Pass restaurantId
+                              restaurantName: item.restaurant?.name || "Restaurant",
+                              restaurantIsOpen: item.restaurant?.isOpen
+                            },
+                          })
+                        }
+                      >
+                        <View style={styles.foodImageContainer}>
+                          <Image
+                            source={getImageSource(item.image)}
+                            style={styles.foodOptionImage}
+                            resizeMode="cover"
+                          />
+                        </View>
+                        <Text style={styles.itemLabel} numberOfLines={2}>{item.name}</Text>
+                        <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }} numberOfLines={1}>
+                          {item.restaurant?.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
                   </ScrollView>
                   {Platform.OS === "web" && (
                     <View style={styles.webSectionDivider} />
@@ -674,8 +699,17 @@ export default function HomeScreen() {
                         key={item.id}
                         style={{
                           marginRight: 16,
-                          alignItems: "center",
-                          width: 100,
+                          width: 140,
+                          backgroundColor: '#fff',
+                          borderRadius: 12,
+                          overflow: 'hidden',
+                          // Shadow for iOS/Android
+                          shadowColor: "#000",
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.1,
+                          shadowRadius: 4,
+                          elevation: 3,
+                          marginBottom: 8,
                         }}
                         onPress={() => router.push({
                           pathname: "/grocery/[id]",
@@ -685,24 +719,36 @@ export default function HomeScreen() {
                             address: item.address,
                             rating: item.rating,
                             time: item.time,
-                            image: item.image
+                            image: item.image,
+                            isLocal: item.isLocal ? "true" : "false"
                           }
                         })}
                       >
                         <Image
                           source={{ uri: item.image }}
                           style={{
-                            width: 80,
-                            height: 80,
-                            borderRadius: 40, // Circular
-                            marginBottom: 8,
-                            resizeMode: 'contain',
-                            backgroundColor: '#f0f0f0'
+                            width: '100%',
+                            height: 100,
+                            resizeMode: 'cover',
+                            backgroundColor: '#f8f8f8'
                           }}
                         />
-                        <Text style={[styles.itemLabel, { textAlign: 'center' }]} numberOfLines={2}>
-                          {item.name}
-                        </Text>
+                        <View style={{ padding: 8 }}>
+                          <Text style={{
+                            fontSize: 14,
+                            fontWeight: '700',
+                            color: '#1f2937',
+                            marginBottom: 2
+                          }} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text style={{
+                            fontSize: 12,
+                            color: '#6b7280'
+                          }}>
+                            {item.time || "20-30 min"}
+                          </Text>
+                        </View>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -776,17 +822,28 @@ export default function HomeScreen() {
                       onPress={() =>
                         router.push({
                           pathname: "/product/[id]",
-                          params: { id: item.name },
+                          params: {
+                            id: item._id, // Use _id for real products
+                            name: item.name,
+                            price: item.price,
+                            image: item.image,
+                            description: item.description,
+                            category: item.category,
+                            isVeg: item.isVeg,
+                            restaurantId: item.restaurant?._id || item.restaurant,
+                            restaurantName: item.restaurant?.name || "Restaurant",
+                            restaurantIsOpen: item.restaurant?.isOpen
+                          },
                         })
                       }
                     >
                       {/* Discount Badge */}
-                      {Platform.OS !== "web" && (
+                      {Platform.OS !== "web" && item.originalPrice && item.originalPrice > item.price && (
                         <View style={styles.discountBadge}>
                           <Text style={styles.discountText}>
                             {Math.round(
-                              ((item.discountPrice - item.price) /
-                                item.discountPrice) *
+                              ((item.originalPrice - item.price) /
+                                item.originalPrice) *
                               100
                             )}
                             % OFF
@@ -820,9 +877,14 @@ export default function HomeScreen() {
                               } else {
                                 dispatch(
                                   addToCart({
-                                    ...item,
+                                    id: item._id || item.name,
+                                    name: item.name,
+                                    price: item.price,
                                     quantity: 1,
-                                    id: item.name,
+                                    image: item.image,
+                                    veg: item.isVeg,
+                                    restaurantId: item.restaurant?._id || item.restaurant,
+                                    restaurantName: item.restaurant?.name || "Restaurant",
                                   })
                                 );
                                 showToast("Added to cart");
@@ -888,9 +950,14 @@ export default function HomeScreen() {
                               } else {
                                 dispatch(
                                   addToCart({
-                                    ...item,
+                                    id: item._id || item.name,
+                                    name: item.name,
+                                    price: item.price,
                                     quantity: 1,
-                                    id: item.name,
+                                    image: item.image,
+                                    veg: item.isVeg,
+                                    restaurantId: item.restaurant?._id || item.restaurant,
+                                    restaurantName: item.restaurant?.name || "Restaurant",
                                   })
                                 );
                                 showToast("Added to cart");
@@ -996,8 +1063,8 @@ export default function HomeScreen() {
                         </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
-                          key={item.id}
-                          style={styles.restaurantCard}
+                          key={item.id || item._id}
+                          style={[styles.restaurantCard, item.isOpen === false && { opacity: 0.75 }]}
                           onPress={() => handleRestaurantClick(item)}
                         >
                           <View style={styles.restImageContainer}>
@@ -1006,14 +1073,23 @@ export default function HomeScreen() {
                               style={styles.restImage}
                               resizeMode="cover"
                             />
-                            <View style={styles.promotedTag}>
-                              <Text style={styles.promotedText}>Promoted</Text>
-                            </View>
-                            <View style={styles.restDiscountBadge}>
-                              <Text style={styles.restDiscountText}>
-                                {item.discount}
-                              </Text>
-                            </View>
+                            {item.isOpen === false ? (
+                              <View style={styles.restClosedOverlay}>
+                                <Text style={styles.restClosedOverlayText}>CLOSED</Text>
+                                <Text style={styles.restClosedOverlaySub}>Not accepting orders</Text>
+                              </View>
+                            ) : (
+                              <>
+                                <View style={styles.promotedTag}>
+                                  <Text style={styles.promotedText}>Promoted</Text>
+                                </View>
+                                <View style={styles.restDiscountBadge}>
+                                  <Text style={styles.restDiscountText}>
+                                    {item.discount}
+                                  </Text>
+                                </View>
+                              </>
+                            )}
                             <View style={styles.bookmarkIcon}>
                               <Ionicons
                                 name="bookmark-outline"
@@ -1024,20 +1100,19 @@ export default function HomeScreen() {
                           </View>
                           <View style={styles.restInfo}>
                             <View style={styles.restHeader}>
-                              <Text style={styles.restName} numberOfLines={1}>
+                              <Text style={[styles.restName, item.isOpen === false && { color: '#999' }]} numberOfLines={1}>
                                 {item.name}
                               </Text>
-                              <View style={styles.ratingBadge}>
-                                <Text style={styles.ratingVal}>
-                                  {item.rating}
-                                </Text>
-                                <Ionicons
-                                  name="star"
-                                  size={10}
-                                  color="#fff"
-                                  style={{ marginLeft: 2 }}
-                                />
-                              </View>
+                              {item.isOpen === false ? (
+                                <View style={styles.restClosedChip}>
+                                  <Text style={styles.restClosedChipText}>Closed</Text>
+                                </View>
+                              ) : (
+                                <View style={styles.ratingBadge}>
+                                  <Text style={styles.ratingVal}>{item.rating}</Text>
+                                  <Ionicons name="star" size={10} color="#fff" style={{ marginLeft: 2 }} />
+                                </View>
+                              )}
                             </View>
                             <View style={styles.restMetaRow}>
                               <Text style={styles.cuisineText} numberOfLines={1}>
@@ -1048,25 +1123,17 @@ export default function HomeScreen() {
                               </Text>
                             </View>
                             <View style={styles.restLocationRow}>
-                              <Ionicons
-                                name="location-outline"
-                                size={14}
-                                color="#9ca3af"
-                              />
+                              <Ionicons name="location-outline" size={14} color="#9ca3af" />
                               <Text style={styles.locationText} numberOfLines={1}>
                                 {(item.location || item.address)} • {item.time}
                               </Text>
                             </View>
-                            <View style={styles.bookingRow}>
-                              <Ionicons
-                                name="calendar-outline"
-                                size={14}
-                                color="#059669"
-                              />
-                              <Text style={styles.bookingText}>
-                                Table booking available
-                              </Text>
-                            </View>
+                            {item.isOpen !== false && (
+                              <View style={styles.bookingRow}>
+                                <Ionicons name="calendar-outline" size={14} color="#059669" />
+                                <Text style={styles.bookingText}>Table booking available</Text>
+                              </View>
+                            )}
                           </View>
                         </TouchableOpacity>
                       )
@@ -1254,21 +1321,21 @@ const styles = StyleSheet.create({
   },
 
   // Food Items (Circular)
-  foodItem: { alignItems: "center", width: 80 },
+  foodItem: { alignItems: "center", width: 110 },
   foodImageContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
     // Remove Border for cleaner look if images are transparent
     borderWidth: 0,
   },
-  foodOptionImage: { width: "100%", height: "100%", borderRadius: 35 },
+  foodOptionImage: { width: "100%", height: "100%", borderRadius: 50 },
   itemLabel: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "700",
     color: "#4b5563",
     textAlign: "center",
   },
@@ -1740,16 +1807,16 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
   },
   webFoodImageContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     overflow: "hidden",
     marginBottom: 8,
   },
   webFoodImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
     marginBottom: 8,
   },
   webItemText: {
@@ -1772,5 +1839,34 @@ const styles = StyleSheet.create({
   navBtnDisabled: {
     opacity: 0.5,
     backgroundColor: "#f1f2f6",
+  },
+  restClosedOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.52)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  restClosedOverlayText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    letterSpacing: 2,
+  },
+  restClosedOverlaySub: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 11,
+    marginTop: 4,
+  },
+  restClosedChip: {
+    backgroundColor: "#f44336",
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  restClosedChipText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
   },
 });

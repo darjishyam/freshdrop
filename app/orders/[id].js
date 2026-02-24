@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../../constants/api";
 import {
   Image,
   Platform,
@@ -69,6 +71,13 @@ export default function OrderDetailsScreen() {
       canCancel: false,
     },
     {
+      key: "Ready",
+      label: "Food Ready",
+      icon: "timer",
+      description: "Waiting for delivery partner 🛵",
+      canCancel: false,
+    },
+    {
       key: "Out for Delivery",
       label: "Out for Delivery",
       icon: "bicycle",
@@ -116,13 +125,35 @@ export default function OrderDetailsScreen() {
     const found = orders.find((o) => o._id === id || o.id === id);
     if (found) {
       setOrder(found);
-      // Auto-expand all completed stages initially (to show full history chain)
+      // Auto-expand all completed stages initially
       const idx = getCurrentStageIndex(found.status);
       const initialExpanded = {};
       for (let i = 0; i <= idx; i++) {
         initialExpanded[i] = true;
       }
       setExpandedSteps(initialExpanded);
+    } else {
+      // Not in Redux yet — fetch directly from API
+      const fetchOrder = async () => {
+        try {
+          const token = await AsyncStorage.getItem("auth_token");
+          if (!token) return;
+          const res = await fetch(`${API_BASE_URL}/orders/${id}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setOrder(data);
+            const idx = getCurrentStageIndex(data.status);
+            const initialExpanded = {};
+            for (let i = 0; i <= idx; i++) initialExpanded[i] = true;
+            setExpandedSteps(initialExpanded);
+          }
+        } catch (e) {
+          console.error("Failed to fetch order:", e);
+        }
+      };
+      fetchOrder();
     }
   }, [id, orders]);
 
@@ -325,7 +356,7 @@ export default function OrderDetailsScreen() {
         {/* Items Section */}
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>Items Ordered</Text>
-          {order.items.map((item, idx) => (
+          {(order.items || []).map((item, idx) => (
             <View
               key={idx}
               style={[

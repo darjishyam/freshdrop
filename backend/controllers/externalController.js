@@ -2,6 +2,22 @@ const axios = require("axios");
 
 const Restaurant = require("../models/Restaurant"); // Import Restaurant Model
 
+// Helper: Calculate distance in km (Haversine Formula)
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return 9999;
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+};
+
 // @desc    Get restaurants from Overpass API + Local DB
 // @route   GET /api/external/restaurants
 // @access  Public (or Protected if needed)
@@ -149,58 +165,81 @@ const getGroceries = async (req, res) => {
 
     console.log(`🛒 Groceries Query - Lat: ${lat}, Lon: ${lon}, Radius: ${radius}`);
 
-    const query = `
-      [out:json];
-      (
-        node["shop"~"supermarket|convenience|general|department_store"](around:${radius},${lat},${lon});
-        way["shop"~"supermarket|convenience|general|department_store"](around:${radius},${lat},${lon});
-      );
-      out center;
-    `;
+    // 1. Fetch Local Grocery Stores from MongoDB
+    let localGroceries = [];
+    try {
+      const allLocal = await Restaurant.find({
+        storeType: 'GROCERY',
+        status: 'APPROVED'
+      });
 
-    const overpassUrl = "https://overpass-api.de/api/interpreter";
-    const response = await axios.get(overpassUrl, {
-      params: { data: query },
-      timeout: 25000,
-      headers: {
-        "User-Agent": "FreshDrop/1.0 (professorshyam123@gmail.com)",
+      localGroceries = allLocal.map(r => {
+        const rLat = r.address?.coordinates?.lat || 0;
+        const rLon = r.address?.coordinates?.lon || 0;
+
+        // Use Haversine for accurate distance
+        const dist = calculateDistance(parseFloat(lat), parseFloat(lon), rLat, rLon);
+
+        // Filter: Only include if within 10km (matching restaurant logic)
+        if (dist > 10) return null;
+
+        console.log(`📍 Local Grocery Store ${r.name} is ${dist.toFixed(2)}km away`);
+
+        return {
+          id: r._id.toString(),
+          name: r.name,
+          type: "Grocery Store",
+          lat: rLat,
+          lon: rLon,
+          address: `${r.address.street}, ${r.address.city}`,
+          distance: `${dist.toFixed(1)} km`,
+          rating: r.rating || 4.5,
+          time: r.deliveryTime || "15-20 min",
+          image: r.image,
+          isLocal: true // Mark as our DB store
+        };
+      }).filter(Boolean);
+
+      console.log(`🏠 Found ${localGroceries.length} local grocery stores`);
+    } catch (err) {
+      console.error("Local Grocery Fetch Error:", err);
+    }
+
+    // 2. Mock Prominent Brands (as requested by user)
+    const mockGroceries = [
+      {
+        id: "mock_bb_1",
+        name: "Big Basket",
+        type: "Supermarket",
+        lat: parseFloat(lat), // Place near user
+        lon: parseFloat(lon),
+        address: "Near You",
+        distance: "0.5 km",
+        rating: "4.8",
+        time: "15-25 min",
+        image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80",
+        isMock: true
       },
-    });
-
-    const elements = response.data.elements || [];
-    console.log(`🛒 Groceries Found: ${elements.length}`);
-
-    const groceryImages = [
-      "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80",
-      "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500&q=80",
-      "https://images.unsplash.com/photo-1604719312566-b76d4685332e?w=500&q=80",
+      {
+        id: "mock_dmart_1",
+        name: "D Mart Ready",
+        type: "Department Store",
+        lat: parseFloat(lat) + 0.005,
+        lon: parseFloat(lon) + 0.005,
+        address: "City Center",
+        distance: "1.2 km",
+        rating: "4.6",
+        time: "20-30 min",
+        image: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500&q=80",
+        isMock: true
+      }
     ];
 
-    const groceries = elements.map((el, index) => {
-      const lat = el.lat || el.center?.lat;
-      const lon = el.lon || el.center?.lon;
-
-      return {
-        id: el.id.toString(),
-        name: el.tags?.name || "Grocery Store",
-        type: el.tags?.shop || "Supermarket",
-        lat: lat,
-        lon: lon,
-        address: el.tags?.["addr:street"] || "Nearby",
-        distance: "Nearby",
-        rating: (Math.random() * (4.8 - 3.5) + 3.5).toFixed(1),
-        time: `${Math.floor(Math.random() * 15) + 15} min`,
-        image: groceryImages[index % groceryImages.length],
-      };
-    });
-
-    res.json(groceries);
+    // 3. Combine Local + Mock
+    const combinedGroceries = [...localGroceries, ...mockGroceries];
+    res.json(combinedGroceries);
   } catch (error) {
-    if (error.response && error.response.status === 429) {
-      console.warn("Overpass API (Groceries) Rate Limit (429) hit - serving empty list.");
-    } else {
-      console.error("Overpass API (Groceries) Error:", error.message);
-    }
+    console.error("Grocery API Error:", error.message);
     res.json([]);
   }
 };

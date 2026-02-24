@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Image,
     Platform,
     Pressable,
@@ -18,8 +19,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { VegNonVegIcon } from "../../components/VegNonVegIcon";
 import { useToast } from "../../context/ToastContext";
 import { getGroceryInventory, groceryCategories } from "../../data/mockData";
-import { addToCart } from "../../store/slices/cartSlice";
+import { addToCart, clearCart, selectCartRestaurant } from "../../store/slices/cartSlice";
 import { selectUser } from "../../store/slices/userSlice";
+import { API_BASE_URL } from "../../constants/api";
 
 export default function GroceryStoreScreen() {
     const dispatch = useDispatch();
@@ -27,27 +29,68 @@ export default function GroceryStoreScreen() {
     const params = useLocalSearchParams();
     const router = useRouter();
     const { showToast } = useToast();
+    const cartRestaurant = useSelector(selectCartRestaurant);
 
-    const { id, name, address, image, rating, time } = params;
+    const { id, name, address, image, rating, time, isLocal } = params;
 
     // State
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ALL");
+    const [dynamicCategories, setDynamicCategories] = useState([]);
 
     // Load Inventory
     useEffect(() => {
-        // Simulate API call
-        setLoading(true);
-        setTimeout(() => {
-            const items = getGroceryInventory(id);
-            setInventory(items);
-            setLoading(false);
-        }, 500);
-    }, [id]);
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                if (isLocal === "true" || id.length === 24) {
+                    console.log("Fetching real grocery data for store:", id);
+                    const response = await fetch(`${API_BASE_URL}/restaurants/${id}`);
+                    if (!response.ok) throw new Error("Failed to fetch store data");
+                    const data = await response.json();
+
+                    if (data.products) {
+                        const formattedProducts = data.products.map(p => ({
+                            id: p.id,
+                            name: p.name,
+                            price: p.price,
+                            description: p.description || p.name,
+                            image: p.image,
+                            category: p.category || "General",
+                            veg: p.veg,
+                            weight: p.weight || p.quantityDetails || "",
+                            brand: p.brandName || ""
+                        }));
+                        setInventory(formattedProducts);
+
+                        // Extract unique categories
+                        const cats = [...new Set(formattedProducts.map(p => p.category))];
+                        setDynamicCategories(cats.map(c => ({ id: c, name: c })));
+                    }
+                } else {
+                    // Fallback to mock data for external stores
+                    setTimeout(() => {
+                        const items = getGroceryInventory(id);
+                        setInventory(items);
+                    }, 500);
+                }
+            } catch (error) {
+                console.error("Error loading grocery data:", error);
+                // Fallback to mock on error
+                const items = getGroceryInventory(id);
+                setInventory(items);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, [id, isLocal]);
 
     // Filter Items
+    const categoriesToRender = dynamicCategories.length > 0 ? dynamicCategories : groceryCategories;
+
     const filteredItems = useMemo(() => {
         let items = inventory;
 
@@ -111,21 +154,53 @@ export default function GroceryStoreScreen() {
                             return;
                         }
 
-                        dispatch(
-                            addToCart({
-                                id: item.id,
-                                name: item.name,
-                                price: item.price,
-                                quantity: 1,
-                                image: item.image,
-                                restaurantId: id, // Treat Store ID as Restaurant ID for cart grouping
-                                restaurantName: name,
-                                veg: item.veg,
-                                weight: item.weight,
-                                supplier: name,
-                            })
-                        );
-                        showToast(`${item.name} added to cart`);
+                        const handleAddAction = () => {
+                            dispatch(
+                                addToCart({
+                                    id: item.id,
+                                    name: item.name,
+                                    price: item.price,
+                                    quantity: 1,
+                                    image: item.image,
+                                    restaurantId: id, // Treat Store ID as Restaurant ID for cart grouping
+                                    restaurantName: name,
+                                    veg: item.veg,
+                                    weight: item.weight,
+                                    supplier: name,
+                                })
+                            );
+                            showToast(`${item.name} added to cart`);
+                        };
+
+                        // Validation: Single Restaurant check
+                        if (cartRestaurant.id && cartRestaurant.id !== id) {
+                            const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
+
+                            if (Platform.OS === 'web') {
+                                if (window.confirm(msg)) {
+                                    dispatch(clearCart());
+                                    handleAddAction();
+                                }
+                            } else {
+                                Alert.alert(
+                                    "Replace cart item?",
+                                    msg,
+                                    [
+                                        { text: "Cancel", style: "cancel" },
+                                        {
+                                            text: "Clear & Add",
+                                            onPress: () => {
+                                                dispatch(clearCart());
+                                                handleAddAction();
+                                            }
+                                        }
+                                    ]
+                                );
+                            }
+                            return;
+                        }
+
+                        handleAddAction();
                     }}
                 >
                     <Text style={styles.addButtonText}>ADD</Text>
@@ -174,7 +249,7 @@ export default function GroceryStoreScreen() {
                         >
                             <Text style={[styles.categoryText, selectedCategory === "ALL" && styles.categoryTextActive]}>All</Text>
                         </TouchableOpacity>
-                        {groceryCategories.map(cat => (
+                        {categoriesToRender.map(cat => (
                             <TouchableOpacity
                                 key={cat.id}
                                 style={[styles.categoryPill, selectedCategory === cat.name && styles.categoryPillActive]}

@@ -26,9 +26,18 @@ const productSchema = new mongoose.Schema(
       type: String,
     },
     category: {
-      type: String, // e.g., 'Pizza', 'Burger', 'Drinks'
+      type: String, // e.g., 'Pizza', 'Burger', 'Drinks' or 'Vegetables', 'Dairy'
       required: true,
     },
+    // Grocery specific fields
+    brandName: { type: String },
+    weight: { type: String }, // e.g., "500", "1"
+    unit: {
+      type: String,
+      enum: ['g', 'kg', 'ml', 'l', 'pcs', 'pack', 'None'],
+      default: 'None'
+    },
+    stockQuantity: { type: Number, default: 0 },
     isVeg: {
       type: Boolean,
       default: true,
@@ -49,8 +58,13 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    quantityDetails: {
-      type: String, // e.g., "Serves 1", "500ml"
+    quantityDetails: [{
+      quantity: String,
+      price: Number
+    }],
+    inStock: {
+      type: Boolean,
+      default: true,
     },
   },
   { timestamps: true }

@@ -261,7 +261,8 @@ export default function OTPScreen() {
 
       showToast("Verification Successful!", "success");
       // Navigate to home
-      router.replace("/(tabs)/home");
+      // Navigate to Address Setup (Mandatory)
+      router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
     } catch (err) {
       showToast(err || "Invalid OTP. Please try again.", "error");
 

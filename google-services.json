@@ -1,43 +1,64 @@
 {
     "project_info": {
-        "project_number": "620352640426",
-        "project_id": "freshdrop-ee105",
-        "storage_bucket": "freshdrop-ee105.firebasestorage.app"
+        "project_number": "1099174331621",
+        "project_id": "freshdrop-driver",
+        "storage_bucket": "freshdrop-driver.firebasestorage.app"
     },
     "client": [
         {
             "client_info": {
-                "mobilesdk_app_id": "1:620352640426:android:2310decd2605f63da187d3",
+                "mobilesdk_app_id": "1:1099174331621:android:414361fc140fedb08f000c",
                 "android_client_info": {
                     "package_name": "com.bytesved.freshdrop"
                 }
             },
-            "oauth_client": [
-                {
-                    "client_id": "620352640426-ha6ndng5bj5lg59jf46pd0bba5in7nao.apps.googleusercontent.com",
-                    "client_type": 1,
-                    "android_info": {
-                        "package_name": "com.bytesved.freshdrop"
-                    }
-                },
-                {
-                    "client_id": "620352640426-g4tviqolht9lc0tkcebnf5t5kp2coffm.apps.googleusercontent.com",
-                    "client_type": 3
-                }
-            ],
+            "oauth_client": [],
             "api_key": [
                 {
-                    "current_key": "AIzaSyCFEPbkKt4jiQRqTXj9TTmgPv1iMBv6j8Y"
+                    "current_key": "AIzaSyAAtdntKH8gAwjyAIsEi1ekEfeEdcShb8Y"
                 }
             ],
             "services": {
                 "appinvite_service": {
-                    "other_platform_oauth_client": [
-                        {
-                            "client_id": "620352640426-9j8bjtcnqga60snbhqsek4ekgsuf6fjg.apps.googleusercontent.com",
-                            "client_type": 3
-                        }
-                    ]
+                    "other_platform_oauth_client": []
+                }
+            }
+        },
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:1099174331621:android:d54bb272e7a5662b8f000c",
+                "android_client_info": {
+                    "package_name": "com.professor_fan.freshdropdriver"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyAAtdntKH8gAwjyAIsEi1ekEfeEdcShb8Y"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        },
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:1099174331621:android:8f017aef67827dc08f000c",
+                "android_client_info": {
+                    "package_name": "com.professor_fan.freshdroprestaurant"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyAAtdntKH8gAwjyAIsEi1ekEfeEdcShb8Y"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
                 }
             }
         }

@@ -20,19 +20,29 @@ export default function RestaurantCard({
     return img;
   };
 
+  const isClosed = restaurant.isOpen === false;
+
   if (compact) {
     return (
-      <TouchableOpacity style={[styles.compactCard, style]} onPress={onPress}>
-        <Image
-          source={getImageSource(restaurant.image)}
-          style={styles.compactImage}
-          resizeMode="cover"
-        />
+      <TouchableOpacity style={[styles.compactCard, style, isClosed && { opacity: 0.7 }]} onPress={onPress}>
+        <View style={{ position: 'relative' }}>
+          <Image
+            source={getImageSource(restaurant.image)}
+            style={styles.compactImage}
+            resizeMode="cover"
+          />
+          {isClosed && (
+            <View style={styles.closedOverlay}>
+              <Text style={styles.closedOverlayText}>CLOSED</Text>
+            </View>
+          )}
+        </View>
         <View style={styles.compactInfo}>
-          <Text style={styles.compactName}>{restaurant.name}</Text>
-          <Text style={styles.compactMeta}>
-            {restaurant.rating} • {restaurant.time}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.compactName}>{restaurant.name}</Text>
+            {isClosed && <View style={styles.closedChip}><Text style={styles.closedChipText}>Closed</Text></View>}
+          </View>
+          <Text style={styles.compactMeta}>{restaurant.rating} • {restaurant.time}</Text>
           <Text style={styles.compactCuisine}>{restaurant.cuisine}</Text>
           <Text style={styles.compactDiscount}>{restaurant.discount}</Text>
         </View>
@@ -41,19 +51,28 @@ export default function RestaurantCard({
   }
 
   return (
-    <TouchableOpacity style={[styles.card, style]} onPress={onPress}>
+    <TouchableOpacity style={[styles.card, style, isClosed && { opacity: 0.75 }]} onPress={onPress}>
       <View style={styles.imageContainer}>
         <Image
           source={getImageSource(restaurant.image)}
           style={styles.image}
           resizeMode="cover"
         />
-        <View style={styles.promotedTag}>
-          <Text style={styles.promotedText}>Promoted</Text>
-        </View>
-        <View style={styles.discountBadge}>
-          <Text style={styles.discountText}>{restaurant.discount}</Text>
-        </View>
+        {isClosed ? (
+          <View style={styles.closedOverlay}>
+            <Text style={styles.closedOverlayText}>CLOSED</Text>
+            <Text style={styles.closedOverlaySub}>Currently not accepting orders</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.promotedTag}>
+              <Text style={styles.promotedText}>Promoted</Text>
+            </View>
+            <View style={styles.discountBadge}>
+              <Text style={styles.discountText}>{restaurant.discount}</Text>
+            </View>
+          </>
+        )}
         <View style={styles.bookmarkIcon}>
           <Ionicons name="bookmark-outline" size={20} color="#fff" />
         </View>
@@ -61,24 +80,23 @@ export default function RestaurantCard({
 
       <View style={styles.info}>
         <View style={styles.header}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={[styles.name, isClosed && { color: '#999' }]} numberOfLines={1}>
             {restaurant.name}
           </Text>
-          <View style={styles.ratingBadge}>
-            <Text style={styles.rating}>{restaurant.rating}</Text>
-            <Ionicons
-              name="star"
-              size={10}
-              color="#fff"
-              style={{ marginLeft: 2 }}
-            />
-          </View>
+          {isClosed ? (
+            <View style={styles.closedChip}>
+              <Text style={styles.closedChipText}>Closed</Text>
+            </View>
+          ) : (
+            <View style={styles.ratingBadge}>
+              <Text style={styles.rating}>{restaurant.rating}</Text>
+              <Ionicons name="star" size={10} color="#fff" style={{ marginLeft: 2 }} />
+            </View>
+          )}
         </View>
 
         <View style={styles.metaRow}>
-          <Text style={styles.cuisine} numberOfLines={1}>
-            {restaurant.cuisine}
-          </Text>
+          <Text style={styles.cuisine} numberOfLines={1}>{restaurant.cuisine}</Text>
           <Text style={styles.price}>{restaurant.priceForTwo}</Text>
         </View>
 
@@ -89,10 +107,12 @@ export default function RestaurantCard({
           </Text>
         </View>
 
-        <View style={styles.bookingRow}>
-          <Ionicons name="calendar-outline" size={14} color="#059669" />
-          <Text style={styles.bookingText}>Table booking available</Text>
-        </View>
+        {!isClosed && (
+          <View style={styles.bookingRow}>
+            <Ionicons name="calendar-outline" size={14} color="#059669" />
+            <Text style={styles.bookingText}>Table booking available</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -253,5 +273,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "bold",
     color: "#FC8019",
+  },
+  closedOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.52)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closedOverlayText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    letterSpacing: 2,
+  },
+  closedOverlaySub: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 11,
+    marginTop: 4,
+  },
+  closedChip: {
+    backgroundColor: "#f44336",
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  closedChipText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "bold",
   },
 });

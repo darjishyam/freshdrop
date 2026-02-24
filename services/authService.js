@@ -133,6 +133,15 @@ export const verifyOTP = async (phone, otp) => {
     await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
     await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
 
+    // Save Address Data for UserSlice
+    if (data.address) {
+      await AsyncStorage.setItem("user_location", data.address.street || "");
+      await AsyncStorage.setItem("user_location_type", data.address.type || "Home");
+      if (data.address.coordinates) {
+        await AsyncStorage.setItem("user_location_coords", JSON.stringify(data.address.coordinates));
+      }
+    }
+
     return {
       success: true,
       user
@@ -274,6 +283,15 @@ export const googleAuth = async (token, action = 'signup') => {
       image: data.image
     }));
 
+    // Save Address Data for UserSlice (Google Login)
+    if (data.address) {
+      await AsyncStorage.setItem("user_location", data.address.street || "");
+      await AsyncStorage.setItem("user_location_type", data.address.type || "Home");
+      if (data.address.coordinates) {
+        await AsyncStorage.setItem("user_location_coords", JSON.stringify(data.address.coordinates));
+      }
+    }
+
     console.log("[authService] User saved to AsyncStorage (both keys):", user.email);
 
     return {
@@ -312,6 +330,27 @@ export const updatePushToken = async (pushToken) => {
     return data;
   } catch (error) {
     console.error("Error updating push token:", error);
+  }
+};
+
+// Save User Address
+export const saveAddress = async (addressData) => {
+  try {
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+    const response = await fetch(`${API_URL}/location/address`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(addressData),
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "Failed to save address");
+    return data;
+  } catch (error) {
+    throw error;
   }
 };
 

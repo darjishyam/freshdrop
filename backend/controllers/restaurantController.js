@@ -22,19 +22,28 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 // @access  Public
 const getNearbyData = async (req, res) => {
   try {
-    const { lat, lng } = req.query;
+    const { lat, lng, lon } = req.query;
+    const longitude = lng || lon;
 
-    if (!lat || !lng) {
+    if (!lat || !longitude) {
       return res
         .status(400)
         .json({ message: "Latitude and Longitude are required" });
     }
 
     const userLat = parseFloat(lat);
-    const userLng = parseFloat(lng);
+    const userLng = parseFloat(longitude);
 
     // 1. Fetch All Restaurants (Optimize this with Geospatial Query in real prod)
-    const allRestaurants = await Restaurant.find({});
+    // Filter by status 'APPROVED' and storeType 'RESTAURANT' (or default)
+    const allRestaurants = await Restaurant.find({
+      status: 'APPROVED',
+      $or: [
+        { storeType: 'RESTAURANT' },
+        { storeType: { $exists: false } }
+      ]
+    });
+    console.log("Total Approved Restaurants:", allRestaurants.length);
 
     // 2. Filter by Distance (10km) & Format
     const restaurantsWithDistance = allRestaurants.map((r) => {
@@ -46,7 +55,7 @@ const getNearbyData = async (req, res) => {
 
       // Format for Frontend
       const cuisineStr = Array.isArray(r.cuisines)
-        ? r.cuisines.join(", ")
+        ? r.cuisines.join(" • ")
         : r.cuisines || "";
       const locationStr = r.address
         ? `${r.address.street || ""}, ${r.address.city || ""}`
@@ -57,6 +66,8 @@ const getNearbyData = async (req, res) => {
         id: r._id, // Frontend uses 'id'
         cuisine: cuisineStr,
         location: locationStr,
+        time: r.deliveryTime || "30-40 min",
+        priceForTwo: r.priceRange || "₹200 for two",
         distance,
       };
     });
@@ -127,8 +138,8 @@ const getRestaurantById = async (req, res) => {
     }
 
     // Fetch products for this restaurant
-    const products = await Product.find({ restaurant: id });
-    console.log("Products found:", products.length);
+    const products = await Product.find({ restaurant: new mongoose.Types.ObjectId(id) });
+    console.log(`Products found for ${restaurant.name}:`, products.length);
 
     // Format for Frontend
     const cuisineStr = Array.isArray(restaurant.cuisines)
@@ -148,11 +159,14 @@ const getRestaurantById = async (req, res) => {
     };
 
     res.json({
-      restaurant: formattedRestaurant,
+      ...formattedRestaurant,
       products: products.map(p => ({
         ...p.toObject(),
         id: p._id,
         restaurantId: restaurant._id.toString(),
+        veg: p.isVeg, // Map isVeg to veg for frontend
+        bestSeller: p.isBestSeller, // Map isBestSeller for frontend
+        weight: p.quantityDetails, // Map quantityDetails to weight for frontend
       })),
     });
   } catch (error) {
@@ -171,11 +185,16 @@ const saveExternalRestaurant = async (req, res) => {
 
     console.log("Saving external restaurant:", externalId, name);
 
-    // Check if restaurant already exists
-    let restaurant = await Restaurant.findOne({ externalId });
+    // Check if restaurant already exists (by externalId OR Name/Email)
+    let restaurant = await Restaurant.findOne({
+      $or: [
+        { externalId: externalId },
+        { name: { $regex: new RegExp(`^${name}$`, 'i') } } // Case-insensitive name match
+      ]
+    });
 
     if (restaurant) {
-      console.log("Restaurant already exists:", restaurant._id);
+      console.log("Restaurant already exists (Match):", restaurant._id);
       return res.json({
         _id: restaurant._id,
         name: restaurant.name,

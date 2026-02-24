@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const restaurantSchema = new mongoose.Schema(
   {
@@ -6,6 +7,15 @@ const restaurantSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+    },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    ownerName: { type: String, required: true },
+    phone: { type: String },
+    storeType: {
+      type: String,
+      enum: ['RESTAURANT', 'GROCERY'],
+      default: 'RESTAURANT'
     },
     externalId: {
       type: String,
@@ -24,13 +34,48 @@ const restaurantSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // --- Business & Legal Details ---
+    status: {
+      type: String,
+      enum: ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'],
+      default: 'PENDING'
+    },
+    isAcceptingOrders: {
+      type: Boolean,
+      default: true
+    },
+    fssaiLicense: { type: String },
+    gstNumber: { type: String },
+    panNumber: { type: String },
+    pushToken: { type: String }, // For Expo Push Notifications
+
+    // --- Bank Details ---
+    bankDetails: {
+      accountHolderName: String,
+      accountNumber: String,
+      ifscCode: String,
+      bankName: String,
+    },
+
+    // --- Documents (URLs) ---
+    documentImages: {
+      fssai: String,
+      pan: String,
+      cancelledCheque: String,
+    },
+
+    // --- Operations ---
+    prepTime: { type: Number, default: 20 }, // Average prep time in minutes
+    commissionRate: { type: Number, default: 20 }, // Percentage
+
+    // --- Existing Fields ---
     deliveryTime: {
       type: String, // e.g., "30-40 min"
-      required: true,
+      default: "30-40 min"
     },
     priceRange: {
       type: String, // e.g., "₹₹"
-      default: "₹150 for one",
+      default: "₹200 for two",
     },
     cuisines: [
       {
@@ -40,6 +85,7 @@ const restaurantSchema = new mongoose.Schema(
     address: {
       street: String,
       city: String,
+      zip: String,
       coordinates: {
         lat: Number,
         lon: Number,
@@ -64,5 +110,16 @@ const restaurantSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Hash password before saving
+restaurantSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
+  this.password = await bcrypt.hash(this.password, 10);
+});
+
+// Compare password method
+restaurantSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 module.exports = mongoose.model("Restaurant", restaurantSchema);

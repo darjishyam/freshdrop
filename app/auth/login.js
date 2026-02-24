@@ -171,7 +171,8 @@ export default function LoginScreen() {
         if (result.address.coordinates) {
           dispatch(updateLocationCoords(result.address.coordinates));
         }
-        router.replace("/home");
+        // Always redirect to Address Setup for confirmation
+        router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
       } else {
         // No address found, redirect to address setup
         router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
@@ -246,7 +247,8 @@ export default function LoginScreen() {
         router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
       } else {
         // Everything set, go home
-        router.replace("/home");
+        // Always redirect to Address Setup for confirmation
+        router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
       }
 
     } catch (err) {

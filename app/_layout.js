@@ -9,7 +9,7 @@ import {
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -23,8 +23,8 @@ import { ToastProvider } from "../context/ToastContext";
 import { store } from "../store";
 import { initializeAuth } from "../store/slices/authSlice";
 import { loadUserData } from "../store/slices/userSlice";
-// import { usePushNotifications } from "@/hooks/usePushNotifications"; // Import hook
-// import { updatePushToken } from "@/services/authService"; // Import service
+import { usePushNotifications } from "@/hooks/usePushNotifications"; // Import hook
+import { updatePushToken } from "@/services/authService"; // Import service
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -35,16 +35,27 @@ export const unstable_settings = {
 
 // Component to handle Push Notifications inside Provider
 function AppContent() {
-  // const { expoPushToken, notification } = usePushNotifications();
-  // const { user, token } = useSelector((state) => state.auth);
+  const { expoPushToken, notification, notificationResponse } = usePushNotifications();
+  const { user, token } = useSelector((state) => state.auth);
+  const router = useRouter();
 
-  // useEffect(() => {
-  //   if (expoPushToken && token) {
-  //     // Send token to backend
-  //     console.log("Updating Push Token for User App:", expoPushToken);
-  //     updatePushToken(expoPushToken);
-  //   }
-  // }, [expoPushToken, token]);
+  useEffect(() => {
+    if (notificationResponse) {
+      const data = notificationResponse.notification.request.content.data;
+      if (data && data.orderId) {
+        console.log("Redirecting to Order Tracking:", data.orderId);
+        router.push(`/orders/${data.orderId}`);
+      }
+    }
+  }, [notificationResponse]);
+
+  useEffect(() => {
+    if (expoPushToken && token) {
+      // Send token to backend
+      console.log("Updating Push Token for User App:", expoPushToken);
+      updatePushToken(expoPushToken);
+    }
+  }, [expoPushToken, token]);
 
   return (
     <View style={{ flex: 1 }}>

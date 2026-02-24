@@ -19,9 +19,11 @@ import { useToast } from "../../context/ToastContext";
 import {
   selectLocation,
   selectLocationType,
+  selectLocationCoords, // Import selector
   updateLocation,
   updateLocationCoords,
   updateLocationType,
+  saveUserAddress,
 } from "../../store/slices/userSlice";
 
 export default function ManageAddressScreen() {
@@ -31,6 +33,7 @@ export default function ManageAddressScreen() {
   const { showToast } = useToast();
   const location = useSelector(selectLocation);
   const locationType = useSelector(selectLocationType);
+  const locationCoords = useSelector(selectLocationCoords); // Select coords
 
   // Local state for editing
   const [address, setAddress] = useState(location);
@@ -142,11 +145,9 @@ export default function ManageAddressScreen() {
       return;
     }
 
-    // Save address and type immediately
-    dispatch(updateLocation(address));
-    dispatch(updateLocationType(type));
-
-    // Try to geocode the address to get coordinates (for restaurant fetching)
+    // 1. Try to geocode the address to get coordinates (for restaurant fetching)
+    let finalCoords = locationCoords;
+    setLoadingLocation(true);
     try {
       const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
       const response = await fetch(geocodeUrl, {
@@ -159,17 +160,27 @@ export default function ManageAddressScreen() {
         const data = await response.json();
         if (data && data.length > 0) {
           const { lat, lon } = data[0];
-          dispatch(updateLocationCoords({
+          finalCoords = {
             latitude: parseFloat(lat),
             longitude: parseFloat(lon)
-          }));
+          };
+          // Update Redux state with new coords immediately
+          dispatch(updateLocationCoords(finalCoords));
           console.log(`✅ Geocoded address to: ${lat}, ${lon}`);
         }
       }
     } catch (error) {
-      console.warn("Geocoding failed, coordinates not updated:", error);
-      // Don't block the save if geocoding fails
+      console.warn("Geocoding failed, using previous coordinates or null:", error);
+    } finally {
+      setLoadingLocation(false);
     }
+
+    // 2. Save address and type to Backend + Local (using finalCoords)
+    dispatch(saveUserAddress({
+      street: address,
+      type: type,
+      coordinates: finalCoords
+    }));
 
     // Check if we need to redirect to Home (Onboarding flow)
     if (params.isOnboarding === "true") {

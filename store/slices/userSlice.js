@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { saveAddress } from "../../services/authService";
 
 // Async thunk to load location data from AsyncStorage
 // SESSION STORAGE: User data is NOT loaded - users must sign in again
@@ -23,6 +24,27 @@ export const loadUserData = createAsyncThunk("user/loadUserData", async () => {
     throw error;
   }
 });
+
+// Async thunk to save address to backend
+export const saveUserAddress = createAsyncThunk(
+  "user/saveUserAddress",
+  async (addressData, { dispatch, rejectWithValue }) => {
+    try {
+      // 1. Save to backend
+      const result = await saveAddress(addressData);
+
+      // 2. Update local state (Redux + AsyncStorage)
+      // We dispatch these here to ensure UI updates immediately
+      if (addressData.street) dispatch(updateLocation(addressData.street));
+      if (addressData.type) dispatch(updateLocationType(addressData.type));
+      if (addressData.coordinates) dispatch(updateLocationCoords(addressData.coordinates));
+
+      return result;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
 
 const initialState = {
   user: {

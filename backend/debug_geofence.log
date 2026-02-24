@@ -1,0 +1,62 @@
+[2026-02-20T06:12:26.182Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.59700900900901,"longitude":72.3693}
+[2026-02-20T06:12:26.247Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:12:27.184Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.59520720720721,"longitude":72.3693}
+[2026-02-20T06:12:27.239Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:12:28.192Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.593405405405406,"longitude":72.3693}
+[2026-02-20T06:12:28.243Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:12:29.195Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.591603603603605,"longitude":72.3693}
+[2026-02-20T06:12:29.249Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:12:30.202Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.5898018018018,"longitude":72.3693}
+[2026-02-20T06:12:30.255Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:12:31.205Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.588,"longitude":72.3693}
+[2026-02-20T06:12:31.263Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:13:30.668Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.59700900900901,"longitude":72.3693}
+[2026-02-20T06:13:30.732Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:13:30.734Z] Driver Distance: 1001.76m (Thresholds: 100m, 500m)
+[2026-02-20T06:13:30.734Z] No alert triggered. (500m sent: true, 100m sent: true)
+[2026-02-20T06:13:31.676Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.59520720720721,"longitude":72.3693}
+[2026-02-20T06:13:31.726Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:13:31.726Z] Driver Distance: 801.40m (Thresholds: 100m, 500m)
+[2026-02-20T06:13:31.727Z] No alert triggered. (500m sent: true, 100m sent: true)
+[2026-02-20T06:13:32.693Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.593405405405406,"longitude":72.3693}
+[2026-02-20T06:13:32.746Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:13:32.747Z] Driver Distance: 601.05m (Thresholds: 100m, 500m)
+[2026-02-20T06:13:32.748Z] No alert triggered. (500m sent: true, 100m sent: true)
+[2026-02-20T06:13:33.698Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.591603603603605,"longitude":72.3693}
+[2026-02-20T06:13:33.749Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:13:33.750Z] Driver Distance: 400.70m (Thresholds: 100m, 500m)
+[2026-02-20T06:13:33.751Z] No alert triggered. (500m sent: true, 100m sent: true)
+[2026-02-20T06:13:34.704Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.5898018018018,"longitude":72.3693}
+[2026-02-20T06:13:34.752Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:13:34.753Z] Driver Distance: 200.35m (Thresholds: 100m, 500m)
+[2026-02-20T06:13:34.754Z] No alert triggered. (500m sent: true, 100m sent: true)
+[2026-02-20T06:13:35.713Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.588,"longitude":72.3693}
+[2026-02-20T06:13:35.769Z] Active Order Found: 6997f7394ec5a3099d6b191b
+[2026-02-20T06:13:35.769Z] Driver Distance: 0.00m (Thresholds: 100m, 500m)
+[2026-02-20T06:13:35.770Z] No alert triggered. (500m sent: true, 100m sent: true)
+[2026-02-20T06:15:01.441Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.59700900900901,"longitude":72.3693}
+[2026-02-20T06:15:01.504Z] Active Order Found: 6997fbbeab34c7f5b6070ef8
+[2026-02-20T06:15:01.505Z] Driver Distance: 1001.76m (Thresholds: 100m, 500m)
+[2026-02-20T06:15:01.505Z] No alert triggered. (500m sent: false, 100m sent: false)
+[2026-02-20T06:15:02.440Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.59520720720721,"longitude":72.3693}
+[2026-02-20T06:15:02.492Z] Active Order Found: 6997fbbeab34c7f5b6070ef8
+[2026-02-20T06:15:02.494Z] Driver Distance: 801.40m (Thresholds: 100m, 500m)
+[2026-02-20T06:15:02.494Z] No alert triggered. (500m sent: false, 100m sent: false)
+[2026-02-20T06:15:03.450Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.593405405405406,"longitude":72.3693}
+[2026-02-20T06:15:03.503Z] Active Order Found: 6997fbbeab34c7f5b6070ef8
+[2026-02-20T06:15:03.504Z] Driver Distance: 601.05m (Thresholds: 100m, 500m)
+[2026-02-20T06:15:03.505Z] No alert triggered. (500m sent: false, 100m sent: false)
+[2026-02-20T06:15:04.460Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.591603603603605,"longitude":72.3693}
+[2026-02-20T06:15:04.512Z] Active Order Found: 6997fbbeab34c7f5b6070ef8
+[2026-02-20T06:15:04.513Z] Driver Distance: 400.70m (Thresholds: 100m, 500m)
+[2026-02-20T06:15:04.514Z] Triggering 500m Alert!
+[2026-02-20T06:15:04.959Z] [Geofencing] Saved Alert State: 500m
+[2026-02-20T06:15:05.463Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.5898018018018,"longitude":72.3693}
+[2026-02-20T06:15:05.514Z] Active Order Found: 6997fbbeab34c7f5b6070ef8
+[2026-02-20T06:15:05.514Z] Driver Distance: 200.35m (Thresholds: 100m, 500m)
+[2026-02-20T06:15:05.515Z] No alert triggered. (500m sent: true, 100m sent: false)
+[2026-02-20T06:15:06.470Z] Received updateDriverLocation: {"driverId":"6997f7394ec5a3099d6b1918","latitude":23.588,"longitude":72.3693}
+[2026-02-20T06:15:06.527Z] Active Order Found: 6997fbbeab34c7f5b6070ef8
+[2026-02-20T06:15:06.528Z] Driver Distance: 0.00m (Thresholds: 100m, 500m)
+[2026-02-20T06:15:06.528Z] Triggering 100m Alert!
+[2026-02-20T06:15:06.890Z] [Geofencing] Saved Alert State: 100m

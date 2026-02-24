@@ -55,7 +55,7 @@ export default function OrdersScreen() {
       // Start status update interval
       const interval = setInterval(() => {
         dispatch(updateOrderStatuses());
-      }, 1000); // Check every second
+      }, 15000); // Check every 15 seconds (reduced from 1 second to save battery/server)
 
       return () => clearInterval(interval);
     }, [dispatch])

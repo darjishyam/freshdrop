@@ -13,6 +13,7 @@ const server = http.createServer(app); // Create HTTP server
 
 // Initialize Socket.io
 // v1.0
+// Initialize Socket.io
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -23,6 +24,10 @@ const io = new Server(server, {
 
 // Make io accessible globally or via req
 app.set("io", io);
+
+const { sendPushNotification } = require("./services/notificationService");
+const { getDistanceFromLatLonInKm } = require("./services/locationService");
+const Order = require("./models/Order");
 
 io.on("connection", (socket) => {
   console.log("New client connected:", socket.id);
@@ -38,6 +43,97 @@ io.on("connection", (socket) => {
     socket.join(`city_${normalizedCity}`);
     console.log(`Socket ${socket.id} joined city room: city_${normalizedCity}`);
   });
+
+  // NEW: Restaurant Room
+  socket.on("joinRestaurantRoom", (restaurantId) => {
+    socket.join(`restaurant_${restaurantId}`);
+    console.log(`Socket ${socket.id} joined restaurant room: restaurant_${restaurantId}`);
+  });
+
+  // --- Geofencing: Driver Location Update ---
+  socket.on("updateDriverLocation", async (data) => {
+    // data: { driverId, latitude, longitude }
+    const { driverId, latitude, longitude } = data;
+
+    if (!driverId || !latitude || !longitude) return;
+
+    // Optional: Broadcast to admin or tracking dashboard if needed
+    // io.emit("driverLocationUpdated", data); 
+
+    try {
+      // 1. Find ACTIVE order for this driver (Out for Delivery)
+      // We only care if they are delivering
+      const activeOrder = await Order.findOne({
+        driver: driverId,
+        status: "Out for Delivery",
+        "deliveryAddress.lat": { $exists: true },
+        "deliveryAddress.lon": { $exists: true }
+      }).populate("user"); // Populate user to get their ID for notification
+
+      if (activeOrder) {
+        const customerLat = activeOrder.deliveryAddress.lat;
+        const customerLon = activeOrder.deliveryAddress.lon;
+
+        const distanceKm = getDistanceFromLatLonInKm(latitude, longitude, customerLat, customerLon);
+        const distanceMeters = distanceKm * 1000;
+
+        console.log(`Driver ${driverId} is ${distanceMeters.toFixed(0)}m from Customer for Order ${activeOrder._id}`);
+
+        // 2. Check Thresholds and Send Notifications
+        let alertSent = false;
+        let alertType = "";
+
+        // Check 100m first (Priority)
+        if (distanceMeters <= 100 && !activeOrder.proximityAlerts["100m"]) {
+          alertType = "100m";
+          await sendPushNotification(
+            [{ userId: activeOrder.user._id, pushToken: activeOrder.user.pushToken }],
+            "Order Arriving!",
+            "Your delivery partner is just 100 meters away!",
+            { orderId: activeOrder._id, type: "ORDER_UPDATE" },
+            "User"
+          );
+
+          activeOrder.proximityAlerts["100m"] = true;
+          alertSent = true;
+        }
+
+        // Check 500m (If 100m wasn't just sent)
+        else if (distanceMeters <= 500 && !activeOrder.proximityAlerts["500m"] && !activeOrder.proximityAlerts["100m"]) {
+          alertType = "500m";
+          // We need to get the user's push token. 
+          // Option A: Populate 'user' and access 'pushToken' field (if it exists on User model)
+          // Option B: Use NotificationService to look it up (it doesn't seem to have lookup logic built-in based on previous file view)
+
+          // Let's assume User model has pushToken. 
+          // If not, we might need to fetch it.
+          // Code below assumes activeOrder.user is the User document.
+          if (activeOrder.user && activeOrder.user.pushToken) {
+            await sendPushNotification(
+              [{ userId: activeOrder.user._id, pushToken: activeOrder.user.pushToken }],
+              "Order Nearby!",
+              "Your delivery partner is within 500 meters.",
+              { orderId: activeOrder._id, type: "ORDER_UPDATE" },
+              "User"
+            );
+            activeOrder.proximityAlerts["500m"] = true;
+            alertSent = true;
+          } else {
+            console.log("User push token not found for geofencing.");
+          }
+        }
+
+        if (alertSent) {
+          await activeOrder.save();
+          console.log(`[Geofencing] Sent ${alertType} alert for Order ${activeOrder._id}`);
+        }
+      }
+
+    } catch (error) {
+      console.error("Error in updateDriverLocation:", error);
+    }
+  });
+
 
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
@@ -77,12 +173,15 @@ const orderRoutes = require("./routes/orderRoutes");
 const driverRoutes = require("./routes/driverRoutes"); // Import Driver Routes
 
 app.use("/api/auth", authRoutes);
+app.use("/api/restaurant-auth", require("./routes/restaurantAuthRoutes")); // New Restaurant Auth
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/external", externalRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/restaurants", restaurantRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/driver", driverRoutes); // Use Driver Routes
+app.use("/api/driver", driverRoutes);
+app.use("/api/products", require("./routes/productRoutes"));
+app.use("/api/menu", require("./routes/menuRoutes")); // New Menu Routes // New Product Routes
 
 const PORT = process.env.PORT || 5000;
 

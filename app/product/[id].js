@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { generateObjectId } from "../../utils/idHelper";
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Dimensions,
   Image,
   Platform,
@@ -18,7 +19,7 @@ import { VegNonVegIcon } from "../../components/VegNonVegIcon";
 import WebLoginModal from "../../components/WebLoginModal";
 import { useToast } from "../../context/ToastContext";
 import { groceryItems, products, restaurantItems } from "../../data/mockData";
-import { addToCart, selectCartItems } from "../../store/slices/cartSlice";
+import { addToCart, clearCart, selectCartItems, selectCartRestaurant } from "../../store/slices/cartSlice";
 import { selectStock } from "../../store/slices/stockSlice";
 import { selectUser } from "../../store/slices/userSlice";
 import { loadReviews, selectProductReviews } from "../../store/slices/reviewsSlice";
@@ -29,11 +30,12 @@ const IS_WEB = Platform.OS === "web";
 export default function ProductDetailsScreen() {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
-  const { id, name, price, image, description, category, cuisine } =
-    useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const { id, name, price, image, description, category, cuisine, isVeg, restaurantName, restaurantId: restaurantIdParam, inStock: inStockParam, restaurantIsOpen: restaurantIsOpenParam } = params;
   const router = useRouter();
   const { showToast } = useToast();
   const cartItems = useSelector(selectCartItems);
+  const cartRestaurant = useSelector(selectCartRestaurant);
   const [quantity, setQuantity] = useState(1);
   const [showWebLogin, setShowWebLogin] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
@@ -74,14 +76,18 @@ export default function ProductDetailsScreen() {
     }
   }
 
-  // 2. If NOT found in global data, use Navigation Params (For Dummy/Dynamic Items)
+  // 2. If NOT found in global data, use Navigation Params (For Real/Dynamic Items)
   if (!product && (name || image)) {
     product = {
       name: name,
-      price: price,
+      price: Number(price) || 0,
       image: image,
       description: description,
       category: category || cuisine,
+      // Backend uses `isVeg`, frontend uses `veg`
+      veg: isVeg === "true" || isVeg === true,
+      restaurantName: restaurantName,
+      restaurantId: restaurantIdParam,
     };
   }
 
@@ -119,10 +125,13 @@ export default function ProductDetailsScreen() {
     dispatch(loadReviews(targetRestaurantId));
   }, [dispatch, product?.restaurantId]);
 
-  // Stock Management
+  // Stock Management — prefer backend param, fallback to local stockSlice
   const itemId = product?.id || product?.name;
   const availableStock = useSelector((state) => selectStock(state, itemId));
-  const isOutOfStock = availableStock <= 0;
+  // inStockParam comes from restaurant detail screen (real backend items)
+  // If explicitly set to "false", it's out of stock regardless of local stock slice
+  const isOutOfStock = inStockParam === "false" || availableStock <= 0;
+  const restaurantClosed = restaurantIsOpenParam === "false";
 
   // Related Items Logic
   const relatedItems = useMemo(() => {
@@ -139,31 +148,65 @@ export default function ProductDetailsScreen() {
   // ...
 
   const handleAddToCart = () => {
+    if (isOutOfStock || restaurantClosed) return; // Extra guard
     if (!user.phone) {
       router.push("/auth/login");
       return;
     }
 
     // Use helper to generate consistent ObjectId
-    const restaurantId = product.restaurantId
+    const targetRestaurantId = product.restaurantId
       ? generateObjectId(product.restaurantId)
       : generateObjectId(product.restaurantName || "default");
+    const targetRestaurantName = product.restaurantName || "Unknown Restaurant";
 
-    dispatch(
-      addToCart({
-        id: product.id || product.name,
-        name: product.name,
-        price: product.price,
-        quantity: quantity,
-        image: product.image,
-        veg: product.veg,
-        weight: product.weight,
-        supplier: product.supplier,
-        restaurantId: restaurantId, // Add restaurantId
-        restaurantName: product.restaurantName,
-      })
-    );
-    showToast("Added to cart");
+    const handleAddToCartAction = () => {
+      dispatch(
+        addToCart({
+          id: product.id || product.name,
+          name: product.name,
+          price: product.price,
+          quantity: quantity,
+          image: product.image,
+          veg: product.veg,
+          weight: product.weight,
+          supplier: product.supplier,
+          restaurantId: targetRestaurantId, // Add restaurantId
+          restaurantName: targetRestaurantName,
+        })
+      );
+      showToast("Added to cart");
+    };
+
+    // Validation: Single Restaurant check
+    if (cartRestaurant.id && cartRestaurant.id !== targetRestaurantId) {
+      const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
+
+      if (Platform.OS === 'web') {
+        if (window.confirm(msg)) {
+          dispatch(clearCart());
+          handleAddToCartAction();
+        }
+      } else {
+        Alert.alert(
+          "Replace cart item?",
+          msg,
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Clear & Add",
+              onPress: () => {
+                dispatch(clearCart());
+                handleAddToCartAction();
+              }
+            }
+          ]
+        );
+      }
+      return;
+    }
+
+    handleAddToCartAction();
   };
 
   if (!product) {
@@ -322,12 +365,12 @@ export default function ProductDetailsScreen() {
             {/* Quantity & Add */}
             <View style={styles.actionRow}>
               <View
-                style={[styles.qtyContainer, isOutOfStock && { opacity: 0.5 }]}
+                style={[styles.qtyContainer, (isOutOfStock || restaurantClosed) && { opacity: 0.5 }]}
               >
                 <TouchableOpacity
                   onPress={() => setQuantity(Math.max(1, quantity - 1))}
                   style={styles.qtyBtn}
-                  disabled={isOutOfStock}
+                  disabled={isOutOfStock || restaurantClosed}
                 >
                   <Text style={styles.qtyBtnText}>-</Text>
                 </TouchableOpacity>
@@ -335,7 +378,7 @@ export default function ProductDetailsScreen() {
                 <TouchableOpacity
                   onPress={() => setQuantity(quantity + 1)}
                   style={styles.qtyBtn}
-                  disabled={isOutOfStock || quantity >= availableStock} // Limit to available stock
+                  disabled={isOutOfStock || restaurantClosed || quantity >= availableStock}
                 >
                   <Text style={styles.qtyBtnText}>+</Text>
                 </TouchableOpacity>
@@ -343,14 +386,14 @@ export default function ProductDetailsScreen() {
               <TouchableOpacity
                 style={[
                   styles.addToCartBtn,
-                  (isOutOfStock || quantity > availableStock) &&
+                  (isOutOfStock || restaurantClosed || quantity > availableStock) &&
                   styles.disabledBtn,
                 ]}
                 onPress={handleAddToCart}
-                disabled={isOutOfStock || quantity > availableStock}
+                disabled={isOutOfStock || restaurantClosed || quantity > availableStock}
               >
                 <Text style={styles.addToCartText}>
-                  {isOutOfStock ? "Out of Stock" : "Add Item"}
+                  {restaurantClosed ? "Restaurant Closed" : (isOutOfStock ? "Out of Stock" : "Add Item")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -730,6 +773,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     fontFamily: "Poppins_600SemiBold",
+  },
+  disabledBtn: {
+    backgroundColor: "#ccc",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   relatedSection: {
     padding: 20,
