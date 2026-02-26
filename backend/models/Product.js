@@ -2,9 +2,15 @@ const mongoose = require("mongoose");
 
 const productSchema = new mongoose.Schema(
   {
+    merchantType: {
+      type: String,
+      required: true,
+      enum: ['Restaurant', 'Grocery'],
+      default: 'Restaurant'
+    },
     restaurant: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Restaurant",
+      refPath: 'merchantType',
       required: true,
     },
     name: {
@@ -64,7 +70,7 @@ const productSchema = new mongoose.Schema(
     }],
     inStock: {
       type: Boolean,
-      default: true, 
+      default: true,
     },
   },
   { timestamps: true }

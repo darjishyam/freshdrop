@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Driver = require("../models/Driver");
 const Restaurant = require("../models/Restaurant");
+const Grocery = require("../models/Grocery");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 
@@ -34,7 +35,11 @@ const getAllDrivers = async (req, res) => {
 const getAllRestaurants = async (req, res) => {
     try {
         const restaurants = await Restaurant.find({}).sort({ createdAt: -1 });
-        res.json(restaurants);
+        const groceries = await Grocery.find({}).sort({ createdAt: -1 });
+
+        // Combine and sort
+        const allStores = [...restaurants, ...groceries].sort((a, b) => b.createdAt - a.createdAt);
+        res.json(allStores);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -102,14 +107,22 @@ const updateRestaurantStatus = async (req, res) => {
             return res.status(400).json({ message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
         }
 
-        const restaurant = await Restaurant.findByIdAndUpdate(
+        let restaurant = await Restaurant.findByIdAndUpdate(
             req.params.id,
             { status },
             { new: true }
         );
 
         if (!restaurant) {
-            return res.status(404).json({ message: 'Restaurant not found' });
+            restaurant = await Grocery.findByIdAndUpdate(
+                req.params.id,
+                { status },
+                { new: true }
+            );
+        }
+
+        if (!restaurant) {
+            return res.status(404).json({ message: 'Store not found' });
         }
 
         // If suspended or rejected, emit socket event to kick restaurant session

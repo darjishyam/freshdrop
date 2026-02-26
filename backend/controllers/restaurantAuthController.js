@@ -1,4 +1,5 @@
 const Restaurant = require('../models/Restaurant');
+const Grocery = require('../models/Grocery');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const sendEmail = require('../utils/emailSender');
@@ -24,44 +25,42 @@ const signup = async (req, res) => {
     } = req.body;
 
     try {
+        // Check both collections for existing email/phone
         const restaurantExists = await Restaurant.findOne({
-            $or: [
-                { email: email.toLowerCase() },
-                { phone: phone }
-            ]
+            $or: [{ email: email.toLowerCase() }, { phone: phone }]
+        });
+        const groceryExists = await Grocery.findOne({
+            $or: [{ email: email.toLowerCase() }, { phone: phone }]
         });
 
-        if (restaurantExists) {
-            const conflict = restaurantExists.email.toLowerCase() === email.toLowerCase() ? 'Email' : 'Phone number';
-            return res.status(400).json({ message: `${conflict} already registered` });
+        if (restaurantExists || groceryExists) {
+            return res.status(400).json({ message: `Email or Phone number already registered` });
         }
 
-        const restaurant = await Restaurant.create({
-            name,
-            email,
-            ownerName,
-            phone,
-            cuisines: cuisines || [],
-            address,
-            priceRange,
-            deliveryTime,
-            image,
-            fssaiLicense,
-            gstNumber,
-            panNumber,
-            bankDetails,
-            documentImages,
-            storeType,
-            status: 'PENDING'
-        });
+        let store;
+        if (storeType === 'GROCERY') {
+            store = await Grocery.create({
+                name, email, ownerName, phone,
+                address, priceRange, deliveryTime, image,
+                fssaiLicense, gstNumber, panNumber, bankDetails, documentImages,
+                status: 'PENDING'
+            });
+        } else {
+            store = await Restaurant.create({
+                name, email, ownerName, phone, cuisines: cuisines || [],
+                address, priceRange, deliveryTime, image,
+                fssaiLicense, gstNumber, panNumber, bankDetails, documentImages,
+                status: 'PENDING'
+            });
+        }
 
-        if (restaurant) {
+        if (store) {
             res.status(201).json({
-                _id: restaurant._id,
-                name: restaurant.name,
-                email: restaurant.email,
-                storeType: restaurant.storeType,
-                status: restaurant.status,
+                _id: store._id,
+                name: store.name,
+                email: store.email,
+                storeType: storeType || 'RESTAURANT',
+                status: store.status,
                 message: "Registration successful. Pending Admin Approval."
             });
         } else {
@@ -96,9 +95,7 @@ const requestOtp = async (req, res) => {
             return res.status(404).json({ message: 'Restaurant not found' });
         }
 
-        if (restaurant.storeType === 'GROCERY') {
-            return res.status(403).json({ message: 'This account is registered as a Grocery Store. Please use the Grocery app login.' });
-        }
+        // Removed GROCERY check because we now use separate requestOtp/requestGroceryOtp endpoints
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -172,9 +169,7 @@ const verifyOtp = async (req, res) => {
             return res.status(404).json({ message: 'Restaurant not found' });
         }
 
-        if (restaurant.storeType === 'GROCERY') {
-            return res.status(403).json({ message: 'Access Denied: Grocery stores cannot login to the Restaurant portal.' });
-        }
+        // Removed GROCERY check
 
         if (restaurant.otp !== otp || restaurant.otpExpires < Date.now()) {
             return res.status(400).json({ message: 'Invalid or expired OTP' });
@@ -208,16 +203,12 @@ const requestGroceryOtp = async (req, res) => {
             return res.status(400).json({ message: 'Email is required' });
         }
 
-        const restaurant = await Restaurant.findOne({
+        const store = await Grocery.findOne({
             email: { $regex: new RegExp(`^${email}$`, 'i') }
         });
 
-        if (!restaurant) {
-            return res.status(404).json({ message: 'Store not found' });
-        }
-
-        if (restaurant.storeType !== 'GROCERY') {
-            return res.status(403).json({ message: 'This account is registered as a Restaurant. Please use the Restaurant app login.' });
+        if (!store) {
+            return res.status(404).json({ message: 'Grocery Store not found' });
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -228,9 +219,9 @@ const requestGroceryOtp = async (req, res) => {
             console.log("--------------------------------");
         }
 
-        restaurant.otp = otp;
-        restaurant.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-        await restaurant.save();
+        store.otp = otp;
+        store.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        await store.save();
 
         const brandingColor = "#16a34a"; // Green for grocery
         const htmlContent = `
@@ -239,7 +230,7 @@ const requestGroceryOtp = async (req, res) => {
                     <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Instamart Partner</h1>
                 </div>
                 <div style="padding: 30px; background-color: #ffffff;">
-                    <p style="font-size: 16px; color: #333;">Hello <strong>${restaurant.name}</strong>!</p>
+                    <p style="font-size: 16px; color: #333;">Hello <strong>${store.name}</strong>!</p>
                     <p style="font-size: 16px; color: #555;">Use the code below to securely log into your Instamart Partner account:</p>
                     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
                         <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: ${brandingColor};">${otp}</span>
@@ -254,7 +245,7 @@ const requestGroceryOtp = async (req, res) => {
 
         try {
             await sendEmail({
-                email: restaurant.email,
+                email: store.email,
                 subject: "Instamart Partner Login Code",
                 message: `Your login code is ${otp}`,
                 html: htmlContent,
@@ -262,7 +253,7 @@ const requestGroceryOtp = async (req, res) => {
 
             res.status(200).json({
                 message: 'OTP sent successfully',
-                email: restaurant.email,
+                email: store.email,
                 ...(shouldLogOtp() ? { devOtp: otp } : {})
             });
         } catch (emailError) {
@@ -284,34 +275,30 @@ const verifyGroceryOtp = async (req, res) => {
             return res.status(400).json({ message: 'Email and OTP are required' });
         }
 
-        const restaurant = await Restaurant.findOne({
+        const store = await Grocery.findOne({
             email: { $regex: new RegExp(`^${email}$`, 'i') }
         });
 
-        if (!restaurant) {
-            return res.status(404).json({ message: 'Store not found' });
+        if (!store) {
+            return res.status(404).json({ message: 'Grocery Store not found' });
         }
 
-        if (restaurant.storeType !== 'GROCERY') {
-            return res.status(403).json({ message: 'Access Denied: Restaurants cannot login to the Grocery portal.' });
-        }
-
-        if (restaurant.otp !== otp || restaurant.otpExpires < Date.now()) {
+        if (store.otp !== otp || store.otpExpires < Date.now()) {
             return res.status(400).json({ message: 'Invalid or expired OTP' });
         }
 
         // Clear OTP
-        restaurant.otp = undefined;
-        restaurant.otpExpires = undefined;
-        await restaurant.save();
+        store.otp = undefined;
+        store.otpExpires = undefined;
+        await store.save();
 
         res.json({
-            _id: restaurant._id,
-            name: restaurant.name,
-            email: restaurant.email,
-            storeType: restaurant.storeType,
-            status: restaurant.status,
-            token: generateToken(restaurant._id),
+            _id: store._id,
+            name: store.name,
+            email: store.email,
+            storeType: 'GROCERY',
+            status: store.status,
+            token: generateToken(store._id),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -343,22 +330,29 @@ const updatePushToken = async (req, res) => {
     }
 
     try {
-        await Restaurant.updateMany(
-            { pushToken: pushToken, email: { $ne: email } },
-            { $set: { pushToken: null } }
-        );
-
+        // Check both collections
         const restaurant = await Restaurant.findOne({ email });
+        const grocery = await Grocery.findOne({ email });
 
         if (restaurant) {
             restaurant.pushToken = pushToken;
-            const updatedRestaurant = await restaurant.save();
+            await restaurant.save();
             res.json({
-                _id: updatedRestaurant._id,
-                name: updatedRestaurant.name,
-                email: updatedRestaurant.email,
-                pushToken: updatedRestaurant.pushToken,
-                token: generateToken(updatedRestaurant._id),
+                _id: restaurant._id,
+                name: restaurant.name,
+                email: restaurant.email,
+                pushToken: restaurant.pushToken,
+                token: generateToken(restaurant._id),
+            });
+        } else if (grocery) {
+            grocery.pushToken = pushToken;
+            await grocery.save();
+            res.json({
+                _id: grocery._id,
+                name: grocery.name,
+                email: grocery.email,
+                pushToken: grocery.pushToken,
+                token: generateToken(grocery._id),
             });
         } else {
             res.status(404).json({ message: 'Restaurant not found' });
@@ -375,11 +369,16 @@ const logout = async (req, res) => {
     try {
         if (email) {
             const restaurant = await Restaurant.findOne({ email });
+            const grocery = await Grocery.findOne({ email });
+
             if (restaurant && (restaurant.pushToken === pushToken || !pushToken)) {
                 restaurant.pushToken = null;
                 await restaurant.save();
-                console.log(`🧹 Cleared Push Token for: ${email}`);
+            } else if (grocery && (grocery.pushToken === pushToken || !pushToken)) {
+                grocery.pushToken = null;
+                await grocery.save();
             }
+            console.log(`🧹 Cleared Push Token for: ${email}`);
         }
         res.json({ message: 'Logged out successfully' });
     } catch (error) {
@@ -395,32 +394,33 @@ const updateProfile = async (req, res) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const restaurant = await Restaurant.findById(decoded.id);
+            let store = await Restaurant.findById(decoded.id);
+            if (!store) store = await Grocery.findById(decoded.id);
 
-            if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+            if (!store) return res.status(404).json({ message: 'Store not found' });
 
             const { priceRange, deliveryTime, discount, image, isOpen } = req.body;
 
-            if (priceRange !== undefined) restaurant.priceRange = priceRange;
-            if (deliveryTime !== undefined) restaurant.deliveryTime = deliveryTime;
-            if (discount !== undefined) restaurant.discount = discount;
-            if (image !== undefined) restaurant.image = image;
-            if (isOpen !== undefined) restaurant.isOpen = isOpen;
+            if (priceRange !== undefined) store.priceRange = priceRange;
+            if (deliveryTime !== undefined) store.deliveryTime = deliveryTime;
+            if (discount !== undefined) store.discount = discount;
+            if (image !== undefined) store.image = image;
+            if (isOpen !== undefined) store.isOpen = isOpen;
 
-            await restaurant.save();
+            await store.save();
 
             if (isOpen !== undefined) {
                 const io = req.app.get("io");
                 if (io) {
                     io.emit("restaurantStatusChanged", {
-                        restaurantId: restaurant._id.toString(),
-                        isOpen: restaurant.isOpen
+                        restaurantId: store._id.toString(),
+                        isOpen: store.isOpen
                     });
-                    console.log(`📡 Emitted restaurantStatusChanged via merged backend: ${restaurant._id}`);
+                    console.log(`📡 Emitted restaurantStatusChanged via merged backend: ${store._id}`);
                 }
             }
 
-            res.json({ message: 'Profile updated', restaurant });
+            res.json({ message: 'Profile updated', store });
         } catch (error) {
             res.status(401).json({ message: 'Not authorized' });
         }
@@ -437,31 +437,32 @@ const uploadRestaurantDocuments = async (req, res) => {
         try {
             token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const restaurant = await Restaurant.findById(decoded.id);
+            let store = await Restaurant.findById(decoded.id);
+            if (!store) store = await Grocery.findById(decoded.id);
 
-            if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+            if (!store) return res.status(404).json({ message: 'Store not found' });
 
             const { documentImages, bankDetails } = req.body;
 
             if (documentImages) {
                 // Initialize if null
-                if (!restaurant.documentImages) restaurant.documentImages = {};
+                if (!store.documentImages) store.documentImages = {};
 
-                if (documentImages.fssai) restaurant.documentImages.fssai = documentImages.fssai;
-                if (documentImages.pan) restaurant.documentImages.pan = documentImages.pan;
-                if (documentImages.cancelledCheque) restaurant.documentImages.cancelledCheque = documentImages.cancelledCheque;
+                if (documentImages.fssai) store.documentImages.fssai = documentImages.fssai;
+                if (documentImages.pan) store.documentImages.pan = documentImages.pan;
+                if (documentImages.cancelledCheque) store.documentImages.cancelledCheque = documentImages.cancelledCheque;
 
-                restaurant.markModified('documentImages');
+                store.markModified('documentImages');
             }
 
             if (bankDetails) {
-                restaurant.bankDetails = { ...restaurant.bankDetails, ...bankDetails };
-                restaurant.markModified('bankDetails');
+                store.bankDetails = { ...store.bankDetails, ...bankDetails };
+                store.markModified('bankDetails');
             }
 
-            await restaurant.save();
+            await store.save();
 
-            res.json({ message: 'Documents updated successfully', status: restaurant.status });
+            res.json({ message: 'Documents updated successfully', status: store.status });
         } catch (error) {
             res.status(401).json({ message: 'Not authorized' });
         }

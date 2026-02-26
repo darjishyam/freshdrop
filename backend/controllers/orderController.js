@@ -4,6 +4,7 @@ const Order = require("../models/Order");
 const User = require("../models/User");
 const Driver = require("../models/Driver");
 const Restaurant = require("../models/Restaurant");
+const Grocery = require("../models/Grocery");
 const { sendPushNotification } = require("../services/notificationService");
 
 const logFile = path.join(__dirname, "../logs/order_dispatch.log");
@@ -43,16 +44,23 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ message: "No order items" });
         }
 
-        // Debug: Try finding by ID string directly
-        const restaurant = await Restaurant.findById(restaurantId);
+        // Try finding in Restaurant collection
+        let restaurant = await Restaurant.findById(restaurantId);
+        let merchantType = 'Restaurant';
+
+        if (!restaurant) {
+            // Try finding in Grocery collection
+            restaurant = await Grocery.findById(restaurantId);
+            merchantType = 'Grocery';
+        }
 
         if (!restaurant) {
             const errLine = `[${timestamp}] [ORDER #${reqNum}] ❌ NOT FOUND: restaurantId="${restaurantId}"\n`;
             console.log(errLine.trim());
             fs.appendFileSync(logFile, errLine);
-            return res.status(404).json({ message: "Restaurant not found" });
+            return res.status(404).json({ message: "Restaurant or Grocery Store not found" });
         }
-        const okLine = `[${timestamp}] [ORDER #${reqNum}] ✅ Found: ${restaurant.name}\n`;
+        const okLine = `[${timestamp}] [ORDER #${reqNum}] ✅ Found ${merchantType}: ${restaurant.name}\n`;
         console.log(okLine.trim());
         fs.appendFileSync(logFile, okLine);
 
@@ -69,6 +77,7 @@ const createOrder = async (req, res) => {
 
         const order = new Order({
             user: req.user._id,
+            merchantType: merchantType,
             restaurant: restaurantId,
             items,
             totalAmount: grandTotal,
@@ -148,8 +157,11 @@ const createOrder = async (req, res) => {
         }
 
         // Fetch Restaurant details for Push Token
+        // Fetch Merchant details for Push Token
         try {
-            const restaurantDoc = await Restaurant.findById(restaurantId);
+            let restaurantDoc = await Restaurant.findById(restaurantId);
+            if (!restaurantDoc) restaurantDoc = await Grocery.findById(restaurantId);
+
             if (restaurantDoc && restaurantDoc.pushToken) {
                 console.log(`[PUSH] Notifying Restaurant: ${restaurantDoc.name}`);
                 await sendPushNotification(
@@ -627,7 +639,7 @@ const cancelOrder = async (req, res) => {
 const getRestaurantActiveOrders = async (req, res) => {
     try {
         const restaurantId = req.params.id;
-        const orders = await Order.find({
+        let orders = await Order.find({
             restaurant: restaurantId,
             status: { $nin: ["Delivered", "Cancelled"] }
         }).sort({ createdAt: -1 }).populate("user", "name phone address");
@@ -728,8 +740,8 @@ const updateRestaurantOrderStatus = async (req, res) => {
                 console.log(`[DEBUG] Status IS Ready. Proceeding to find drivers...`);
 
                 const populatedOrder = await Order.findById(order._id).populate("restaurant");
-                const restaurant = populatedOrder.restaurant;
-                console.log(`[DEBUG] Restaurant found: ${restaurant ? restaurant.name : 'NULL'}`);
+                const restaurant = populatedOrder.restaurant; // This will now correctly populate from Groceries if it's a grocery store
+                console.log(`[DEBUG] Store found: ${restaurant ? restaurant.name : 'NULL'}`);
                 console.log(`[DEBUG] Restaurant Coordinates: ${JSON.stringify(restaurant?.address?.coordinates)}`);
 
                 if (restaurant?.address?.coordinates) {

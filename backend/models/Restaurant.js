@@ -14,7 +14,7 @@ const restaurantSchema = new mongoose.Schema(
     phone: { type: String },
     storeType: {
       type: String,
-      enum: ['RESTAURANT', 'GROCERY'],
+      enum: ['RESTAURANT'],
       default: 'RESTAURANT'
     },
     externalId: {

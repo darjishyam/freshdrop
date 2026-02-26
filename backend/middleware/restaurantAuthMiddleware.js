@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const Restaurant = require("../models/Restaurant");
+const Grocery = require("../models/Grocery");
 
 const protect = async (req, res, next) => {
     let token;
@@ -23,7 +24,11 @@ const protect = async (req, res, next) => {
             req.user = await Restaurant.findById(decoded.id).select("-password");
 
             if (!req.user) {
-                return res.status(401).json({ message: "Restaurant not found" });
+                req.user = await Grocery.findById(decoded.id).select("-password");
+            }
+
+            if (!req.user) {
+                return res.status(401).json({ message: "Store not found" });
             }
 
             // Allow PENDING and APPROVED restaurants (Blocked: REJECTED, SUSPENDED)

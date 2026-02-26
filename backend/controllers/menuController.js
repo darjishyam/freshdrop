@@ -1,4 +1,6 @@
 const Product = require('../models/Product');
+const Restaurant = require('../models/Restaurant');
+const Grocery = require('../models/Grocery');
 
 // @desc    Get all menu items for a restaurant
 // @route   GET /api/menu/:restaurantId
@@ -21,8 +23,21 @@ const addMenuItem = async (req, res) => {
     } = req.body;
 
     try {
-        console.log("Adding item for restaurant:", restaurantId);
+        console.log("Adding item for merchant:", restaurantId);
+
+        let merchantType = 'Restaurant';
+        let merchant = await Restaurant.findById(restaurantId);
+        if (!merchant) {
+            merchant = await Grocery.findById(restaurantId);
+            merchantType = 'Grocery';
+        }
+
+        if (!merchant) {
+            return res.status(404).json({ message: "Merchant not found" });
+        }
+
         const item = await Product.create({
+            merchantType: merchantType,
             restaurant: restaurantId,
             name,
             price,

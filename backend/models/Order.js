@@ -7,9 +7,15 @@ const orderSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    merchantType: {
+      type: String,
+      required: true,
+      enum: ['Restaurant', 'Grocery'],
+      default: 'Restaurant'
+    },
     restaurant: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Restaurant",
+      refPath: 'merchantType',
       required: true,
     },
     // New: Explicit Link to Driver

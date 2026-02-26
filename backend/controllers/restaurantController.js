@@ -1,4 +1,5 @@
 const Restaurant = require("../models/Restaurant");
+const Grocery = require("../models/Grocery");
 const Product = require("../models/Product");
 
 // Helper: Calculate distance in km (Haversine Formula)
@@ -34,19 +35,15 @@ const getNearbyData = async (req, res) => {
     const userLat = parseFloat(lat);
     const userLng = parseFloat(longitude);
 
-    // 1. Fetch All Restaurants (Optimize this with Geospatial Query in real prod)
-    // Filter by status 'APPROVED' and storeType 'RESTAURANT' (or default)
-    const allRestaurants = await Restaurant.find({
-      status: 'APPROVED',
-      $or: [
-        { storeType: 'RESTAURANT' },
-        { storeType: { $exists: false } }
-      ]
-    });
-    console.log("Total Approved Restaurants:", allRestaurants.length);
+    // 1. Fetch Approved Restaurants and Groceries
+    const allRestaurants = await Restaurant.find({ status: 'APPROVED' });
+    const allGroceries = await Grocery.find({ status: 'APPROVED' });
+
+    const allMerchants = [...allRestaurants, ...allGroceries];
+    console.log("Total Approved Merchants:", allMerchants.length);
 
     // 2. Filter by Distance (10km) & Format
-    const restaurantsWithDistance = allRestaurants.map((r) => {
+    const restaurantsWithDistance = allMerchants.map((r) => {
       // Handle potetial structure differences
       const rLat = r.address?.coordinates?.lat;
       const rLon = r.address?.coordinates?.lon;
@@ -129,41 +126,43 @@ const getRestaurantById = async (req, res) => {
       return res.status(400).json({ message: "Invalid restaurant ID format" });
     }
 
-    // Fetch restaurant
-    const restaurant = await Restaurant.findById(id);
-    console.log("Restaurant found:", restaurant ? restaurant.name : "Not found");
+    // Fetch restaurant or grocery
+    let store = await Restaurant.findById(id);
+    if (!store) store = await Grocery.findById(id);
 
-    if (!restaurant) {
-      return res.status(404).json({ message: "Restaurant not found" });
+    console.log("Store found:", store ? store.name : "Not found");
+
+    if (!store) {
+      return res.status(404).json({ message: "Store not found" });
     }
 
-    // Fetch products for this restaurant
+    // Fetch products for this store
     const products = await Product.find({ restaurant: new mongoose.Types.ObjectId(id) });
-    console.log(`Products found for ${restaurant.name}:`, products.length);
+    console.log(`Products found for ${store.name}:`, products.length);
 
     // Format for Frontend
-    const cuisineStr = Array.isArray(restaurant.cuisines)
-      ? restaurant.cuisines.join(", ")
-      : restaurant.cuisines || "";
-    const locationStr = restaurant.address
-      ? `${restaurant.address.street || ""}, ${restaurant.address.city || ""}`
+    const cuisineStr = Array.isArray(store.cuisines)
+      ? store.cuisines.join(", ")
+      : store.cuisines || "";
+    const locationStr = store.address
+      ? `${store.address.street || ""}, ${store.address.city || ""}`
       : "";
 
-    const formattedRestaurant = {
-      ...restaurant.toObject(),
-      id: restaurant._id,
+    const formattedStore = {
+      ...store.toObject(),
+      id: store._id,
       cuisine: cuisineStr,
       location: locationStr,
-      time: restaurant.deliveryTime,
-      priceForTwo: restaurant.priceRange,
+      time: store.deliveryTime,
+      priceForTwo: store.priceRange,
     };
 
     res.json({
-      ...formattedRestaurant,
+      ...formattedStore,
       products: products.map(p => ({
         ...p.toObject(),
         id: p._id,
-        restaurantId: restaurant._id.toString(),
+        restaurantId: store._id.toString(),
         veg: p.isVeg, // Map isVeg to veg for frontend
         bestSeller: p.isBestSeller, // Map isBestSeller for frontend
         weight: p.quantityDetails, // Map quantityDetails to weight for frontend

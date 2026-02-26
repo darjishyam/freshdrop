@@ -1,6 +1,7 @@
 const axios = require("axios");
 
-const Restaurant = require("../models/Restaurant"); // Import Restaurant Model
+const Restaurant = require("../models/Restaurant");
+const Grocery = require("../models/Grocery");
 
 // Helper: Calculate distance in km (Haversine Formula)
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -168,8 +169,7 @@ const getGroceries = async (req, res) => {
     // 1. Fetch Local Grocery Stores from MongoDB
     let localGroceries = [];
     try {
-      const allLocal = await Restaurant.find({
-        storeType: 'GROCERY',
+      const allLocal = await Grocery.find({
         status: 'APPROVED'
       });
 
