@@ -222,7 +222,7 @@ const getAvailableOrders = async (req, res) => {
 
         const orders = await Order.find(query)
             .sort({ createdAt: -1 }) // Newest First
-            .populate("restaurant");
+            .populate("restaurant", "name address storeType");
 
         // Filter by City & Distance
         let availableOrders = orders.filter(order => {
@@ -239,8 +239,12 @@ const getAvailableOrders = async (req, res) => {
             const restaurantCity = getNormalizedCity(restaurantCityRaw);
             const dCity = getNormalizedCity(driverCity);
 
-            // If both have city data, and they don't match, filter out.
-            // BUT: If restaurant has NO city, we'll let it pass to the GPS check.
+            // NEW LOGIC: Only strictly filter out if they are different cities AND coordinates ARE NOT being used.
+            // If coordinates exist, we'll let the distance check handle the filtering later.
+            if (latitude && longitude && order.restaurant?.address?.coordinates) {
+                return true; // Pass to GPS check
+            }
+
             if (dCity && restaurantCity && restaurantCity !== dCity) {
                 return false;
             }
@@ -283,6 +287,12 @@ const getAvailableOrders = async (req, res) => {
 
     } catch (error) {
         console.error("Fetch Available Orders Error:", error);
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const logFile = path.join(__dirname, "../logs/order_dispatch.log");
+            fs.appendFileSync(logFile, `[ERROR getAvailableOrders] ${error.message}\n${error.stack}\n`);
+        } catch (e) { }
         res.status(500).json({ message: "Failed to fetch orders" });
     }
 }
@@ -538,7 +548,7 @@ const getDriverHistory = async (req, res) => {
         })
             .sort({ createdAt: -1 }) // Newest first
             .limit(20) // Limit to last 20
-            .populate("restaurant", "name address image")
+            .populate("restaurant", "name address storeType")
             .select("totalAmount billDetails status createdAt deliveryAddress items customerDetails");
 
         res.json(orders);

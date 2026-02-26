@@ -262,3 +262,17 @@
 [2026-02-25T11:50:13.937Z] [ORDER #1] ✅ Found: Pratihar Resturant
 [2026-02-26T04:33:36.206Z] [ORDER #1] restaurantId="6998417c61c1f9d16ca539b6" type=string len=24 items=2 user=6979c3d5edd948c8924a3242
 [2026-02-26T04:33:36.206Z] [ORDER #1] ✅ Found: Lifemart grocery 
+[2026-02-26T06:45:58.170Z] [ORDER #1] restaurantId="699feaae0c4572488ee5dcba" type=string len=24 items=1 user=698c2e6dd89790f4ba69c14b
+[2026-02-26T06:45:58.170Z] [ORDER #1] ✅ Found: Kariyana Store
+[2026-02-26T06:49:45.716Z] [ORDER #2] restaurantId="699feaae0c4572488ee5dcba" type=string len=24 items=1 user=6979c3d5edd948c8924a3242
+[2026-02-26T06:49:45.716Z] [ORDER #2] ✅ Found: Kariyana Store
+[2026-02-26T07:00:53.787Z] [ORDER #1] restaurantId="699feaae0c4572488ee5dcba" type=string len=24 items=1 user=698c2e6dd89790f4ba69c14b
+[2026-02-26T07:00:53.787Z] [ORDER #1] ✅ Found: Kariyana Store
+[2026-02-26T07:07:05.652Z] [ORDER #2] restaurantId="699697167108542843ddf274" type=string len=24 items=2 user=698c2e6dd89790f4ba69c14b
+[2026-02-26T07:07:05.652Z] [ORDER #2] ✅ Found: Heer Resturant
+[2026-02-26T07:32:10.125Z] [ORDER #1] restaurantId="699feaae0c4572488ee5dcba" type=string len=24 items=1 user=6979d4b5743e2330812a7db1
+[2026-02-26T07:32:10.125Z] [ORDER #1] ✅ Found: Kariyana Store
+[2026-02-26T07:39:10.050Z] [ORDER #2] restaurantId="699697167108542843ddf274" type=string len=24 items=2 user=698c2e6dd89790f4ba69c14b
+[2026-02-26T07:39:10.050Z] [ORDER #2] ✅ Found: Heer Resturant
+[2026-02-26T07:43:11.532Z] [ORDER #3] restaurantId="699feaae0c4572488ee5dcba" type=string len=24 items=1 user=698c2e6dd89790f4ba69c14b
+[2026-02-26T07:43:11.532Z] [ORDER #3] ✅ Found: Kariyana Store

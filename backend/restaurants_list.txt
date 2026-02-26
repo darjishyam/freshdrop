@@ -1,7 +1,0 @@
-ID | Name | ExternalID | Status | StoreType
-69899a29e08dc997c2de424f | McDonald's | undefined | APPROVED | RESTAURANT
-69899a29e08dc997c2de4250 | Domino's Pizza | undefined | APPROVED | RESTAURANT
-6995785a46141973cc864bf9 | Sampati Resturant | undefined | APPROVED | RESTAURANT
-699697167108542843ddf274 | Heer Resturant | undefined | APPROVED | RESTAURANT
-6998417c61c1f9d16ca539b6 | Lifemart grocery  | undefined | APPROVED | GROCERY
-699ea2fb1965034879a654ab | Pratihar Resturant | undefined | APPROVED | RESTAURANT
