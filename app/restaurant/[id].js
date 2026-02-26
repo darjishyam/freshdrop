@@ -26,8 +26,8 @@ import { selectUser } from "../../store/slices/userSlice";
 import { API_BASE_URL } from "../../constants/api";
 import { io } from "socket.io-client";
 
-// Restaurant backend socket URL (same server that handles restaurant auth & menu)
-const RESTAURANT_SOCKET_URL = "http://192.168.1.7:5001";
+// Restaurant backend socket URL (consolidated to port 5000)
+const RESTAURANT_SOCKET_URL = "http://192.168.1.6:5000";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();

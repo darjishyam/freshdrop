@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../constants/api";
+import apiClient from "./apiClient";
 
 const API_URL = API_BASE_URL;
 
@@ -17,12 +18,8 @@ export const fetchUserOrders = async () => {
         // If no token, user is guest or logged out
         if (!token) return [];
 
-        const response = await fetch(`${API_URL}/orders`, {
+        const response = await apiClient.request(`${API_URL}/orders`, {
             method: "GET",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
         });
 
         if (response.status === 401) {
@@ -54,12 +51,8 @@ export const createNewOrder = async (orderData) => {
             throw new Error("You must be logged in to place an order");
         }
 
-        const response = await fetch(`${API_URL}/orders`, {
+        const response = await apiClient.request(`${API_URL}/orders`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
             body: JSON.stringify(orderData),
         });
 
@@ -88,12 +81,8 @@ export const cancelOrderAPI = async (orderId) => {
             throw new Error("You must be logged in to cancel an order");
         }
 
-        const response = await fetch(`${API_URL}/orders/${orderId}/cancel`, {
+        const response = await apiClient.request(`${API_URL}/orders/${orderId}/cancel`, {
             method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            }
         });
 
         const data = await response.json();

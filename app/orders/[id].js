@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../../constants/api";
+import LiveMap from "../../components/LiveMap";
 import {
+  Animated,
   Image,
   Platform,
   ScrollView,
@@ -46,6 +48,10 @@ export default function OrderDetailsScreen() {
   const orders = useSelector(selectOrders);
   const [order, setOrder] = useState(null);
   const [expandedSteps, setExpandedSteps] = useState({});
+  // ✅ NEW: Live tracking state
+  const [driverCoords, setDriverCoords] = useState(null);
+  const [trackingEta, setTrackingEta] = useState(null);
+  const mapRef = useRef(null);
 
   // Order tracking stages
   const ORDER_STAGES = [
@@ -173,8 +179,26 @@ export default function OrderDetailsScreen() {
         setOrder(updatedOrder); // Update local state immediately for smoother UX
       });
 
+      // ✅ NEW: Listen for live driver location updates
+      SocketService.on("driverLocationUpdate", (data) => {
+        if (data.orderId?.toString() === id?.toString()) {
+          const coords = { latitude: parseFloat(data.latitude), longitude: parseFloat(data.longitude) };
+          setDriverCoords(coords);
+          setTrackingEta(data.etaMinutes);
+          // Animate map to center on driver
+          if (mapRef.current && mapRef.current.animateToRegion) {
+            mapRef.current.animateToRegion({
+              ...coords,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            }, 800);
+          }
+        }
+      });
+
       cleanupSocket = () => {
         SocketService.off(eventName);
+        SocketService.off("driverLocationUpdate");
       };
     };
 
@@ -207,6 +231,53 @@ export default function OrderDetailsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* ✅ LIVE TRACKING MAP — shown only when Out for Delivery */}
+        {order.status === "Out for Delivery" && (
+          <View style={styles.mapSection}>
+            <View style={styles.mapHeaderRow}>
+              <View style={styles.liveIndicator}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+              <Text style={styles.mapTitle}>Driver on the way 🛵</Text>
+              {trackingEta && (
+                <Text style={styles.etaChip}>~{trackingEta} min</Text>
+              )}
+            </View>
+
+            {driverCoords ? (
+              <LiveMap
+                ref={mapRef}
+                driverCoords={driverCoords}
+                order={order}
+                customStyles={styles}
+              />
+            ) : (
+              <View style={styles.mapLoading}>
+                <Ionicons name="location-outline" size={32} color="#FC8019" />
+                <Text style={styles.mapLoadingText}>Waiting for driver location...</Text>
+                <Text style={styles.mapLoadingSub}>Map will appear once driver starts moving</Text>
+              </View>
+            )}
+
+            {/* Legend */}
+            <View style={styles.mapLegend}>
+              <View style={styles.legendItem}>
+                <Text style={styles.legendDot}>🛵</Text>
+                <Text style={styles.legendLabel}>Driver</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendCircle, { backgroundColor: "#FC8019" }]} />
+                <Text style={styles.legendLabel}>Restaurant</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendCircle, { backgroundColor: "#22c55e" }]} />
+                <Text style={styles.legendLabel}>You</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Status Section */}
         <View style={styles.section}>
           <View style={styles.statusRow}>
@@ -548,6 +619,126 @@ export default function OrderDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Map styles
+  mapSection: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: "hidden",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  mapHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fee2e2",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    gap: 4,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#ef4444",
+  },
+  liveText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#ef4444",
+    letterSpacing: 1,
+  },
+  mapTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111",
+  },
+  etaChip: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#fff",
+    backgroundColor: "#FC8019",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  map: {
+    width: "100%",
+    height: 220,
+  },
+  mapLoading: {
+    height: 180,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f9fafb",
+    gap: 8,
+    margin: 8,
+    borderRadius: 8,
+  },
+  mapLoadingText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+  },
+  mapLoadingSub: {
+    fontSize: 12,
+    color: "#999",
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  driverMarker: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: "#FC8019",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  driverMarkerText: {
+    fontSize: 20,
+  },
+  mapLegend: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  legendDot: {
+    fontSize: 14,
+  },
+  legendCircle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendLabel: {
+    fontSize: 11,
+    color: "#666",
+  },
+  // Original styles
   container: {
     flex: 1,
     backgroundColor: "#F0F0F5",
@@ -605,7 +796,7 @@ const styles = StyleSheet.create({
   },
   currentDot: {
     borderWidth: 2,
-    borderColor: "#15803d", // Darker green ring
+    borderColor: "#15803d",
     transform: [{ scale: 1.2 }],
     shadowColor: "#15803d",
     shadowOpacity: 0.4,
@@ -675,7 +866,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 4,
   },
-
   sectionHeader: { fontSize: 16, fontWeight: "bold", marginBottom: 12 },
   driverRow: { flexDirection: "row", alignItems: "center" },
   driverImg: {
@@ -705,7 +895,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
   },
-
   itemRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -767,7 +956,6 @@ const styles = StyleSheet.create({
   },
   qtyText: { fontSize: 10, fontWeight: "bold" },
   itemPrice: { fontSize: 12, color: "#333" },
-
   billRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -778,10 +966,8 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: "#eee", marginVertical: 8 },
   totalLabel: { fontSize: 16, fontWeight: "bold" },
   totalValue: { fontSize: 16, fontWeight: "bold" },
-
   detailLabel: { fontSize: 12, color: "#999", textTransform: "uppercase" },
   detailValue: { fontSize: 14, color: "#333", marginTop: 4 },
-
   cancelOrderButton: {
     flexDirection: "row",
     alignItems: "center",

@@ -14,7 +14,7 @@
 // 3. Replace '192.168.1.X' below with your actual IP:
 // export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api";
 // export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api";
-export const API_BASE_URL = "http://192.168.1.7:5000/api";
+export const API_BASE_URL = "http://192.168.1.6:5000/api";
 
 // Option 3: Web Browser or iOS Simulator
 // export const API_BASE_URL = "http://localhost:5000/api";

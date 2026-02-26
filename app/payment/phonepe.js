@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -38,6 +39,7 @@ export default function PhonePePaymentScreen() {
   const [pin, setPin] = useState("");
   const timerRef = useRef(null);
   const redirectTimerRef = useRef(null);
+  const isProcessingOrder = useRef(false); // [NEW] Prevent double calls
 
   // Handle Pay button click - SHOW PIN SCREEN FIRST
   const handlePayClick = useCallback(() => {
@@ -88,16 +90,21 @@ export default function PhonePePaymentScreen() {
   };
 
   const startProcessing = useCallback(async () => {
+    // STRICT GUARD: If already processing, bail out immediately
+    if (isProcessingOrder.current) {
+      console.log("[PHONEPE] startProcessing called but already locked. Ignoring.");
+      return;
+    }
     console.log("PIN Verified! Starting Payment...");
 
+    // Set lock BEFORE any async work
+    isProcessingOrder.current = true;
     setProcessing(true);
     const txnId = generateTransactionId();
     setTransactionId(txnId);
 
-    // Simulate payment processing (4 seconds)
+    // Simulate payment processing (3 seconds)
     timerRef.current = setTimeout(async () => {
-      setProcessing(false);
-      setPaymentSuccess(true);
 
       try {
         const orderData = params.orderData
@@ -109,14 +116,35 @@ export default function PhonePePaymentScreen() {
             transactionId: txnId,
             paymentMethod: "UPI (PhonePe)",
           };
-          await dispatch(addOrder(orderPayload)).unwrap();
+
+          // ✅ Call real backend API - blocks suspended users
+          const { createNewOrder } = require("../../services/orderService");
+          const createdOrder = await createNewOrder(orderPayload);
+
+          isProcessingOrder.current = false; // Release lock after success
+          setProcessing(false);
+          setPaymentSuccess(true);
+          dispatch(addOrder(createdOrder));
           if (orderPayload.items) {
             dispatch(deductStock(orderPayload.items));
           }
           dispatch(clearCart());
         }
       } catch (error) {
+        isProcessingOrder.current = false; // Release lock after error
+        setProcessing(false);
         console.error("Error processing order:", error);
+        if (error.message?.toLowerCase().includes("suspended")) {
+          Alert.alert(
+            "Account Suspended",
+            "Your account has been suspended. Please contact support.",
+            [{ text: "OK", onPress: () => router.replace("/auth") }]
+          );
+        } else {
+          Alert.alert("Payment Failed", error.message || "Could not complete payment. Please try again.");
+          router.back();
+        }
+        return;
       }
 
       // Trigger success animation
@@ -126,14 +154,13 @@ export default function PhonePePaymentScreen() {
           Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
         ]),
       ]).start(() => {
-        // Auto-redirect after delay
         redirectTimerRef.current = setTimeout(() => {
           showToast("Payment Successful! Redirecting...");
           handleDone();
         }, 1500);
       });
     }, 3000);
-  }, [amount, generateTransactionId, scaleAnim, fadeAnim, params, dispatch, showToast]);
+  }, [amount, generateTransactionId, scaleAnim, fadeAnim, params, dispatch, showToast, router]);
 
   const handleDone = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -187,7 +214,11 @@ export default function PhonePePaymentScreen() {
               <TouchableOpacity style={styles.numKey} onPress={() => handlePinPress("0")}>
                 <Text style={styles.numKeyText}>0</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.numKey, { backgroundColor: '#5f259f' }]} onPress={handlePinSubmit}>
+              <TouchableOpacity
+                style={[styles.numKey, { backgroundColor: '#5f259f' }, processing && { opacity: 0.5 }]}
+                onPress={handlePinSubmit}
+                disabled={processing}
+              >
                 <Ionicons name="checkmark" size={28} color="#fff" />
               </TouchableOpacity>
             </View>

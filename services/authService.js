@@ -6,6 +6,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../constants/api";
+import apiClient from "./apiClient";
 
 const API_URL = API_BASE_URL;
 
@@ -20,11 +21,8 @@ const STORAGE_KEYS = {
  */
 export const registerUser = async (userData) => {
   try {
-    const response = await fetch(`${API_URL}/auth/signup`, {
+    const response = await apiClient.request(`${API_URL}/auth/signup`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(userData),
     });
 
@@ -64,11 +62,8 @@ export const sendOTP = async (phone) => {
       [isEmail ? 'email' : 'phone']: phone
     };
 
-    const response = await fetch(`${API_URL}/auth/otp/send`, {
+    const response = await apiClient.request(`${API_URL}/auth/otp/send`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(payload),
     });
 
@@ -103,11 +98,8 @@ export const verifyOTP = async (phone, otp) => {
       [isEmail ? 'email' : 'phone']: phone
     };
 
-    const response = await fetch(`${API_URL}/auth/otp/verify`, {
+    const response = await apiClient.request(`${API_URL}/auth/otp/verify`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(payload),
     });
 
@@ -201,12 +193,8 @@ export const updateUserProfile = async (phone, updates) => {
       ...updates
     };
 
-    const response = await fetch(`${API_URL}/auth/profile`, {
+    const response = await apiClient.request(`${API_URL}/auth/profile`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
       body: JSON.stringify(payload)
     });
 
@@ -245,11 +233,8 @@ export const updateUserProfile = async (phone, updates) => {
 export const googleAuth = async (token, action = 'signup') => {
   try {
     console.log(`[authService] Calling /auth/google with action: ${action}`);
-    const response = await fetch(`${API_URL}/auth/google`, {
+    const response = await apiClient.request(`${API_URL}/auth/google`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({ token, action }),
     });
 
@@ -314,12 +299,8 @@ export const updatePushToken = async (pushToken) => {
     const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
     if (!token) return;
 
-    const response = await fetch(`${API_URL}/auth/push-token`, {
+    const response = await apiClient.request(`${API_URL}/auth/push-token`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
       body: JSON.stringify({ pushToken })
     });
 
@@ -337,12 +318,8 @@ export const updatePushToken = async (pushToken) => {
 export const saveAddress = async (addressData) => {
   try {
     const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
-    const response = await fetch(`${API_URL}/location/address`, {
+    const response = await apiClient.request(`${API_URL}/location/address`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify(addressData),
     });
 

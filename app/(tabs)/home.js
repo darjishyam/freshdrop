@@ -43,7 +43,7 @@ import {
 } from "../../store/slices/userSlice";
 import { io } from "socket.io-client";
 
-const RESTAURANT_SOCKET_URL = "http://192.168.1.7:5000";
+const RESTAURANT_SOCKET_URL = "http://192.168.1.6:5000";
 
 
 const { width } = Dimensions.get("window");

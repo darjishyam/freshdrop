@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -39,6 +40,7 @@ export default function GPayPaymentScreen() {
   const [pin, setPin] = useState("");
   const timerRef = useRef(null);
   const redirectTimerRef = useRef(null);
+  const isProcessingOrder = useRef(false); // [NEW] Prevent double calls
 
   // Animation values for success screen
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -83,19 +85,23 @@ export default function GPayPaymentScreen() {
   };
 
   const startProcessing = useCallback(async () => {
+    // STRICT GUARD: If already processing, bail out immediately
+    if (isProcessingOrder.current) {
+      console.log("[GPAY] startProcessing called but already locked. Ignoring.");
+      return;
+    }
     console.log("PIN Verified! Starting Payment...");
 
-    // Start processing immediately
+    // Set lock BEFORE any async work
+    isProcessingOrder.current = true;
     setProcessing(true);
     const txnId = generateTransactionId();
     setTransactionId(txnId);
 
     // Simulate payment processing (4 seconds)
     timerRef.current = setTimeout(async () => {
-      setProcessing(false);
-      setPaymentSuccess(true);
-      // ... (rest of logic) ...
-      // Parse order data and add order FIRST before showing success
+
+      // Parse order data
       try {
         const orderData = params.orderData
           ? JSON.parse(params.orderData)
@@ -105,14 +111,36 @@ export default function GPayPaymentScreen() {
             ...orderData,
             transactionId: txnId,
           };
-          await dispatch(addOrder(orderPayload)).unwrap();
+
+          // ✅ Call real backend API - this will catch suspension
+          const { createNewOrder } = require("../../services/orderService");
+          const createdOrder = await createNewOrder(orderPayload);
+
+          // Only show success if API call succeeded
+          isProcessingOrder.current = false; // Release lock after success
+          setProcessing(false);
+          setPaymentSuccess(true);
+          dispatch(addOrder(createdOrder));
           if (orderPayload.items) {
             dispatch(deductStock(orderPayload.items));
           }
           dispatch(clearCart());
         }
       } catch (error) {
+        isProcessingOrder.current = false; // Release lock after error
+        setProcessing(false);
         console.error("Error processing order:", error);
+        if (error.message?.toLowerCase().includes("suspended")) {
+          Alert.alert(
+            "Account Suspended",
+            "Your account has been suspended. Please contact support.",
+            [{ text: "OK", onPress: () => router.replace("/auth") }]
+          );
+        } else {
+          Alert.alert("Payment Failed", error.message || "Could not complete payment. Please try again.");
+          router.back();
+        }
+        return;
       }
 
       // Trigger success animation
@@ -184,7 +212,11 @@ export default function GPayPaymentScreen() {
               <TouchableOpacity style={styles.numKey} onPress={() => handlePinPress("0")}>
                 <Text style={styles.numKeyText}>0</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.numKey, { backgroundColor: '#4285F4' }]} onPress={handlePinSubmit}>
+              <TouchableOpacity
+                style={[styles.numKey, { backgroundColor: '#4285F4' }, processing && { opacity: 0.5 }]}
+                onPress={handlePinSubmit}
+                disabled={processing}
+              >
                 <Ionicons name="checkmark" size={28} color="#fff" />
               </TouchableOpacity>
             </View>

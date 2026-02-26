@@ -38,9 +38,9 @@ export const sendPushTokenToBackend = async (token) => {
             },
             body: JSON.stringify({ pushToken: token }),
         });
-        console.log('✅ Push token sent to backend:', token);
+        console.log('✅ Push token sent to backend successfully');
     } catch (error) {
-        console.error('Failed to send push token to backend:', error);
+        console.error('❌ Failed to send push token to backend:', error);
     }
 };
 
@@ -120,12 +120,13 @@ export const usePushNotifications = () => {
             if (isEnabled) {
                 const token = await registerForPushNotificationsAsync();
                 if (token) {
+                    console.log('📱 Push Token Registered:', token);
                     setExpoPushToken(token);
                     // Automatically send token to backend
                     await sendPushTokenToBackend(token);
                 }
             } else {
-                console.log('🔕 Notifications are disabled by user preference. Skipping token registration.');
+                console.log('🔕 Notifications are disabled by user preference.');
             }
         });
 

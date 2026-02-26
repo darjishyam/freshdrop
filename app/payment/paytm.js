@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -37,6 +38,7 @@ export default function PaytmPaymentScreen() {
   const [transactionId, setTransactionId] = useState("");
   const timerRef = useRef(null);
   const redirectTimerRef = useRef(null);
+  const isProcessingOrder = useRef(false); // [NEW] Prevent double calls
 
   // Animation values for success screen
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -57,18 +59,23 @@ export default function PaytmPaymentScreen() {
 
   // Handle Pay button click - DIRECT ACTION
   const handlePayClick = useCallback(async () => {
+    // STRICT GUARD: If already processing, bail out immediately
+    if (isProcessingOrder.current) {
+      console.log("[PAYTM] handlePayClick called but already locked. Ignoring.");
+      return;
+    }
     console.log("Pay button clicked! Amount:", amount);
 
+    // Set lock BEFORE any async work
+    isProcessingOrder.current = true;
     setProcessing(true);
     const txnId = generateTransactionId();
     setTransactionId(txnId);
 
     // Simulate payment processing (4 seconds)
     timerRef.current = setTimeout(async () => {
-      setProcessing(false);
-      setPaymentSuccess(true);
 
-      // Parse order data and add order FIRST before showing success
+      // Parse order data and call backend API
       try {
         const orderData = params.orderData
           ? JSON.parse(params.orderData)
@@ -79,20 +86,35 @@ export default function PaytmPaymentScreen() {
             transactionId: txnId,
             paymentMethod: "Paytm",
           };
-          // AWAIT the order creation to ensure it's saved to backend
-          await dispatch(addOrder(orderPayload)).unwrap();
+
+          // ✅ Call real backend API - blocks suspended users
+          const { createNewOrder } = require("../../services/orderService");
+          const createdOrder = await createNewOrder(orderPayload);
+
+          isProcessingOrder.current = false; // Release lock after success
+          setProcessing(false);
+          setPaymentSuccess(true);
+          dispatch(addOrder(createdOrder));
           if (orderPayload.items) {
             dispatch(deductStock(orderPayload.items));
           }
           dispatch(clearCart());
         }
       } catch (error) {
-        console.error("Error processing order:", error);
-        const errorMessage = error?.message || error || "Failed to place order";
-        console.log("Full error details:", JSON.stringify(error, null, 2));
-        showToast(errorMessage);
-        setPaymentSuccess(false);
+        isProcessingOrder.current = false; // Release lock after error
         setProcessing(false);
+        console.error("Error processing order:", error);
+        if (error.message?.toLowerCase().includes("suspended")) {
+          Alert.alert(
+            "Account Suspended",
+            "Your account has been suspended. Please contact support.",
+            [{ text: "OK", onPress: () => router.replace("/auth") }]
+          );
+        } else {
+          const errorMessage = error?.message || "Failed to place order";
+          Alert.alert("Payment Failed", errorMessage);
+          router.back();
+        }
         return;
       }
 
@@ -451,9 +473,10 @@ export default function PaytmPaymentScreen() {
 
             <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={styles.payButton}
+                style={[styles.payButton, processing && { opacity: 0.7 }]}
                 onPress={handlePayClick}
                 activeOpacity={0.7}
+                disabled={processing}
               >
                 <Text style={styles.payButtonText}>
                   Pay <RupeeSymbol />

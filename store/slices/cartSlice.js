@@ -1,4 +1,4 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createSelector } from "@reduxjs/toolkit";
 
 const initialState = {
   items: [],
@@ -138,7 +138,7 @@ export const selectCartItems = (state) => state.cart.items;
 export const selectCartTotal = (state) => state.cart.total;
 export const selectCartCount = (state) => (state.cart.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
 export const selectPendingItems = (state) => state.cart.pendingItems;
-export const selectCartRestaurant = (state) => ({
-  id: state.cart.restaurantId,
-  name: state.cart.restaurantName
-});
+export const selectCartRestaurant = createSelector(
+  [(state) => state.cart.restaurantId, (state) => state.cart.restaurantName],
+  (id, name) => ({ id, name })
+);

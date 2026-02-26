@@ -40,6 +40,7 @@ export default function CartScreen() {
   const [paymentMode, setPaymentMode] = useState(mode === "payment");
   const [upiId, setUpiId] = useState("");
   const [selectedApp, setSelectedApp] = useState("");
+  const [submitting, setSubmitting] = useState(false); // [NEW] Prevent double submissions
 
   // Update paymentMode if param changes (e.g. coming back from GPay cancel)
   useEffect(() => {
@@ -76,7 +77,10 @@ export default function CartScreen() {
   const grandTotal = Math.round(cartTotal + taxes + deliveryFee);
 
   // Updated Payment Handler
-  const handlePayment = () => {
+  const handlePayment = async () => {
+    if (submitting) return; // [NEW] Prevent double submission
+    setSubmitting(true);
+
     // Basic validation based on selected method
     if (selectedPaymentMethod === "card") {
       if (
@@ -166,6 +170,8 @@ export default function CartScreen() {
           amount: grandTotal.toString(),
         },
       });
+      // Reset submitting shortly after redirect to allow retry if user comes back
+      setTimeout(() => setSubmitting(false), 2000);
     } else if (selectedPaymentMethod === "upi" && selectedApp === "phonepe") {
       router.push({
         pathname: "/payment/phonepe",
@@ -174,6 +180,7 @@ export default function CartScreen() {
           amount: grandTotal.toString(),
         },
       });
+      setTimeout(() => setSubmitting(false), 2000);
     } else if (selectedPaymentMethod === "upi" && selectedApp === "paytm") {
       router.push({
         pathname: "/payment/paytm",
@@ -182,12 +189,30 @@ export default function CartScreen() {
           amount: grandTotal.toString(),
         },
       });
+      setTimeout(() => setSubmitting(false), 2000);
     } else {
-      // For other payment methods, process immediately
-      showToast("Payment Successful! Your order has been placed.");
-      dispatch(addOrder(newOrder));
-      dispatch(clearCart());
-      router.replace("/orders");
+      // For Card payment - call the REAL backend API (no bypass allowed)
+      try {
+        const { createNewOrder } = require("../../services/orderService");
+        const createdOrder = await createNewOrder(newOrder);
+        showToast("Payment Successful! Your order has been placed.");
+        dispatch(addOrder(createdOrder));
+        dispatch(clearCart());
+        router.replace("/orders");
+      } catch (error) {
+        console.error("Order placement failed:", error.message);
+        // Handle suspension or other errors
+        if (error.message?.toLowerCase().includes("suspended")) {
+          Alert.alert(
+            "Account Suspended",
+            "Your account has been suspended. Please contact support.",
+            [{ text: "OK" }]
+          );
+        } else {
+          Alert.alert("Order Failed", error.message || "Could not place order. Please try again.");
+          setSubmitting(false); // Reset on error
+        }
+      }
     }
   };
 
@@ -298,8 +323,9 @@ export default function CartScreen() {
                   </View>
 
                   <TouchableOpacity
-                    style={styles.sendOtpBtn}
+                    style={[styles.sendOtpBtn, submitting && { opacity: 0.7 }]}
                     onPress={handlePayment}
+                    disabled={submitting}
                   >
                     <Text style={styles.sendOtpText}>Pay ₹{grandTotal}</Text>
                   </TouchableOpacity>
@@ -424,8 +450,9 @@ export default function CartScreen() {
                   </View>
 
                   <TouchableOpacity
-                    style={styles.sendOtpBtn}
+                    style={[styles.sendOtpBtn, submitting && { opacity: 0.7 }]}
                     onPress={handlePayment}
+                    disabled={submitting}
                   >
                     <Text style={styles.sendOtpText}>Pay ₹{grandTotal}</Text>
                   </TouchableOpacity>

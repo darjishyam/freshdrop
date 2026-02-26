@@ -14,17 +14,20 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
-import { Provider, useSelector } from "react-redux";
+import { Provider, useSelector, useDispatch } from "react-redux";
+import { Alert } from "react-native";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { View, Platform } from "react-native";
+import { View } from "react-native";
 import { CartFab } from "../components/CartFab";
 import { ToastProvider } from "../context/ToastContext";
 import { store } from "../store";
-import { initializeAuth } from "../store/slices/authSlice";
+import { initializeAuth, logout } from "../store/slices/authSlice";
 import { loadUserData } from "../store/slices/userSlice";
-import { usePushNotifications } from "@/hooks/usePushNotifications"; // Import hook
-import { updatePushToken } from "@/services/authService"; // Import service
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { updatePushToken } from "@/services/authService";
+import socketService from "../services/socketService";
+import { setSuspensionHandler } from "../services/apiClient";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -36,9 +39,12 @@ export const unstable_settings = {
 // Component to handle Push Notifications inside Provider
 function AppContent() {
   const { expoPushToken, notification, notificationResponse } = usePushNotifications();
-  const { user, token } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
+  const token = user?.token;
   const router = useRouter();
+  const dispatch = useDispatch();
 
+  // Handle notification tap redirect
   useEffect(() => {
     if (notificationResponse) {
       const data = notificationResponse.notification.request.content.data;
@@ -49,13 +55,62 @@ function AppContent() {
     }
   }, [notificationResponse]);
 
+  // Handle global API suspension errors
+  useEffect(() => {
+    setSuspensionHandler((message) => {
+      console.log("[apiClient] Intercepted suspension:", message);
+      Alert.alert(
+        "Account Suspended",
+        message || "Your account has been suspended. Please contact support.",
+        [{
+          text: "OK",
+          onPress: () => router.replace("/auth"),
+        }]
+      );
+      dispatch(logout());
+    });
+  }, []);
+
+  // Join user socket room and listen for suspension kick
+  useEffect(() => {
+    if (user?._id) {
+      // Step 1: Connect socket
+      socketService.connect();
+
+      // Step 2: Queue user room join (works even if not yet connected)
+      socketService.joinUserRoom(user._id);
+
+      // Step 3: Listen for account suspension ("sessionKicked" from server)
+      const handleKick = (data) => {
+        console.log("[Socket] Session kicked:", data?.message);
+        Alert.alert(
+          "Account Suspended",
+          data?.message || "Your account has been suspended. Please contact support.",
+          [{
+            text: "OK",
+            onPress: () => router.replace("/auth"),
+          }]
+        );
+        // Immediately dispatch logout to clear Redux state + AsyncStorage
+        dispatch(logout());
+      };
+
+      socketService.on("sessionKicked", handleKick);
+
+      // Cleanup listener when user logs out or changes
+      return () => {
+        socketService.off("sessionKicked", handleKick);
+      };
+    }
+  }, [user?._id]);
+
   useEffect(() => {
     if (expoPushToken && token) {
       // Send token to backend
       console.log("Updating Push Token for User App:", expoPushToken);
       updatePushToken(expoPushToken);
     }
-  }, [expoPushToken, token]);
+  }, [expoPushToken, token, user]);
 
   return (
     <View style={{ flex: 1 }}>
