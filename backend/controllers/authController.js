@@ -363,6 +363,11 @@ const verifyOtp = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // NEW: Check for suspension
+    if (user.status === "SUSPENDED") {
+      return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
+    }
+
     // Verify OTP Logic
     const isOtpMatching =
       user.otp && user.otp.toString().trim() === otp.toString().trim();
@@ -519,6 +524,10 @@ const googleLogin = async (req, res) => {
     let user = await User.findOne({ email: googleUser.email });
 
     if (user) {
+      // NEW: Check for suspension
+      if (user.status === "SUSPENDED") {
+        return res.status(403).json({ message: "Your account has been suspended. Please contact support." });
+      }
 
       // User exists - Update googleId/image if missing
       if (!user.googleId) {
@@ -940,6 +949,7 @@ const verifyProfileUpdateOtp = async (req, res) => {
 const updatePushToken = async (req, res) => {
   try {
     const { pushToken } = req.body;
+    const user = req.user; // Get user from protect middleware
 
     if (!pushToken) {
       return res.status(400).json({ message: "Push token is required" });
@@ -955,11 +965,13 @@ const updatePushToken = async (req, res) => {
 
       user.pushToken = pushToken;
       await user.save();
+      console.log(`[PUSH] Updated push token for user: ${user.email || user.phone}`);
       res.json({ message: "Push token updated" });
     } else {
       res.status(404).json({ message: "User not found" });
     }
   } catch (error) {
+    console.error("[PUSH] Token Update Error:", error);
     res.status(500).json({ message: error.message });
   }
 };

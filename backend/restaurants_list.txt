@@ -1,40 +1,7 @@
-ID | Name | ExternalID
-69899a29e08dc997c2de424f | McDonald's | undefined
-69899a29e08dc997c2de4251 | Fresh Mart Grocery | undefined
-69899a29e08dc997c2de4253 | Swiggy Test - Mehsana | undefined
-69899a29e08dc997c2de424e | Pizza Hut | undefined
-69899a29e08dc997c2de4250 | Domino's Pizza | undefined
-69899a29e08dc997c2de4252 | KFC | undefined
-69899c2b615692ca69b5955f | Bansi Kathiyawadi | 6403442251
-6989a432615692ca69b5965f | Bypass Fast Food | 6403467582
-6989ac7b615692ca69b5b0d5 | Domino's | 4538991536
-6989b2ed615692ca69b5b747 | Tilak Restaurant and Banquet Hall | 683642722
-698ab2d8ebaa200428162fdc | nagalpur cafe | 3751102466
-698ab610ebaa20042816300c | mcdonald | 3750268416
-698abc9febaa2004281630c0 | Sankalp Restaurant | 2525219671
-698acfa70d19cede67cbc596 | Bypass Fast Food | 6989a432615692ca69b5965f
-698ad1bb6b04637a37dd964f | Domino's | 6989ac7b615692ca69b5b0d5
-698ad7d7229b0fe3f9aee693 | nagalpur cafe | 698ab2d8ebaa200428162fdc
-698add997dd65812ab640297 | Bansi Kathiyawadi | 69899c2b615692ca69b5955f
-698ae27a7dd65812ab6404d9 | Tilak Restaurant and Banquet Hall | 6989b2ed615692ca69b5b747
-698ae2c97dd65812ab6404e0 | Bypass Fast Food | 698acfa70d19cede67cbc596
-698c2208d89790f4ba690546 | Sankalp Restaurant | 698abc9febaa2004281630c0
-698c22b7d89790f4ba69257c | Mirchi fast food | 4293346091
-698c237dd89790f4ba694669 | Domino's | 698ad1bb6b04637a37dd964f
-698c2a14d89790f4ba69b84b | mcdonald | 698ab610ebaa20042816300c
-698c610546f71ca98c201a54 | Swiggy Test - Mehsana | 69899a29e08dc997c2de4253
-698da71f56143f5c2750a13c | Sankalp Restaurant | 698c2208d89790f4ba690546
-698eb386ea0f8f694f13a75c | Tilak Restaurant and Banquet Hall | 698ae27a7dd65812ab6404d9
-698f5218047684d917274b27 | Mangaldas Ni Haveli | 632066507
-6992aa0d79782e16efbe04ea | Samrat Restaurant | undefined
-6992aa0d79782e16efbe04ed | Gujarat Thali House | undefined
-6992aa0d79782e16efbe04f0 | Pizza Point Mahesana | undefined
-6992baa5c3c4a6b514fc2aab | Pizza Point Mahesana | 6992aa0d79782e16efbe04f0
-6992d7e0de87e93b4da424a0 | Bansi Kathiyawadi | 698add997dd65812ab640297
-6992de4bd8b326b1dd48fcf4 | Pizza Point Mahesana | 6992baa5c3c4a6b514fc2aab
-6993e938abb11d9c62a558ad | nagalpur cafe | 698ad7d7229b0fe3f9aee693
-699536e20f863c075c2b58ae | Saras Resturant | undefined
-699540eb343caa98a7ca5d91 | Heart Resturant | undefined
-6995785a46141973cc864bf9 | Sampati Resturant | undefined
-69958dd8f9ef1795ba4b065f | Samrat Restaurant | 6992aa0d79782e16efbe04ea
-699697167108542843ddf274 | Heer Resturant | undefined
+ID | Name | ExternalID | Status | StoreType
+69899a29e08dc997c2de424f | McDonald's | undefined | APPROVED | RESTAURANT
+69899a29e08dc997c2de4250 | Domino's Pizza | undefined | APPROVED | RESTAURANT
+6995785a46141973cc864bf9 | Sampati Resturant | undefined | APPROVED | RESTAURANT
+699697167108542843ddf274 | Heer Resturant | undefined | APPROVED | RESTAURANT
+6998417c61c1f9d16ca539b6 | Lifemart grocery  | undefined | APPROVED | GROCERY
+699ea2fb1965034879a654ab | Pratihar Resturant | undefined | APPROVED | RESTAURANT

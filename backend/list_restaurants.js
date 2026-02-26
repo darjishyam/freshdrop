@@ -8,10 +8,10 @@ mongoose.connect(MONGO_URI)
     .then(async () => {
         console.log("Connected");
         try {
-            const all = await Restaurant.find({}, 'name externalId');
-            let output = "ID | Name | ExternalID\n";
+            const all = await Restaurant.find({}, 'name externalId status storeType');
+            let output = "ID | Name | ExternalID | Status | StoreType\n";
             all.forEach(r => {
-                output += `${r._id} | ${r.name} | ${r.externalId}\n`;
+                output += `${r._id} | ${r.name} | ${r.externalId} | ${r.status} | ${r.storeType}\n`;
             });
             fs.writeFileSync('restaurants_list.txt', output);
             console.log("Written to restaurants_list.txt");

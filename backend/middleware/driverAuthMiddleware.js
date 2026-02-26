@@ -30,6 +30,25 @@ const protect = async (req, res, next) => {
                 return res.status(401).json({ message: "Driver not found" });
             }
 
+            // Check if driver is suspended or blocked
+            if (['SUSPENDED', 'BLOCKED'].includes(req.user.status)) {
+                return res.status(403).json({
+                    message: `Your driver account has been ${req.user.status.toLowerCase()}. Please contact support.`,
+                    status: req.user.status
+                });
+            }
+
+            // Block PENDING drivers from all routes except profile and logout
+            const allowedForPending = ['/profile', '/logout'];
+            const isAllowedPath = allowedForPending.some(path => req.path.includes(path));
+
+            if (req.user.status === 'PENDING' && !isAllowedPath) {
+                return res.status(403).json({
+                    message: "Your documents are under review. You will be notified once approved by admin.",
+                    status: "PENDING"
+                });
+            }
+
             next();
         } catch (error) {
             console.log(error);

@@ -50,15 +50,31 @@ io.on("connection", (socket) => {
     console.log(`Socket ${socket.id} joined restaurant room: restaurant_${restaurantId}`);
   });
 
-  // --- Geofencing: Driver Location Update ---
+  // NEW: User Room (for notifications and kicks)
+  socket.on("joinUserRoom", (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`Socket ${socket.id} joined user room: user_${userId}`);
+  });
+
+  // NEW: Admin Room
+  socket.on("joinAdminRoom", () => {
+    socket.join("admin_room");
+    console.log(`Socket ${socket.id} joined Admin Room`);
+  });
+
   socket.on("updateDriverLocation", async (data) => {
-    // data: { driverId, latitude, longitude }
+    // data: { driverId, latitude, longitude, address }
     const { driverId, latitude, longitude } = data;
 
     if (!driverId || !latitude || !longitude) return;
 
-    // Optional: Broadcast to admin or tracking dashboard if needed
-    // io.emit("driverLocationUpdated", data); 
+    // Broadcast to Admin Panel for real-time tracking
+    io.to("admin_room").emit("driverLocationUpdated", {
+      driverId,
+      latitude,
+      longitude,
+      timestamp: new Date()
+    });
 
     try {
       // 1. Find ACTIVE order for this driver (Out for Delivery)
@@ -78,6 +94,19 @@ io.on("connection", (socket) => {
         const distanceMeters = distanceKm * 1000;
 
         console.log(`Driver ${driverId} is ${distanceMeters.toFixed(0)}m from Customer for Order ${activeOrder._id}`);
+
+        // ✅ NEW: Relay live driver location to the USER's socket room so their map updates in real-time
+        if (activeOrder.user) {
+          const userId = activeOrder.user._id || activeOrder.user;
+          const etaMinutes = Math.ceil((distanceKm / 30) * 60); // Assuming avg 30 km/h
+          io.to(`user_${userId}`).emit("driverLocationUpdate", {
+            orderId: activeOrder._id,
+            latitude,
+            longitude,
+            distanceKm: distanceKm.toFixed(2),
+            etaMinutes: Math.max(1, etaMinutes),
+          });
+        }
 
         // 2. Check Thresholds and Send Notifications
         let alertSent = false;
@@ -182,6 +211,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/driver", driverRoutes);
 app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/menu", require("./routes/menuRoutes")); // New Menu Routes // New Product Routes
+app.use("/api/admin", require("./routes/adminRoutes")); // Admin Routes
 
 const PORT = process.env.PORT || 5000;
 

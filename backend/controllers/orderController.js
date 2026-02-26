@@ -14,7 +14,12 @@ if (!fs.existsSync(path.dirname(logFile))) {
 
 // @desc    Place a new order
 // @route   POST /api/orders
+let _orderReqCount = 0;
 const createOrder = async (req, res) => {
+    _orderReqCount++;
+    const reqNum = _orderReqCount;
+    const timestamp = new Date().toISOString();
+
     try {
         const {
             restaurantId,
@@ -24,14 +29,32 @@ const createOrder = async (req, res) => {
             paymentMethod,
         } = req.body;
 
+        // Log ALL incoming order requests with a counter to distinguish duplicates
+        const logLine = `[${timestamp}] [ORDER #${reqNum}] restaurantId="${restaurantId}" type=${typeof restaurantId} len=${restaurantId?.length} items=${items?.length} user=${req.user?._id}\n`;
+        console.log(logLine.trim());
+        fs.appendFileSync(logFile, logLine);
+
+        // FINAL SAFETY CHECK: Ensure user is not suspended
+        if (req.user && req.user.status === "SUSPENDED") {
+            return res.status(403).json({ message: "Your account is suspended. Order failed." });
+        }
+
         if (!items || items.length === 0) {
             return res.status(400).json({ message: "No order items" });
         }
 
+        // Debug: Try finding by ID string directly
         const restaurant = await Restaurant.findById(restaurantId);
+
         if (!restaurant) {
+            const errLine = `[${timestamp}] [ORDER #${reqNum}] ❌ NOT FOUND: restaurantId="${restaurantId}"\n`;
+            console.log(errLine.trim());
+            fs.appendFileSync(logFile, errLine);
             return res.status(404).json({ message: "Restaurant not found" });
         }
+        const okLine = `[${timestamp}] [ORDER #${reqNum}] ✅ Found: ${restaurant.name}\n`;
+        console.log(okLine.trim());
+        fs.appendFileSync(logFile, okLine);
 
         // Calculate bill details
         const itemTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -81,10 +104,9 @@ const createOrder = async (req, res) => {
         });
 
         const createdOrder = await order.save();
-        const populatedOrder = await Order.findById(createdOrder._id).populate(
-            "restaurant",
-            "name image address"
-        );
+        const populatedOrder = await Order.findById(createdOrder._id)
+            .populate("restaurant", "name image address")
+            .populate("user", "name phone address");
 
         // Notify User
         // req.app.get('io').to(`user_${req.user._id}`).emit('orderUpdate', populatedOrder);
@@ -121,24 +143,26 @@ const createOrder = async (req, res) => {
         if (io) {
             const restaurantRoom = `restaurant_${restaurantId}`;
             io.to(restaurantRoom).emit('restaurantNewOrder', populatedOrder);
-            console.log(`📡 Emitted 'restaurantNewOrder' to ${restaurantRoom}`);
+            io.to("admin_room").emit('adminNewOrder', populatedOrder); // NOTIFY ADMIN
+            console.log(`📡 Emitted 'restaurantNewOrder' to ${restaurantRoom} and 'adminNewOrder' to admin_room`);
         }
 
         // Fetch Restaurant details for Push Token
         try {
             const restaurantDoc = await Restaurant.findById(restaurantId);
             if (restaurantDoc && restaurantDoc.pushToken) {
-                console.log(`🔔 Sending Push Notification to Restaurant: ${restaurantDoc.name}`);
+                console.log(`[PUSH] Notifying Restaurant: ${restaurantDoc.name}`);
                 await sendPushNotification(
                     [restaurantDoc.pushToken],
                     "🍔 New Order Received",
                     `${itemCount} items • Tap to review and accept`,
                     { orderId: createdOrder._id, type: 'NEW_ORDER', restaurantId: restaurantId }
                 );
+                console.log(`[PUSH] Restaurant notification sent.`);
             }
 
-            // --- NEW: User Notification (ORDER_PLACED) ---
             if (req.user.pushToken) {
+                console.log(`[PUSH] Notifying User of success: ${req.user.email}`);
                 await sendPushNotification(
                     [{ userId: req.user._id, pushToken: req.user.pushToken }],
                     "✅ Order placed successfully",
@@ -146,6 +170,7 @@ const createOrder = async (req, res) => {
                     { type: 'ORDER_PLACED', orderId: createdOrder._id },
                     'User'
                 );
+                console.log(`[PUSH] User success notification sent.`);
             }
         } catch (pushError) {
             console.error("Failed to send push notifications:", pushError);
@@ -352,6 +377,7 @@ const acceptOrder = async (req, res) => {
                 const userDoc = await User.findById(updatedOrder.user);
                 if (userDoc && userDoc.pushToken) {
                     const driverFirstName = req.user.name ? req.user.name.split(' ')[0] : 'Delivery partner';
+                    console.log(`[PUSH] Notifying User of Driver Assignment: ${userDoc.email}`);
                     await sendPushNotification(
                         [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
                         "🚚 Delivery partner assigned",
@@ -359,10 +385,14 @@ const acceptOrder = async (req, res) => {
                         { type: 'DRIVER_ASSIGNED', orderId: orderId },
                         'User'
                     );
+                    console.log(`[PUSH] User assignment notification sent.`);
                 }
             } catch (uPushErr) {
                 console.log("User push notification (Driver Assigned) err:", uPushErr.message);
             }
+
+            // Notify Admin
+            io.to("admin_room").emit('adminOrderUpdate', updatedOrder);
 
             // Remove from other drivers' lists
             console.log(`[RACE_DEBUG] Emitting orderTaken for ${orderId}`);
@@ -442,17 +472,24 @@ const updateOrderStatus = async (req, res) => {
                         body = `Your order from ${updatedOrder.restaurant?.name || 'the restaurant'} has been delivered. Bon appétit!`;
                     }
 
-                    sendPushNotification(
+                    console.log(`[PUSH] Identified User: ${userDoc.email || userDoc.phone}, Token: ${userDoc.pushToken ? 'YES' : 'NO'}`);
+                    await sendPushNotification(
                         [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
                         title,
                         body,
                         { type: 'ORDER_UPDATE', orderId: orderId },
                         'User'
                     );
+                    console.log(`[PUSH] Order Update notification sent to user for status: ${status}`);
+                } else {
+                    console.log(`[PUSH] Skip: User doc not found or missing token for ID: ${updatedOrder.user}`);
                 }
             } catch (uPushErr) {
                 console.log("User push notification err:", uPushErr.message);
             }
+
+            // NOTIFY ADMIN
+            io.to("admin_room").emit('adminOrderUpdate', updatedOrder);
         }
 
         res.json(updatedOrder);
@@ -557,6 +594,8 @@ const cancelOrder = async (req, res) => {
             io.emit('orderCancelled', orderId);
             // Notify status room
             io.emit(`order_${orderId}`, populatedOrder);
+            // NOTIFY ADMIN
+            io.to("admin_room").emit('adminOrderUpdate', populatedOrder);
         }
 
         res.json({
@@ -599,12 +638,13 @@ const updateRestaurantOrderStatus = async (req, res) => {
 
     try {
         log(`REQ: ${req.params.id} -> ${req.body.status}`);
-        const { status } = req.body;
+        const { status, prepTime } = req.body;
         const order = await Order.findById(req.params.id);
 
         if (!order) { return res.status(404).json({ message: "Order not found" }); }
 
         order.status = status;
+        if (prepTime) order.prepTime = prepTime;
         const lastTimeline = order.timeline[order.timeline.length - 1];
         if (!lastTimeline || lastTimeline.status !== status) {
             order.timeline.push({
@@ -631,29 +671,45 @@ const updateRestaurantOrderStatus = async (req, res) => {
                         let title = "";
                         let body = "";
 
-                        // Realistic Flow: Only notify for milestone moments
-                        if (status === 'Confirmed' || status === 'Preparing') {
-                            title = "🍽️ Restaurant confirmed your order";
-                            body = `${populatedOrder.restaurant?.name || 'The restaurant'} is preparing your food.`;
+                        // Mapping Milestone Notifications
+                        const resName = populatedOrder.restaurant?.name || 'The restaurant';
+
+                        if (status === 'Confirmed') {
+                            title = "🍽️ Order Accepted!";
+                            body = `${resName} has accepted your order and is starting preparation.`;
+                        } else if (status === 'Preparing') {
+                            title = "👨‍🍳 Cooking your food";
+                            body = `The chef at ${resName} is now preparing your meal.`;
+                        } else if (status === 'Ready') {
+                            title = "🥡 Order Ready!";
+                            body = `Your delicious food is ready and waiting for a delivery partner.`;
+                        } else if (status === 'Cancelled') {
+                            title = "❌ Order Cancelled";
+                            body = `Sorry, your order at ${resName} was cancelled.`;
                         }
-                        // Note: Swiggy/Zomato do NOT notify for "Ready" internally. 
-                        // They only notify when "Out for Delivery" (which is handled by Driver move)
 
                         if (title) {
-                            sendPushNotification(
+                            console.log(`[PUSH] Notifying User of Restaurant Milestone: ${status} -> ${title}`);
+                            await sendPushNotification(
                                 [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
                                 title,
                                 body,
-                                { type: 'ORDER_UPDATE', orderId: order._id },
+                                { type: 'ORDER_UPDATE', orderId: order._id, status: status },
                                 'User'
                             );
+                            console.log(`[PUSH] Notification sent successfully.`);
+                        } else {
+                            console.log(`[PUSH] Skip: No notification title mapped for status ${status}`);
                         }
+                    } else {
+                        console.log(`[PUSH] Skip: User doc not found or missing token for ID: ${order.user}`);
                     }
                 } catch (userPushErr) {
                     console.error("Failed to send user push notification:", userPushErr);
                 }
             }
             io.emit('orderUpdated', order);
+            io.to("admin_room").emit('adminOrderUpdate', order);
 
             // DRIVER NOTIFICATION (READY only)
             console.log(`[DEBUG] Checking condition: status '${status}' === 'Ready'`);

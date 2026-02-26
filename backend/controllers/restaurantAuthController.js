@@ -1,5 +1,10 @@
 const Restaurant = require('../models/Restaurant');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const sendEmail = require('../utils/emailSender');
+
+const shouldLogOtp = () =>
+    process.env.LOG_OTPS === "true" || process.env.NODE_ENV !== "production";
 
 // Generate JWT
 const generateToken = (id) => {
@@ -12,23 +17,28 @@ const generateToken = (id) => {
 // @route   POST /api/auth/restaurant/signup
 const signup = async (req, res) => {
     const {
-        name, email, password, ownerName, phone,
+        name, email, ownerName, phone,
         address, priceRange, deliveryTime, image,
         fssaiLicense, gstNumber, panNumber, bankDetails, documentImages,
         storeType, cuisines
     } = req.body;
 
     try {
-        const restaurantExists = await Restaurant.findOne({ email });
+        const restaurantExists = await Restaurant.findOne({
+            $or: [
+                { email: email.toLowerCase() },
+                { phone: phone }
+            ]
+        });
 
         if (restaurantExists) {
-            return res.status(400).json({ message: 'Restaurant already exists' });
+            const conflict = restaurantExists.email.toLowerCase() === email.toLowerCase() ? 'Email' : 'Phone number';
+            return res.status(400).json({ message: `${conflict} already registered` });
         }
 
         const restaurant = await Restaurant.create({
             name,
             email,
-            password,
             ownerName,
             phone,
             cuisines: cuisines || [],
@@ -62,31 +72,247 @@ const signup = async (req, res) => {
     }
 };
 
-// @desc    Auth restaurant & get token
+// @desc    Auth restaurant & get token (Redirects to OTP)
 // @route   POST /api/auth/restaurant/login
 const login = async (req, res) => {
-    const { email, password } = req.body;
+    res.status(400).json({ message: 'Password login is disabled. Please use OTP login.' });
+};
 
+// @desc    Request OTP for Restaurant Login
+// @route   POST /api/restaurant-auth/request-otp
+const requestOtp = async (req, res) => {
     try {
-        const restaurant = await Restaurant.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+        const { email } = req.body;
 
-        if (restaurant && (await restaurant.matchPassword(password))) {
-            if (restaurant.status !== 'APPROVED') {
-                return res.status(403).json({
-                    message: `Your account is ${restaurant.status}. Please wait for admin approval.`
-                });
-            }
-
-            res.json({
-                _id: restaurant._id,
-                name: restaurant.name,
-                email: restaurant.email,
-                storeType: restaurant.storeType,
-                token: generateToken(restaurant._id),
-            });
-        } else {
-            res.status(401).json({ message: 'Invalid email or password' });
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
         }
+
+        const restaurant = await Restaurant.findOne({
+            email: { $regex: new RegExp(`^${email}$`, 'i') }
+        });
+
+        if (!restaurant) {
+            return res.status(404).json({ message: 'Restaurant not found' });
+        }
+
+        if (restaurant.storeType === 'GROCERY') {
+            return res.status(403).json({ message: 'This account is registered as a Grocery Store. Please use the Grocery app login.' });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        if (shouldLogOtp()) {
+            console.log("--------------------------------");
+            console.log("RESTAURANT DEV OTP:", otp);
+            console.log("--------------------------------");
+        }
+
+        restaurant.otp = otp;
+        restaurant.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        await restaurant.save();
+
+        const brandingColor = "#FC8019";
+        const htmlContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                <div style="background-color: ${brandingColor}; padding: 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">FreshDrop Partner</h1>
+                </div>
+                <div style="padding: 30px; background-color: #ffffff;">
+                    <p style="font-size: 16px; color: #333;">Hello <strong>${restaurant.name}</strong>!</p>
+                    <p style="font-size: 16px; color: #555;">Use the code below to securely log into your FreshDrop Partner account:</p>
+                    <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: ${brandingColor};">${otp}</span>
+                    </div>
+                    <p style="font-size: 14px; color: #777;">This code is valid for 10 minutes. Please do not share this with anyone.</p>
+                </div>
+                <div style="background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #999;">
+                    &copy; ${new Date().getFullYear()} FreshDrop. All rights reserved.
+                </div>
+            </div>
+        `;
+
+        try {
+            await sendEmail({
+                email: restaurant.email,
+                subject: "FreshDrop Partner Login Code",
+                message: `Your login code is ${otp}`,
+                html: htmlContent,
+            });
+
+            res.status(200).json({
+                message: 'OTP sent successfully',
+                email: restaurant.email,
+                ...(shouldLogOtp() ? { devOtp: otp } : {})
+            });
+        } catch (emailError) {
+            console.error("Failed to send OTP email:", emailError);
+            res.status(500).json({ message: 'Failed to send OTP email' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Verify OTP for Restaurant Login
+// @route   POST /api/restaurant-auth/verify-otp
+const verifyOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ message: 'Email and OTP are required' });
+        }
+
+        const restaurant = await Restaurant.findOne({
+            email: { $regex: new RegExp(`^${email}$`, 'i') }
+        });
+
+        if (!restaurant) {
+            return res.status(404).json({ message: 'Restaurant not found' });
+        }
+
+        if (restaurant.storeType === 'GROCERY') {
+            return res.status(403).json({ message: 'Access Denied: Grocery stores cannot login to the Restaurant portal.' });
+        }
+
+        if (restaurant.otp !== otp || restaurant.otpExpires < Date.now()) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
+        }
+
+        // Clear OTP
+        restaurant.otp = undefined;
+        restaurant.otpExpires = undefined;
+        await restaurant.save();
+
+        res.json({
+            _id: restaurant._id,
+            name: restaurant.name,
+            email: restaurant.email,
+            storeType: restaurant.storeType,
+            status: restaurant.status,
+            token: generateToken(restaurant._id),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Request OTP for Grocery Login
+// @route   POST /api/restaurant-auth/request-grocery-otp
+const requestGroceryOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        const restaurant = await Restaurant.findOne({
+            email: { $regex: new RegExp(`^${email}$`, 'i') }
+        });
+
+        if (!restaurant) {
+            return res.status(404).json({ message: 'Store not found' });
+        }
+
+        if (restaurant.storeType !== 'GROCERY') {
+            return res.status(403).json({ message: 'This account is registered as a Restaurant. Please use the Restaurant app login.' });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        if (shouldLogOtp()) {
+            console.log("--------------------------------");
+            console.log("GROCERY DEV OTP:", otp);
+            console.log("--------------------------------");
+        }
+
+        restaurant.otp = otp;
+        restaurant.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        await restaurant.save();
+
+        const brandingColor = "#16a34a"; // Green for grocery
+        const htmlContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                <div style="background-color: ${brandingColor}; padding: 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Instamart Partner</h1>
+                </div>
+                <div style="padding: 30px; background-color: #ffffff;">
+                    <p style="font-size: 16px; color: #333;">Hello <strong>${restaurant.name}</strong>!</p>
+                    <p style="font-size: 16px; color: #555;">Use the code below to securely log into your Instamart Partner account:</p>
+                    <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; text-align: center; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: ${brandingColor};">${otp}</span>
+                    </div>
+                    <p style="font-size: 14px; color: #777;">This code is valid for 10 minutes. Please do not share this with anyone.</p>
+                </div>
+                <div style="background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #999;">
+                    &copy; ${new Date().getFullYear()} FreshDrop. All rights reserved.
+                </div>
+            </div>
+        `;
+
+        try {
+            await sendEmail({
+                email: restaurant.email,
+                subject: "Instamart Partner Login Code",
+                message: `Your login code is ${otp}`,
+                html: htmlContent,
+            });
+
+            res.status(200).json({
+                message: 'OTP sent successfully',
+                email: restaurant.email,
+                ...(shouldLogOtp() ? { devOtp: otp } : {})
+            });
+        } catch (emailError) {
+            console.error("Failed to send OTP email:", emailError);
+            res.status(500).json({ message: 'Failed to send OTP email' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Verify OTP for Grocery Login
+// @route   POST /api/restaurant-auth/verify-grocery-otp
+const verifyGroceryOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || !otp) {
+            return res.status(400).json({ message: 'Email and OTP are required' });
+        }
+
+        const restaurant = await Restaurant.findOne({
+            email: { $regex: new RegExp(`^${email}$`, 'i') }
+        });
+
+        if (!restaurant) {
+            return res.status(404).json({ message: 'Store not found' });
+        }
+
+        if (restaurant.storeType !== 'GROCERY') {
+            return res.status(403).json({ message: 'Access Denied: Restaurants cannot login to the Grocery portal.' });
+        }
+
+        if (restaurant.otp !== otp || restaurant.otpExpires < Date.now()) {
+            return res.status(400).json({ message: 'Invalid or expired OTP' });
+        }
+
+        // Clear OTP
+        restaurant.otp = undefined;
+        restaurant.otpExpires = undefined;
+        await restaurant.save();
+
+        res.json({
+            _id: restaurant._id,
+            name: restaurant.name,
+            email: restaurant.email,
+            storeType: restaurant.storeType,
+            status: restaurant.status,
+            token: generateToken(restaurant._id),
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -95,18 +321,15 @@ const login = async (req, res) => {
 // @desc    Get current restaurant profile
 // @route   GET /api/auth/restaurant/profile
 const getProfile = async (req, res) => {
-    let token;
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        try {
-            token = req.headers.authorization.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const restaurant = await Restaurant.findById(decoded.id).select('-password');
-            res.json(restaurant);
-        } catch (error) {
-            res.status(401).json({ message: 'Not authorized, token failed' });
+    try {
+        // req.user is already populated by the 'protect' middleware
+        if (!req.user) {
+            return res.status(401).json({ message: 'Not authorized' });
         }
-    } else {
-        res.status(401).json({ message: 'Not authorized, no token' });
+        res.json(req.user);
+    } catch (error) {
+        console.error("getProfile error:", error);
+        res.status(500).json({ message: 'Server error fetching profile' });
     }
 };
 
@@ -206,11 +429,57 @@ const updateProfile = async (req, res) => {
     }
 };
 
+// @desc    Upload Restaurant Documents
+// @route   PUT /api/auth/restaurant/upload-documents
+const uploadRestaurantDocuments = async (req, res) => {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const restaurant = await Restaurant.findById(decoded.id);
+
+            if (!restaurant) return res.status(404).json({ message: 'Restaurant not found' });
+
+            const { documentImages, bankDetails } = req.body;
+
+            if (documentImages) {
+                // Initialize if null
+                if (!restaurant.documentImages) restaurant.documentImages = {};
+
+                if (documentImages.fssai) restaurant.documentImages.fssai = documentImages.fssai;
+                if (documentImages.pan) restaurant.documentImages.pan = documentImages.pan;
+                if (documentImages.cancelledCheque) restaurant.documentImages.cancelledCheque = documentImages.cancelledCheque;
+
+                restaurant.markModified('documentImages');
+            }
+
+            if (bankDetails) {
+                restaurant.bankDetails = { ...restaurant.bankDetails, ...bankDetails };
+                restaurant.markModified('bankDetails');
+            }
+
+            await restaurant.save();
+
+            res.json({ message: 'Documents updated successfully', status: restaurant.status });
+        } catch (error) {
+            res.status(401).json({ message: 'Not authorized' });
+        }
+    } else {
+        res.status(401).json({ message: 'No token' });
+    }
+};
+
 module.exports = {
     signup,
     login,
     getProfile,
     updatePushToken,
     logout,
-    updateProfile
+    updateProfile,
+    uploadRestaurantDocuments,
+    requestOtp,
+    verifyOtp,
+    requestGroceryOtp,
+    verifyGroceryOtp
 };

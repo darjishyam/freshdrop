@@ -27,8 +27,8 @@ const loginDriverOtp = async (req, res) => {
             return res.status(400).json({ message: "Driver not found. Please Join Us first." });
         }
 
-        if (driver.status === "BLOCKED" || driver.status === "SUSPENDED") {
-            return res.status(403).json({ message: `Account is ${driver.status}` });
+        if (driver.status === "BLOCKED") {
+            return res.status(403).json({ message: "Your account has been permanently blocked. Please contact support." });
         }
 
         await sendOtpInternal(driver, res, "login");
@@ -115,11 +115,21 @@ const verifyDriverOtp = async (req, res) => {
                 driver.isVerified = true;
             }
 
-            if (driver.status === "BLOCKED" || driver.status === "SUSPENDED") {
-                return res.status(403).json({ message: `Account is ${driver.status}` });
+            // Block blocked accounts permanently
+            if (driver.status === "BLOCKED") {
+                await driver.save();
+                return res.status(403).json({ message: "Your account has been permanently blocked. Please contact support." });
+            }
+
+            // Block rejected accounts
+            if (driver.status === "REJECTED") {
+                await driver.save();
+                return res.status(403).json({ message: "Your application has been rejected. Please contact support." });
             }
 
             await driver.save();
+
+
 
             res.json({
                 _id: driver._id,
@@ -134,7 +144,7 @@ const verifyDriverOtp = async (req, res) => {
                 vehicleNumber: driver.vehicleNumber,
                 vehicleModel: driver.vehicleModel,
                 walletBalance: driver.walletBalance || 0,
-                location: driver.location, // Return GeoJSON if needed
+                location: driver.location,
                 token: generateToken(driver._id),
                 isDetailsComplete: !!driver.name && driver.name !== "New Driver" && !!driver.city && !!driver.vehicleNumber,
                 isDocsComplete: !!driver.documents && !!driver.documents.drivingLicenseUrl
@@ -147,6 +157,7 @@ const verifyDriverOtp = async (req, res) => {
     }
 };
 
+
 // @desc    Update Driver Details
 // @desc    Update Driver Details
 // @route   PUT /api/driver/update-details
@@ -155,11 +166,22 @@ const updateDriverDetails = async (req, res) => {
         const driver = await Driver.findById(req.user.id);
         if (!driver) return res.status(404).json({ message: "Driver not found" });
 
-        const { name, city, vehicleType, vehicleNumber, vehicleModel, language, email, address, latitude, longitude } = req.body;
+        const { name, city, vehicleType, vehicleNumber, vehicleModel, language, email, address, latitude, longitude, bankDetails } = req.body;
 
         console.log(`📝 Update details for ${driver._id}:`, req.body);
 
         driver.name = name || driver.name;
+
+        // Bank Details Update
+        if (bankDetails) {
+            driver.bankDetails = {
+                accountNumber: bankDetails.accountNumber || driver.bankDetails?.accountNumber,
+                ifscCode: bankDetails.ifscCode || driver.bankDetails?.ifscCode,
+                holderName: bankDetails.holderName || driver.bankDetails?.holderName,
+                bankName: bankDetails.bankName || driver.bankDetails?.bankName
+            };
+            driver.markModified('bankDetails');
+        }
 
         // Safeguard: Ignore LOCATION (GeoJSON) updates if coordinates are (0, 0)
         // BUT allow city/address updates. This allows manual city fixes to work 
@@ -203,11 +225,7 @@ const updateDriverDetails = async (req, res) => {
 
         res.json({
             message: "Details updated",
-            driver: {
-                name: driver.name,
-                city: driver.city,
-                status: driver.status
-            }
+            driver: driver
         });
 
     } catch (error) {
@@ -379,14 +397,23 @@ const getDriverProfile = async (req, res) => {
                 lifetimeEarnings: 0, lifetimeOrders: 0
             };
 
-            // Sync Driver Model if out of sync
+            // Sync Driver Model if out of sync - Use targeted update to avoid status regression
             if (driver.lifetimeEarnings !== aggr.lifetimeEarnings ||
                 driver.totalOrders !== aggr.lifetimeOrders ||
                 driver.walletBalance !== aggr.lifetimeEarnings) {
+
+                await Driver.findByIdAndUpdate(driver._id, {
+                    $set: {
+                        lifetimeEarnings: aggr.lifetimeEarnings,
+                        totalOrders: aggr.lifetimeOrders,
+                        walletBalance: aggr.lifetimeEarnings
+                    }
+                });
+
+                // Update local object for the response
                 driver.lifetimeEarnings = aggr.lifetimeEarnings;
                 driver.totalOrders = aggr.lifetimeOrders;
-                driver.walletBalance = aggr.lifetimeEarnings; // Assuming walletBalance = lifetimeEarnings (no payouts yet)
-                await driver.save();
+                driver.walletBalance = aggr.lifetimeEarnings;
             }
 
             // 2. Calculate Online Hours
@@ -460,6 +487,7 @@ const getDriverProfile = async (req, res) => {
                 rating: driver.rating || 0,
                 ratingCount: driver.ratingCount || 0,
                 isOnline: driver.isOnline,
+                bankDetails: driver.bankDetails || {},
                 token: generateToken(driver._id),
                 isDetailsComplete: !!driver.name && driver.name !== "New Driver" && !!driver.city && !!driver.vehicleNumber,
                 isDocsComplete: !!driver.documents && !!driver.documents.drivingLicenseUrl,
@@ -528,6 +556,11 @@ const updateDriverStatus = async (req, res) => {
 
         if (!driver) {
             return res.status(404).json({ message: "Driver not found" });
+        }
+
+        // Prevent Suspended drivers from going online
+        if (newIsOnline && driver.status === "SUSPENDED") {
+            return res.status(403).json({ message: "Your account is currently suspended. You cannot go online until the suspension is lifted." });
         }
 
         if (newIsOnline && !driver.isOnline) {

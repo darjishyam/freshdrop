@@ -9,7 +9,7 @@ const restaurantSchema = new mongoose.Schema(
       trim: true,
     },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
+    password: { type: String },
     ownerName: { type: String, required: true },
     phone: { type: String },
     storeType: {
@@ -48,6 +48,8 @@ const restaurantSchema = new mongoose.Schema(
     gstNumber: { type: String },
     panNumber: { type: String },
     pushToken: { type: String }, // For Expo Push Notifications
+    otp: { type: String },
+    otpExpires: { type: Date },
 
     // --- Bank Details ---
     bankDetails: {

@@ -254,3 +254,11 @@
    -> Driver: 69799593517055a3fbbf5763 City: Mehsana Loc: 72.3805812973275,23.594327376831362
    -> Driver: 6992b53a4b627a8cd36d74e3 City: Mehsana Loc: 72.380673,23.5941791
 2026-02-18T12:40:58.871Z [ORDER_CREATE] Push Recipients: [{"userId":"69799593517055a3fbbf5763","pushToken":"ExponentPushToken[UB88qQNDqWHwoVXmO0IZef]"}]
+[2026-02-25T11:23:39.415Z] [ORDER #1] restaurantId="699ea2fb1965034879a654ab" type=string len=24 items=1 user=6979d4b5743e2330812a7db1
+[2026-02-25T11:23:39.415Z] [ORDER #1] ✅ Found: Pratihar Resturant
+[2026-02-25T11:23:41.913Z] [ORDER #2] restaurantId="undefined" type=undefined len=undefined items=1 user=6979d4b5743e2330812a7db1
+[2026-02-25T11:23:41.913Z] [ORDER #2] ❌ NOT FOUND: restaurantId="undefined"
+[2026-02-25T11:50:13.937Z] [ORDER #1] restaurantId="699ea2fb1965034879a654ab" type=string len=24 items=1 user=6979d4b5743e2330812a7db1
+[2026-02-25T11:50:13.937Z] [ORDER #1] ✅ Found: Pratihar Resturant
+[2026-02-26T04:33:36.206Z] [ORDER #1] restaurantId="6998417c61c1f9d16ca539b6" type=string len=24 items=2 user=6979c3d5edd948c8924a3242
+[2026-02-26T04:33:36.206Z] [ORDER #1] ✅ Found: Lifemart grocery 

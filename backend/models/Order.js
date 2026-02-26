@@ -96,6 +96,7 @@ const orderSchema = new mongoose.Schema(
         description: String,
       },
     ],
+    prepTime: Number, // Preparation time in minutes
     eta: String, // Estimated time of arrival
     // Track sent proximity alerts to avoid spamming
     proximityAlerts: {
