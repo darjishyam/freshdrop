@@ -27,7 +27,7 @@ import { API_BASE_URL } from "../../constants/api";
 import { io } from "socket.io-client";
 
 // Restaurant backend socket URL (consolidated to port 5000)
-const RESTAURANT_SOCKET_URL = "http://192.168.1.6:5000";
+const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();

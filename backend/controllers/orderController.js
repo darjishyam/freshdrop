@@ -558,10 +558,9 @@ const getDriverHistory = async (req, res) => {
             driver: driverId,
             status: "Delivered"
         })
-            .sort({ createdAt: -1 }) // Newest first
-            .limit(20) // Limit to last 20
-            .populate("restaurant", "name address storeType")
-            .select("totalAmount billDetails status createdAt deliveryAddress items customerDetails");
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .populate("restaurant", "name image address storeType");
 
         res.json(orders);
     } catch (error) {
