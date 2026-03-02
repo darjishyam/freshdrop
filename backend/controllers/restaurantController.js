@@ -35,52 +35,47 @@ const getNearbyData = async (req, res) => {
     const userLat = parseFloat(lat);
     const userLng = parseFloat(longitude);
 
-    // 1. Fetch Approved Restaurants and Groceries
+    // 1. Fetch Approved Restaurants and Groceries separately
     const allRestaurants = await Restaurant.find({ status: 'APPROVED' });
     const allGroceries = await Grocery.find({ status: 'APPROVED' });
 
-    const allMerchants = [...allRestaurants, ...allGroceries];
-    console.log("Total Approved Merchants:", allMerchants.length);
+    console.log("Total Approved Restaurants:", allRestaurants.length);
+    console.log("Total Approved Groceries:", allGroceries.length);
 
-    // 2. Filter by Distance (10km) & Format
-    const restaurantsWithDistance = allMerchants.map((r) => {
-      // Handle potetial structure differences
-      const rLat = r.address?.coordinates?.lat;
-      const rLon = r.address?.coordinates?.lon;
+    // Helper to map items with distance and format for frontend
+    const mapWithDistance = (items) =>
+      items.map((r) => {
+        const rLat = r.address?.coordinates?.lat;
+        const rLon = r.address?.coordinates?.lon;
+        const distance = calculateDistance(userLat, userLng, rLat, rLon);
+        const cuisineStr = Array.isArray(r.cuisines)
+          ? r.cuisines.join(" • ")
+          : r.cuisines || "";
+        const locationStr = r.address
+          ? `${r.address.street || ""}, ${r.address.city || ""}`
+          : "";
+        return {
+          ...r.toObject(),
+          id: r._id,
+          cuisine: cuisineStr,
+          location: locationStr,
+          time: r.deliveryTime || "30-40 min",
+          priceForTwo: r.priceRange || "₹200 for two",
+          distance,
+        };
+      });
 
-      const distance = calculateDistance(userLat, userLng, rLat, rLon);
+    // 2. Filter each by 10km radius separately — keeps restaurants & groceries distinct
+    const nearbyRestaurants = mapWithDistance(allRestaurants)
+      .filter((r) => r.distance <= 10)
+      .sort((a, b) => a.distance - b.distance);
 
-      // Format for Frontend
-      const cuisineStr = Array.isArray(r.cuisines)
-        ? r.cuisines.join(" • ")
-        : r.cuisines || "";
-      const locationStr = r.address
-        ? `${r.address.street || ""}, ${r.address.city || ""}`
-        : "";
+    const nearbyGroceries = mapWithDistance(allGroceries)
+      .filter((r) => r.distance <= 10)
+      .sort((a, b) => a.distance - b.distance);
 
-      return {
-        ...r.toObject(),
-        id: r._id, // Frontend uses 'id'
-        cuisine: cuisineStr,
-        location: locationStr,
-        time: r.deliveryTime || "30-40 min",
-        priceForTwo: r.priceRange || "₹200 for two",
-        distance,
-      };
-    });
-
-    const nearbyRestaurants = restaurantsWithDistance.filter(
-      (r) => r.distance <= 10
-    );
-
-    // 3. Fetch Products for these restaurants
-    // We want to return structure similar to mockData:
-    // { restaurants: [...], restaurantItems: { [restId]: [products...] }, ... }
-
-    // Get IDs of nearby restaurants
+    // 3. Fetch Products only for nearby restaurants
     const nearbyRestaurantIds = nearbyRestaurants.map((r) => r._id);
-
-    // Fetch products
     const products = await Product.find({
       restaurant: { $in: nearbyRestaurantIds },
     });
@@ -93,17 +88,10 @@ const getNearbyData = async (req, res) => {
       );
     });
 
-    // 4. Identify Grocery Stores vs Restaurants (using logic or category)
-    // Assuming for now all in 'Restaurant' model, but we might distinguish by specific tag or type if available.
-    // The user mentioned "groceryu ka ana chiaye".
-    // If we don't have a type field, we treat them all as vendors.
-    // Ideally, we'd filter: const groceryStores = nearbyRestaurants.filter(r => r.type === 'grocery');
-    // For now, return all nearby vendors.
-
     res.json({
-      restaurants: nearbyRestaurants.sort((a, b) => a.distance - b.distance),
+      restaurants: nearbyRestaurants,   // Only Restaurant model entries
+      groceries: nearbyGroceries,        // Only Grocery model entries
       restaurantItems,
-      // If you want separate 'grocery' key, add logic here
     });
   } catch (error) {
     console.error("Error fetching nearby data:", error);

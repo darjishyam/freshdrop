@@ -1,4 +1,7 @@
 const Driver = require("../models/Driver");
+const DriverSession = require("../models/DriverSession");
+const Order = require("../models/Order");
+const Notification = require("../models/Notification");
 const jwt = require("jsonwebtoken");
 const sendSms = require("../utils/smsSender");
 const sendEmail = require("../utils/emailSender");
@@ -321,9 +324,6 @@ const uploadDriverDocuments = async (req, res) => {
     }
 };
 
-const DriverSession = require("../models/DriverSession");
-const Order = require("../models/Order");
-
 // @desc    Get Driver Profile with Stats
 // @route   GET /api/driver/profile
 const getDriverProfile = async (req, res) => {
@@ -569,7 +569,6 @@ const updateDriverStatus = async (req, res) => {
             driver.onlineSessionStart = new Date(); // Legacy support
 
             // Create New Session
-            const DriverSession = require("../models/DriverSession");
             await DriverSession.create({
                 driver: driver._id,
                 startTime: new Date()
@@ -581,7 +580,6 @@ const updateDriverStatus = async (req, res) => {
             driver.isOnline = false;
 
             // Close Active Session
-            const DriverSession = require("../models/DriverSession");
             const activeSession = await DriverSession.findOne({
                 driver: driver._id,
                 endTime: null
@@ -727,7 +725,6 @@ const updateDriverPushToken = async (req, res) => {
     }
 };
 
-const Notification = require("../models/Notification");
 
 // @desc    Get Driver Notifications
 // @route   GET /api/driver/notifications

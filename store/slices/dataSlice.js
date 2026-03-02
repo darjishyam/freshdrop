@@ -110,10 +110,14 @@ const dataSlice = createSlice({
     });
     builder.addCase(fetchRestaurants.fulfilled, (state, action) => {
       state.isLoading = false;
-      // Handle the new payload structure { restaurants: [], restaurantItems: {} }
+      // Handle payload structure { restaurants: [], groceries: [], restaurantItems: {} }
       if (action.payload.restaurants && action.payload.restaurantItems) {
         state.restaurants = action.payload.restaurants;
         state.restaurantItems = action.payload.restaurantItems;
+        // Also populate DB groceries if returned from the same endpoint
+        if (action.payload.groceries) {
+          state.groceries = action.payload.groceries;
+        }
       } else {
         // Fallback if backend structure differs
         state.restaurants = action.payload;

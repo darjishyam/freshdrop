@@ -11,8 +11,6 @@ export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api";
 // 1. Open CMD, type 'ipconfig'
 // 2. Copy 'IPv4 Address' (e.g., 192.168.1.5)
 // 3. Replace '192.168.1.X' below with your actual IP:
-// export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api";
-// export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api";
 // export const API_BASE_URL = "http://192.168.1.6:5000/api";
 
 // Option 3: Web Browser or iOS Simulator
