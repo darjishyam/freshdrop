@@ -825,6 +825,67 @@ const getOrderById = async (req, res) => {
     }
 };
 
+// @desc    Get Revenue Stats for Restaurant
+// @route   GET /api/orders/restaurant/:id/revenue
+const getRestaurantRevenue = async (req, res) => {
+    try {
+        const restaurantId = req.params.id;
+
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+        const [monthlyData, yearlyData] = await Promise.all([
+            Order.aggregate([
+                {
+                    $match: {
+                        restaurant: new (require('mongoose').Types.ObjectId)(restaurantId),
+                        status: 'Delivered',
+                        createdAt: { $gte: startOfMonth }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        totalRevenue: { $sum: '$billDetails.itemTotal' },
+                        orderCount: { $sum: 1 }
+                    }
+                }
+            ]),
+            Order.aggregate([
+                {
+                    $match: {
+                        restaurant: new (require('mongoose').Types.ObjectId)(restaurantId),
+                        status: 'Delivered',
+                        createdAt: { $gte: startOfYear }
+                    }
+                },
+                {
+                    $group: {
+                        _id: null,
+                        totalRevenue: { $sum: '$billDetails.itemTotal' },
+                        orderCount: { $sum: 1 }
+                    }
+                }
+            ])
+        ]);
+
+        res.json({
+            monthly: {
+                revenue: monthlyData[0]?.totalRevenue || 0,
+                orders: monthlyData[0]?.orderCount || 0
+            },
+            yearly: {
+                revenue: yearlyData[0]?.totalRevenue || 0,
+                orders: yearlyData[0]?.orderCount || 0
+            }
+        });
+    } catch (error) {
+        console.error('Get Restaurant Revenue Error:', error);
+        res.status(500).json({ message: 'Failed to fetch revenue' });
+    }
+};
+
 module.exports = {
     createOrder,
     getUserOrders,
@@ -836,5 +897,6 @@ module.exports = {
     cancelOrder,
     getRestaurantActiveOrders,
     updateRestaurantOrderStatus,
-    getOrderById
+    getOrderById,
+    getRestaurantRevenue
 };

@@ -9,7 +9,8 @@ const {
     cancelOrder,
     getRestaurantActiveOrders,
     updateRestaurantOrderStatus,
-    getOrderById
+    getOrderById,
+    getRestaurantRevenue
 } = require("../controllers/orderController");
 const { protect } = require("../middleware/authMiddleware");
 const { protect: protectDriver } = require("../middleware/driverAuthMiddleware");
@@ -31,6 +32,7 @@ router.put("/:id/status", protectDriver, updateOrderStatus);
 
 // Restaurant Routes
 router.get("/restaurant/:id/active", protectRestaurant, getRestaurantActiveOrders);
+router.get("/restaurant/:id/revenue", protectRestaurant, getRestaurantRevenue);
 router.put("/:id/restaurant-status", protectRestaurant, updateRestaurantOrderStatus);
 
 module.exports = router;
