@@ -59,7 +59,13 @@ io.on("connection", (socket) => {
   // NEW: Admin Room
   socket.on("joinAdminRoom", () => {
     socket.join("admin_room");
-    console.log(`Socket ${socket.id} joined Admin Room`);
+    console.log(`Socket ${socket.id} joined admin room`);
+  });
+
+  // NEW: Driver Room (for session kicks/suspensions)
+  socket.on("joinDriverRoom", (driverId) => {
+    socket.join(`driver_${driverId}`);
+    console.log(`Socket ${socket.id} joined driver room: driver_${driverId}`);
   });
 
   socket.on("updateDriverLocation", async (data) => {

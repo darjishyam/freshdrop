@@ -3,6 +3,8 @@ const User = require("../models/User");
 const Driver = require("../models/Driver");
 const Restaurant = require("../models/Restaurant");
 const Order = require("../models/Order");
+const Category = require("../models/Category");
+const Coupon = require("../models/Coupon");
 const jwt = require("jsonwebtoken");
 
 // @desc    Auth admin & get token
@@ -36,13 +38,23 @@ const loginAdmin = async (req, res) => {
 const getDashboardStats = async (req, res) => {
     try {
         const totalUsers = await User.countDocuments();
-        const totalDrivers = await Driver.countDocuments({ isOnline: true });
+        const totalDrivers = await Driver.countDocuments();
+        const onlineDrivers = await Driver.countDocuments({ isOnline: true });
         const totalRestaurants = await Restaurant.countDocuments();
+        const totalCategories = await Category.countDocuments();
 
-        // Active Orders: Placed, Confirmed, Preparing, Ready, Out for Delivery
-        const liveOrders = await Order.countDocuments({
-            status: { $in: ["Order Placed", "Confirmed", "Preparing", "Ready", "Out for Delivery"] }
-        });
+        // Offers: Active Coupons + Restaurants with discounts
+        const activeCoupons = await Coupon.countDocuments({ isActive: true });
+        const restaurantsWithDiscounts = await Restaurant.countDocuments({ discountPercent: { $gt: 0 } });
+        const totalOffers = activeCoupons + restaurantsWithDiscounts;
+
+        // Detailed Order Breakdown
+        const pendingOrders = await Order.countDocuments({ status: "Order Placed" });
+        const processingOrders = await Order.countDocuments({ status: { $in: ["Confirmed", "Preparing"] } });
+        const onRouteOrders = await Order.countDocuments({ status: { $in: ["Ready", "Out for Delivery"] } });
+        const completedOrders = await Order.countDocuments({ status: "Delivered" });
+        const cancelledOrders = await Order.countDocuments({ status: "Cancelled" });
+        const liveOrders = pendingOrders + processingOrders + onRouteOrders;
 
         // Revenue Aggregation (Delivered orders only)
         const revenueData = await Order.aggregate([
@@ -52,19 +64,31 @@ const getDashboardStats = async (req, res) => {
 
         const totalRevenue = revenueData.length > 0 ? revenueData[0].total : 0;
 
-        // Formatting for UI (matching the StatCard expectations)
+        // Formatting for UI
         res.json({
             totalUsers: formatNumber(totalUsers),
             totalDrivers: totalDrivers.toString(),
+            onlineDrivers: onlineDrivers.toString(),
             totalRestaurants: totalRestaurants.toString(),
             totalOrders: liveOrders.toString(),
             totalRevenue: formatNumber(totalRevenue),
-            rawValues: { // For future charts
+            totalCategories: totalCategories.toString(),
+            totalOffers: totalOffers.toString(),
+            reports: {
+                pending: pendingOrders,
+                processing: processingOrders,
+                onRoute: onRouteOrders,
+                completed: completedOrders,
+                cancelled: cancelledOrders
+            },
+            rawValues: {
                 users: totalUsers,
                 drivers: totalDrivers,
                 restaurants: totalRestaurants,
                 orders: liveOrders,
-                revenue: totalRevenue
+                revenue: totalRevenue,
+                categories: totalCategories,
+                offers: totalOffers
             }
         });
     } catch (error) {

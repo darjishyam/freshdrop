@@ -2,24 +2,43 @@ const express = require("express");
 const router = express.Router();
 const Product = require("../models/Product");
 
-// @desc    Get featured products (random sample for now, or use isBestSeller)
+const Restaurant = require("../models/Restaurant");
+const { calculateDistance } = require("../utils/geometry");
+
+// @desc    Get featured products (filtered by distance if lat/lon provided)
 // @route   GET /api/products/featured
 router.get("/featured", async (req, res) => {
     try {
-        // Fetch products and populate restaurant
-        // Sort by newest first to be deterministic
+        const { lat, lon, radius = 10 } = req.query; // Default 10km radius
+
+        let query = {};
+        let restaurantFilter = { status: 'APPROVED' };
+
+        // 1. Fetch all products initially (or optimize if DB is huge)
         const products = await Product.find()
             .sort({ createdAt: -1 })
-            .limit(50) // Fetch more initially to filter
             .populate("restaurant");
 
-        // Filter out products where restaurant is missing or is "external"
-        // Assuming user-created restaurants don't have 'externalId' or it's null
-        const featuredProducts = products.filter(p => {
-            return p.restaurant && !p.restaurant.externalId;
-        }).slice(0, 10); // Return top 10
+        let featuredProducts = products.filter(p => p.restaurant && !p.restaurant.externalId && p.restaurant.status === 'APPROVED');
 
-        res.json(featuredProducts);
+        // 2. Filter by location if provided
+        if (lat && lon) {
+            const userLat = parseFloat(lat);
+            const userLon = parseFloat(lon);
+
+            featuredProducts = featuredProducts.filter(p => {
+                const rLat = p.restaurant.address?.coordinates?.lat;
+                const rLon = p.restaurant.address?.coordinates?.lon;
+                if (!rLat || !rLon) return false;
+
+                const distance = calculateDistance(userLat, userLon, rLat, rLon);
+                return distance <= parseFloat(radius);
+            });
+
+            console.log(`📍 Found ${featuredProducts.length} featured products near ${lat}, ${lon}`);
+        }
+
+        res.json(featuredProducts.slice(0, 10)); // Return top 10
     } catch (error) {
         console.error("Error fetching featured products:", error);
         res.status(500).json({ message: "Server Error" });

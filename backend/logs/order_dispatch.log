@@ -276,3 +276,5 @@
 [2026-02-26T07:39:10.050Z] [ORDER #2] ✅ Found: Heer Resturant
 [2026-02-26T07:43:11.532Z] [ORDER #3] restaurantId="699feaae0c4572488ee5dcba" type=string len=24 items=1 user=698c2e6dd89790f4ba69c14b
 [2026-02-26T07:43:11.532Z] [ORDER #3] ✅ Found: Kariyana Store
+[2026-03-03T07:22:17.287Z] [ORDER #1] restaurantId="699697167108542843ddf274" type=string len=24 items=2 user=6979d4b5743e2330812a7db1
+[2026-03-03T07:22:17.287Z] [ORDER #1] ✅ Found Restaurant: Heer Resturant

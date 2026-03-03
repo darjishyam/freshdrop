@@ -176,19 +176,208 @@ const updateAdminDriverStatus = async (req, res) => {
             return res.status(404).json({ message: 'Driver not found' });
         }
 
-        // If suspended/blocked, emit socket kick
-        if (status === 'SUSPENDED' || status === 'BLOCKED') {
+        // If blocked, emit socket kick for forced logout
+        if (status === 'BLOCKED') {
             const io = req.app.get('io');
             if (io) {
                 io.to(`driver_${req.params.id}`).emit('sessionKicked', {
-                    message: `Your driver account has been ${status.toLowerCase()} by the administrator.`
+                    message: "Your driver account has been blocked by the administrator."
                 });
-                console.log(`[Socket] ${status} driver: ${req.params.id}`);
+                console.log(`[Socket] BLOCKED driver: ${req.params.id}`);
+            }
+        }
+
+        // If suspended, emit suspension event
+        if (status === 'SUSPENDED') {
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`driver_${req.params.id}`).emit('accountSuspended', {
+                    message: "Your driver account has been suspended by the administrator."
+                });
+                console.log(`[Socket] SUSPENDED driver: ${req.params.id}`);
+            }
+        }
+
+        // If reactivated, emit restore event so app can refresh details
+        if (status === 'ACTIVE') {
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`driver_${req.params.id}`).emit('accountRestored', {
+                    message: 'Your account has been activated!'
+                });
+                console.log(`[Socket] RESTORED driver: ${req.params.id}`);
             }
         }
 
         res.json({ message: `Driver status updated to ${status}`, driver });
     } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get detailed driver stats (Income & Accuracy)
+// @route   GET /api/admin/drivers/:id/stats
+// @access  Private/Admin
+const getDriverStats = async (req, res) => {
+    try {
+        const driverId = req.params.id;
+
+        // 1. Get Driver Profile
+        const driver = await Driver.findById(driverId);
+        if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+        // 2. Get Order Analytics
+        const allDriverOrders = await Order.find({ driver: driverId });
+
+        const totalAssigned = allDriverOrders.length;
+        const delivered = allDriverOrders.filter(o => o.status === 'Delivered').length;
+        const cancelled = allDriverOrders.filter(o => o.status === 'Cancelled').length;
+
+        // Calculate Accuracy (Completion Rate)
+        const accuracy = totalAssigned > 0
+            ? ((delivered / (totalAssigned - (totalAssigned - delivered - cancelled))) * 100).toFixed(1)
+            : 100;
+
+        // 3. Financials
+        // We can group by day for the last 7 days
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const recentOrders = allDriverOrders
+            .filter(o => o.createdAt >= sevenDaysAgo)
+            .sort((a, b) => b.createdAt - a.createdAt);
+
+        const dailyEarnings = {};
+        recentOrders.forEach(o => {
+            const date = o.createdAt.toISOString().split('T')[0];
+            if (o.status === 'Delivered') {
+                dailyEarnings[date] = (dailyEarnings[date] || 0) + (o.billDetails?.deliveryFee || 0);
+            }
+        });
+
+        // 4. Last 5 Orders (Compact for UI)
+        const lastOrders = allDriverOrders
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 5)
+            .map(o => ({
+                id: o._id,
+                amount: o.billDetails?.grandTotal,
+                fee: o.billDetails?.deliveryFee,
+                status: o.status,
+                date: o.createdAt
+            }));
+
+        res.json({
+            driver: {
+                name: driver.name,
+                rating: driver.rating,
+                totalOrders: driver.totalOrders,
+                lifetimeEarnings: driver.lifetimeEarnings,
+                walletBalance: driver.walletBalance,
+                todayOnline: driver.todayOnlineDuration
+            },
+            stats: {
+                totalAssigned,
+                delivered,
+                cancelled,
+                accuracy: parseFloat(accuracy),
+                completionRate: totalAssigned > 0 ? ((delivered / totalAssigned) * 100).toFixed(1) : 0
+            },
+            dailyEarnings,
+            lastOrders
+        });
+
+    } catch (error) {
+        console.error("Driver stats fetch error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const getRestaurantStats = async (req, res) => {
+    try {
+        const restaurantId = req.params.id;
+
+        // 1. Get Restaurant Profile
+        let restaurant = await Restaurant.findById(restaurantId);
+        if (!restaurant) {
+            restaurant = await Grocery.findById(restaurantId);
+        }
+        if (!restaurant) return res.status(404).json({ message: "Store not found" });
+
+        // 2. Get Orders for Analytics
+        const allOrders = await Order.find({ restaurant: restaurantId });
+
+        const totalOrders = allOrders.length;
+        const deliveredOrders = allOrders.filter(o => o.status === 'Delivered');
+        const deliveredCount = deliveredOrders.length;
+        const cancelledCount = allOrders.filter(o => o.status === 'Cancelled').length;
+
+        // 3. Financials
+        const totalRevenue = deliveredOrders.reduce((sum, o) => sum + (o.billDetails?.grandTotal || 0), 0);
+        const totalCommission = deliveredOrders.reduce((sum, o) => {
+            const rate = restaurant.commissionRate || 20;
+            const subtotal = o.billDetails?.itemTotal || 0;
+            return sum + (subtotal * (rate / 100));
+        }, 0);
+
+        // 4. Popular Items
+        const itemFrequency = {};
+        deliveredOrders.forEach(o => {
+            o.items.forEach(item => {
+                const name = item.name;
+                itemFrequency[name] = (itemFrequency[name] || 0) + (item.quantity || 1);
+            });
+        });
+
+        const popularItems = Object.entries(itemFrequency)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+
+        // 5. Recent History
+        const recentOrders = allOrders
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 5)
+            .map(o => ({
+                id: o._id,
+                total: o.billDetails?.grandTotal,
+                itemsCount: o.items.length,
+                status: o.status,
+                date: o.createdAt
+            }));
+
+        res.json({
+            restaurant: {
+                name: restaurant.name,
+                ownerName: restaurant.ownerName,
+                rating: restaurant.rating,
+                status: restaurant.status,
+                storeType: restaurant.storeType,
+                commissionRate: restaurant.commissionRate || 20,
+                phone: restaurant.phone,
+                email: restaurant.email,
+                address: restaurant.address,
+                bankDetails: restaurant.bankDetails,
+                documentImages: restaurant.documentImages,
+                fssaiLicense: restaurant.fssaiLicense,
+                gstNumber: restaurant.gstNumber,
+                panNumber: restaurant.panNumber,
+                image: restaurant.image
+            },
+            stats: {
+                totalOrders,
+                deliveredCount,
+                cancelledCount,
+                totalRevenue: Math.round(totalRevenue),
+                totalCommission: Math.round(totalCommission),
+                successRate: totalOrders > 0 ? ((deliveredCount / totalOrders) * 100).toFixed(1) : 0
+            },
+            popularItems,
+            recentOrders
+        });
+
+    } catch (error) {
+        console.error("Restaurant stats fetch error:", error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -201,5 +390,7 @@ module.exports = {
     toggleUserStatus,
     updateRestaurantStatus,
     updateAdminDriverStatus,
-    getRestaurantMenu
+    getRestaurantMenu,
+    getDriverStats,
+    getRestaurantStats
 };

@@ -79,6 +79,10 @@ const grocerySchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        discountPercent: { type: Number, default: 0 },
+        maxDiscount: { type: Number, default: 0 },
+        minOrderValue: { type: Number, default: 0 },
+        discount: { type: String },
     },
     { timestamps: true }
 );

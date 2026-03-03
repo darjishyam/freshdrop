@@ -397,31 +397,46 @@ const updateProfile = async (req, res) => {
             let store = await Restaurant.findById(decoded.id);
             if (!store) store = await Grocery.findById(decoded.id);
 
-            if (!store) return res.status(404).json({ message: 'Store not found' });
-
-            const { priceRange, deliveryTime, discount, image, isOpen } = req.body;
+            console.log("📥 [updateProfile] Request Body:", req.body);
+            const { priceRange, deliveryTime, discount, discountPercent, maxDiscount, minOrderValue, image, isOpen } = req.body;
 
             if (priceRange !== undefined) store.priceRange = priceRange;
             if (deliveryTime !== undefined) store.deliveryTime = deliveryTime;
-            if (discount !== undefined) store.discount = discount;
+
+            if (discountPercent !== undefined) {
+                store.discountPercent = Number(discountPercent) || 0;
+                console.log(`🔢 [updateProfile] Setting discountPercent to: ${store.discountPercent}`);
+            }
+            if (maxDiscount !== undefined) {
+                store.maxDiscount = Number(maxDiscount) || 0;
+            }
+            if (minOrderValue !== undefined) {
+                store.minOrderValue = Number(minOrderValue) || 0;
+            }
+
+            // Sync legacy discount string for backward compatibility
+            if (store.discountPercent > 0) {
+                store.discount = `${store.discountPercent}% OFF up to ₹${store.maxDiscount}${store.minOrderValue > 0 ? ` on orders above ₹${store.minOrderValue}` : ''}`;
+            } else if (discountPercent !== undefined) {
+                store.discount = "";
+            }
+
+            console.log(`📝 [updateProfile] Final discount string: "${store.discount}"`);
+
             if (image !== undefined) store.image = image;
             if (isOpen !== undefined) store.isOpen = isOpen;
 
             await store.save();
+            console.log("✅ [updateProfile] Store saved successfully:", store._id);
 
             if (isOpen !== undefined) {
                 const io = req.app.get("io");
-                if (io) {
-                    io.emit("restaurantStatusChanged", {
-                        restaurantId: store._id.toString(),
-                        isOpen: store.isOpen
-                    });
-                    console.log(`📡 Emitted restaurantStatusChanged via merged backend: ${store._id}`);
-                }
+                // ... (keep rest)
             }
 
             res.json({ message: 'Profile updated', store });
         } catch (error) {
+            console.error("❌ [updateProfile] Error:", error.message);
             res.status(401).json({ message: 'Not authorized' });
         }
     } else {

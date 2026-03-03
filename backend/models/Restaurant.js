@@ -97,8 +97,12 @@ const restaurantSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Structured discount fields
+    discountPercent: { type: Number, default: 0 },   // e.g. 20 (for 20% OFF)
+    maxDiscount: { type: Number, default: 0 },        // e.g. 50 (cap at ₹50)
+    minOrderValue: { type: Number, default: 0 },      // e.g. 199 (min order to apply)
     discount: {
-      type: String, // e.g., "50% OFF up to ₹100"
+      type: String, // Legacy text e.g. "20% OFF up to ₹50"
     },
     menuCategories: [
       {
