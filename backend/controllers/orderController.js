@@ -830,55 +830,48 @@ const getOrderById = async (req, res) => {
 const getRestaurantRevenue = async (req, res) => {
     try {
         const restaurantId = req.params.id;
+        const ObjectId = require('mongoose').Types.ObjectId;
 
         const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - 7);
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-        const [monthlyData, yearlyData] = await Promise.all([
-            Order.aggregate([
-                {
-                    $match: {
-                        restaurant: new (require('mongoose').Types.ObjectId)(restaurantId),
-                        status: 'Delivered',
-                        createdAt: { $gte: startOfMonth }
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        totalRevenue: { $sum: '$billDetails.itemTotal' },
-                        orderCount: { $sum: 1 }
-                    }
+        const makeAgg = (dateFilter) => Order.aggregate([
+            {
+                $match: {
+                    restaurant: new ObjectId(restaurantId),
+                    status: 'Delivered',
+                    ...(dateFilter ? { createdAt: { $gte: dateFilter } } : {})
                 }
-            ]),
-            Order.aggregate([
-                {
-                    $match: {
-                        restaurant: new (require('mongoose').Types.ObjectId)(restaurantId),
-                        status: 'Delivered',
-                        createdAt: { $gte: startOfYear }
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        totalRevenue: { $sum: '$billDetails.itemTotal' },
-                        orderCount: { $sum: 1 }
-                    }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: '$billDetails.itemTotal' },
+                    orderCount: { $sum: 1 }
                 }
-            ])
+            }
         ]);
 
+        const [todayData, weekData, monthData, allData] = await Promise.all([
+            makeAgg(startOfToday),
+            makeAgg(startOfWeek),
+            makeAgg(startOfMonth),
+            makeAgg(null)
+        ]);
+
+        const fmt = (data) => ({
+            revenue: data[0]?.totalRevenue || 0,
+            orders: data[0]?.orderCount || 0
+        });
+
         res.json({
-            monthly: {
-                revenue: monthlyData[0]?.totalRevenue || 0,
-                orders: monthlyData[0]?.orderCount || 0
-            },
-            yearly: {
-                revenue: yearlyData[0]?.totalRevenue || 0,
-                orders: yearlyData[0]?.orderCount || 0
-            }
+            today: fmt(todayData),
+            week: fmt(weekData),
+            month: fmt(monthData),
+            all: fmt(allData)
         });
     } catch (error) {
         console.error('Get Restaurant Revenue Error:', error);
