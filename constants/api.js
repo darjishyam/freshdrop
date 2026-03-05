@@ -1,5 +1,4 @@
-// ✅ RENDER (Cloud) - Use for Preview/Production builds
-export const API_BASE_URL = "http://192.168.14.131:5000/api";
+export const API_BASE_URL = "https://freshdrop-backend.onrender.com/api";
 
 // ❌ LOCALHOST (Fast & Instant) - Only for Expo Go development
 // Uncomment the one matching your device:

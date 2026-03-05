@@ -22,6 +22,10 @@ import { getGroceryInventory, groceryCategories } from "../../data/mockData";
 import { addToCart, clearCart, selectCartRestaurant } from "../../store/slices/cartSlice";
 import { selectUser } from "../../store/slices/userSlice";
 import { API_BASE_URL } from "../../constants/api";
+import { io } from "socket.io-client";
+
+// Restaurant/Grocery backend socket URL
+const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
 
 export default function GroceryStoreScreen() {
     const dispatch = useDispatch();
@@ -34,11 +38,33 @@ export default function GroceryStoreScreen() {
     const { id, name, address, image, rating, time, isLocal } = params;
 
     // State
+    const [store, setStore] = useState(null);
     const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("ALL");
     const [dynamicCategories, setDynamicCategories] = useState([]);
+
+    // 🔴 Real-time store status updates
+    useEffect(() => {
+        if (!id) return;
+
+        const socket = io(RESTAURANT_SOCKET_URL, { transports: ["websocket"] });
+
+        socket.on("connect", () => {
+            console.log("[UserApp] Connected to Store socket for live status updates");
+        });
+
+        socket.on("restaurantStatusChanged", ({ restaurantId: updatedRestId, isOpen }) => {
+            if (updatedRestId !== id) return;
+            console.log(`[UserApp] groceryStatusChanged: ${updatedRestId} isOpen=${isOpen}`);
+            setStore((prev) => (prev ? { ...prev, isOpen } : prev));
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [id]);
 
     // Load Inventory
     useEffect(() => {
@@ -51,9 +77,11 @@ export default function GroceryStoreScreen() {
                     if (!response.ok) throw new Error("Failed to fetch store data");
                     const data = await response.json();
 
+                    setStore(data);
+
                     if (data.products) {
                         const formattedProducts = data.products.map(p => ({
-                            id: p.id,
+                            id: p.id || p._id,
                             name: p.name,
                             price: p.price,
                             description: p.description || p.name,
@@ -61,7 +89,8 @@ export default function GroceryStoreScreen() {
                             category: p.category || "General",
                             veg: p.veg,
                             weight: p.weight || p.quantityDetails || "",
-                            brand: p.brandName || ""
+                            brand: p.brandName || "",
+                            inStock: p.inStock !== false
                         }));
                         setInventory(formattedProducts);
 
@@ -74,6 +103,7 @@ export default function GroceryStoreScreen() {
                     setTimeout(() => {
                         const items = getGroceryInventory(id);
                         setInventory(items);
+                        setStore({ name, address, image, rating, isOpen: true });
                     }, 500);
                 }
             } catch (error) {
@@ -81,12 +111,13 @@ export default function GroceryStoreScreen() {
                 // Fallback to mock on error
                 const items = getGroceryInventory(id);
                 setInventory(items);
+                setStore({ name, address, image, rating, isOpen: true });
             } finally {
                 setLoading(false);
             }
         };
         loadData();
-    }, [id, isLocal]);
+    }, [id, isLocal, name, address, image, rating]);
 
     // Filter Items
     const categoriesToRender = dynamicCategories.length > 0 ? dynamicCategories : groceryCategories;
@@ -142,69 +173,75 @@ export default function GroceryStoreScreen() {
             <View style={styles.itemImageContainer}>
                 <Image
                     source={{ uri: item.image }}
-                    style={styles.itemImage}
+                    style={[styles.itemImage, (store?.isOpen === false) && { opacity: 0.5 }]}
                     resizeMode="cover"
                 />
-                <TouchableOpacity
-                    style={styles.addButton}
-                    onPress={(e) => {
-                        e.stopPropagation();
-                        if (!user.phone) {
-                            router.push("/auth/login");
-                            return;
-                        }
-
-                        const handleAddAction = () => {
-                            dispatch(
-                                addToCart({
-                                    id: item.id,
-                                    name: item.name,
-                                    price: item.price,
-                                    quantity: 1,
-                                    image: item.image,
-                                    restaurantId: id, // Treat Store ID as Restaurant ID for cart grouping
-                                    restaurantName: name,
-                                    veg: item.veg,
-                                    weight: item.weight,
-                                    supplier: name,
-                                })
-                            );
-                            showToast(`${item.name} added to cart`);
-                        };
-
-                        // Validation: Single Restaurant check
-                        if (cartRestaurant.id && cartRestaurant.id !== id) {
-                            const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
-
-                            if (Platform.OS === 'web') {
-                                if (window.confirm(msg)) {
-                                    dispatch(clearCart());
-                                    handleAddAction();
-                                }
-                            } else {
-                                Alert.alert(
-                                    "Replace cart item?",
-                                    msg,
-                                    [
-                                        { text: "Cancel", style: "cancel" },
-                                        {
-                                            text: "Clear & Add",
-                                            onPress: () => {
-                                                dispatch(clearCart());
-                                                handleAddAction();
-                                            }
-                                        }
-                                    ]
-                                );
+                {(store?.isOpen === false) ? (
+                    <View style={[styles.addButton, styles.addButtonDisabled]}>
+                        <Text style={[styles.addButtonText, { color: '#aaa' }]}>🔴</Text>
+                    </View>
+                ) : (
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            if (!user.phone) {
+                                router.push("/auth/login");
+                                return;
                             }
-                            return;
-                        }
 
-                        handleAddAction();
-                    }}
-                >
-                    <Text style={styles.addButtonText}>ADD</Text>
-                </TouchableOpacity>
+                            const handleAddAction = () => {
+                                dispatch(
+                                    addToCart({
+                                        id: item.id,
+                                        name: item.name,
+                                        price: item.price,
+                                        quantity: 1,
+                                        image: item.image,
+                                        restaurantId: id, // Treat Store ID as Restaurant ID for cart grouping
+                                        restaurantName: name,
+                                        veg: item.veg,
+                                        weight: item.weight,
+                                        supplier: name,
+                                    })
+                                );
+                                showToast(`${item.name} added to cart`);
+                            };
+
+                            // Validation: Single Restaurant check
+                            if (cartRestaurant.id && cartRestaurant.id !== id) {
+                                const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
+
+                                if (Platform.OS === 'web') {
+                                    if (window.confirm(msg)) {
+                                        dispatch(clearCart());
+                                        handleAddAction();
+                                    }
+                                } else {
+                                    Alert.alert(
+                                        "Replace cart item?",
+                                        msg,
+                                        [
+                                            { text: "Cancel", style: "cancel" },
+                                            {
+                                                text: "Clear & Add",
+                                                onPress: () => {
+                                                    dispatch(clearCart());
+                                                    handleAddAction();
+                                                }
+                                            }
+                                        ]
+                                    );
+                                }
+                                return;
+                            }
+
+                            handleAddAction();
+                        }}
+                    >
+                        <Text style={styles.addButtonText}>ADD</Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </Pressable>
     );
@@ -238,6 +275,14 @@ export default function GroceryStoreScreen() {
                     <Text style={styles.offerText}>
                         <Ionicons name="pricetag" size={14} color="#2563eb" /> Free Delivery on orders above ₹500
                     </Text>
+
+                    {/* Closed Banner */}
+                    {store?.isOpen === false && (
+                        <View style={styles.closedBanner}>
+                            <Ionicons name="time-outline" size={16} color="#fff" />
+                            <Text style={styles.closedBannerText}>Store is currently closed — Opens later</Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Categories (Sticky) */}
@@ -483,5 +528,23 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#999',
         fontStyle: 'italic'
+    },
+    addButtonDisabled: {
+        backgroundColor: '#f8f8f8',
+        borderColor: '#eee',
+    },
+    closedBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#ef4444',
+        padding: 8,
+        borderRadius: 8,
+        marginTop: 12,
+        gap: 8
+    },
+    closedBannerText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '700'
     }
 });

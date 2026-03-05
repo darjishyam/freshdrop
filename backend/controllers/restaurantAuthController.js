@@ -431,7 +431,13 @@ const updateProfile = async (req, res) => {
 
             if (isOpen !== undefined) {
                 const io = req.app.get("io");
-                // ... (keep rest)
+                if (io) {
+                    io.emit('restaurantStatusChanged', {
+                        restaurantId: store._id,
+                        isOpen: store.isOpen
+                    });
+                    console.log(`📡 Emitted 'restaurantStatusChanged' for ${store._id} (isOpen: ${store.isOpen})`);
+                }
             }
 
             res.json({ message: 'Profile updated', store });

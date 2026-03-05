@@ -27,7 +27,7 @@ import { API_BASE_URL } from "../../constants/api";
 import { io } from "socket.io-client";
 
 // Restaurant backend socket URL (consolidated to port 5000)
-const RESTAURANT_SOCKET_URL = "http://192.168.14.131:5000";
+const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();
@@ -75,6 +75,12 @@ export default function RestaurantScreen() {
           m._id === itemId ? { ...m, inStock } : m
         )
       );
+    });
+
+    socket.on("restaurantStatusChanged", ({ restaurantId: updatedRestId, isOpen }) => {
+      if (updatedRestId !== restaurantId) return;
+      console.log(`[UserApp] restaurantStatusChanged: ${updatedRestId} isOpen=${isOpen}`);
+      setRestaurant((prev) => (prev ? { ...prev, isOpen } : prev));
     });
 
     return () => {

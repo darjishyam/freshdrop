@@ -64,6 +64,17 @@ const createOrder = async (req, res) => {
         console.log(okLine.trim());
         fs.appendFileSync(logFile, okLine);
 
+        // Check if store is open
+        if (restaurant.isOpen === false) {
+            const closedLine = `[${timestamp}] [ORDER #${reqNum}] ❌ CLOSED: ${merchantType} is closed\n`;
+            console.log(closedLine.trim());
+            fs.appendFileSync(logFile, closedLine);
+            return res.status(400).json({
+                message: `${merchantType} is currently closed. Please order from another store.`,
+                code: "STORE_CLOSED"
+            });
+        }
+
         // Calculate bill details
         const itemTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         // Tiered delivery fee based on number of items
