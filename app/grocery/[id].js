@@ -61,6 +61,16 @@ export default function GroceryStoreScreen() {
             setStore((prev) => (prev ? { ...prev, isOpen } : prev));
         });
 
+        socket.on("stockUpdate", ({ itemId, restaurantId: updatedRestId, inStock }) => {
+            if (updatedRestId !== id) return;
+            console.log(`[UserApp] groceryStockUpdate: item ${itemId} inStock=${inStock}`);
+            setInventory((prev) =>
+                prev.map((item) =>
+                    item.id === itemId ? { ...item, inStock } : item
+                )
+            );
+        });
+
         return () => {
             socket.disconnect();
         };
@@ -148,103 +158,129 @@ export default function GroceryStoreScreen() {
         );
     }
 
-    const renderItem = ({ item }) => (
-        <Pressable
-            key={item.id}
-            style={styles.itemCard}
-            onPress={() => console.log('Item clicked', item.name)}
-        >
-            <View style={styles.itemInfo}>
-                <View style={styles.classifierRow}>
-                    <VegNonVegIcon veg={item.veg} size={16} />
-                </View>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemPrice}>
-                    <FontAwesome name="rupee" size={13} color="#333" /> {item.price}
-                    {item.oldPrice && (
-                        <Text style={styles.oldPrice}> <FontAwesome name="rupee" size={11} color="#999" /> {item.oldPrice}</Text>
-                    )}
-                </Text>
-                <Text style={styles.itemDesc} numberOfLines={2}>
-                    {item.description}
-                </Text>
-            </View>
+    const renderItem = ({ item }) => {
+        const outOfStock = item.inStock === false;
+        const restaurantClosed = store?.isOpen === false;
 
-            <View style={styles.itemImageContainer}>
-                <Image
-                    source={{ uri: item.image }}
-                    style={[styles.itemImage, (store?.isOpen === false) && { opacity: 0.5 }]}
-                    resizeMode="cover"
-                />
-                {(store?.isOpen === false) ? (
-                    <View style={[styles.addButton, styles.addButtonDisabled]}>
-                        <Text style={[styles.addButtonText, { color: '#aaa' }]}>🔴</Text>
+        return (
+            <Pressable
+                key={item.id}
+                style={[styles.itemCard, (outOfStock || restaurantClosed) && { opacity: 0.6 }]}
+                onPress={() =>
+                    router.push({
+                        pathname: "/product/[id]",
+                        params: {
+                            id: item.id,
+                            name: item.name,
+                            price: item.price,
+                            image: item.image,
+                            description: item.description || "",
+                            category: item.category || "",
+                            isVeg: (item.veg === true).toString(),
+                            restaurantName: store?.name || name,
+                            restaurantId: id,
+                            inStock: (item.inStock !== false).toString(),
+                            restaurantIsOpen: (store?.isOpen !== false).toString(),
+                        },
+                    })
+                }
+            >
+                <View style={styles.itemInfo}>
+                    <View style={styles.classifierRow}>
+                        <VegNonVegIcon veg={item.veg} size={16} />
                     </View>
-                ) : (
-                    <TouchableOpacity
-                        style={styles.addButton}
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            if (!user.phone) {
-                                router.push("/auth/login");
-                                return;
-                            }
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemPrice}>
+                        <FontAwesome name="rupee" size={13} color="#333" /> {item.price}
+                        {item.oldPrice && (
+                            <Text style={styles.oldPrice}> <FontAwesome name="rupee" size={11} color="#999" /> {item.oldPrice}</Text>
+                        )}
+                    </Text>
+                    <Text style={styles.itemDesc} numberOfLines={2}>
+                        {item.description}
+                    </Text>
+                </View>
 
-                            const handleAddAction = () => {
-                                dispatch(
-                                    addToCart({
-                                        id: item.id,
-                                        name: item.name,
-                                        price: item.price,
-                                        quantity: 1,
-                                        image: item.image,
-                                        restaurantId: id, // Treat Store ID as Restaurant ID for cart grouping
-                                        restaurantName: name,
-                                        veg: item.veg,
-                                        weight: item.weight,
-                                        supplier: name,
-                                    })
-                                );
-                                showToast(`${item.name} added to cart`);
-                            };
-
-                            // Validation: Single Restaurant check
-                            if (cartRestaurant.id && cartRestaurant.id !== id) {
-                                const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
-
-                                if (Platform.OS === 'web') {
-                                    if (window.confirm(msg)) {
-                                        dispatch(clearCart());
-                                        handleAddAction();
-                                    }
-                                } else {
-                                    Alert.alert(
-                                        "Replace cart item?",
-                                        msg,
-                                        [
-                                            { text: "Cancel", style: "cancel" },
-                                            {
-                                                text: "Clear & Add",
-                                                onPress: () => {
-                                                    dispatch(clearCart());
-                                                    handleAddAction();
-                                                }
-                                            }
-                                        ]
-                                    );
+                <View style={styles.itemImageContainer}>
+                    <Image
+                        source={{ uri: item.image }}
+                        style={[styles.itemImage, (outOfStock || restaurantClosed) && { opacity: 0.5 }]}
+                        resizeMode="cover"
+                    />
+                    {outOfStock ? (
+                        <View style={[styles.addButton, styles.addButtonDisabled]}>
+                            <Text style={[styles.addButtonText, { color: '#ef4444', fontSize: 10 }]}>OUT OF STOCK</Text>
+                        </View>
+                    ) : restaurantClosed ? (
+                        <View style={[styles.addButton, styles.addButtonDisabled]}>
+                            <Text style={[styles.addButtonText, { color: '#aaa' }]}>🔴</Text>
+                        </View>
+                    ) : (
+                        <TouchableOpacity
+                            style={styles.addButton}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                if (!user.phone) {
+                                    router.push("/auth/login");
+                                    return;
                                 }
-                                return;
-                            }
 
-                            handleAddAction();
-                        }}
-                    >
-                        <Text style={styles.addButtonText}>ADD</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </Pressable>
-    );
+                                const handleAddAction = () => {
+                                    dispatch(
+                                        addToCart({
+                                            id: item.id,
+                                            name: item.name,
+                                            price: item.price,
+                                            quantity: 1,
+                                            image: item.image,
+                                            restaurantId: id, // Treat Store ID as Restaurant ID for cart grouping
+                                            restaurantName: name,
+                                            veg: item.veg,
+                                            weight: item.weight,
+                                            supplier: name,
+                                        })
+                                    );
+                                    showToast(`${item.name} added to cart`);
+                                };
+
+                                // Validation: Single Restaurant check
+                                if (cartRestaurant.id && cartRestaurant.id !== id) {
+                                    const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
+
+                                    if (Platform.OS === 'web') {
+                                        if (window.confirm(msg)) {
+                                            dispatch(clearCart());
+                                            handleAddAction();
+                                        }
+                                    } else {
+                                        Alert.alert(
+                                            "Replace cart item?",
+                                            msg,
+                                            [
+                                                { text: "Cancel", style: "cancel" },
+                                                {
+                                                    text: "Clear & Add",
+                                                    onPress: () => {
+                                                        dispatch(clearCart());
+                                                        handleAddAction();
+                                                    }
+                                                }
+                                            ]
+                                        );
+                                    }
+                                    return;
+                                }
+
+                                handleAddAction();
+                            }}
+                        >
+                            <Text style={styles.addButtonText}>ADD</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </Pressable>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>

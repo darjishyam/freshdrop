@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { generateObjectId } from "../../utils/idHelper";
 import { useEffect, useMemo, useState } from "react";
+import { io } from "socket.io-client";
 import {
   Alert,
   Dimensions,
@@ -128,10 +129,46 @@ export default function ProductDetailsScreen() {
   // Stock Management — prefer backend param, fallback to local stockSlice
   const itemId = product?.id || product?.name;
   const availableStock = useSelector((state) => selectStock(state, itemId));
-  // inStockParam comes from restaurant detail screen (real backend items)
-  // If explicitly set to "false", it's out of stock regardless of local stock slice
-  const isOutOfStock = inStockParam === "false" || availableStock <= 0;
-  const restaurantClosed = restaurantIsOpenParam === "false";
+
+  // Local state for real-time updates
+  const [isOutOfStock, setIsOutOfStock] = useState(inStockParam === "false" || (availableStock !== undefined && availableStock <= 0));
+  const [restaurantClosed, setRestaurantClosed] = useState(restaurantIsOpenParam === "false");
+
+  // Sync with initial params or redux changes
+  useEffect(() => {
+    setIsOutOfStock(inStockParam === "false" || (availableStock !== undefined && availableStock <= 0));
+  }, [inStockParam, availableStock]);
+
+  useEffect(() => {
+    setRestaurantClosed(restaurantIsOpenParam === "false");
+  }, [restaurantIsOpenParam]);
+
+  // 🔴 Real-time workers
+  useEffect(() => {
+    const targetRestId = product?.restaurantId;
+    if (!targetRestId) return;
+
+    const socket = io("https://freshdrop-backend.onrender.com", { transports: ["websocket"] });
+
+    socket.on("stockUpdate", ({ itemId: updatedItemId, inStock }) => {
+      // Logic: if the socket event matches this item, update state
+      if (updatedItemId === product.id || updatedItemId === product._id) {
+        console.log(`[ProductPage] stockUpdate: ${product.name} inStock=${inStock}`);
+        setIsOutOfStock(!inStock);
+      }
+    });
+
+    socket.on("restaurantStatusChanged", ({ restaurantId: updatedRestId, isOpen }) => {
+      if (updatedRestId === targetRestId) {
+        console.log(`[ProductPage] restaurantStatusChanged: ${targetRestId} isOpen=${isOpen}`);
+        setRestaurantClosed(!isOpen);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [product?.id, product?._id, product?.restaurantId]);
 
   // Related Items Logic
   const relatedItems = useMemo(() => {

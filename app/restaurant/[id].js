@@ -232,11 +232,11 @@ export default function RestaurantScreen() {
               image: item.image,
               description: item.description || "",
               category: item.category || "",
-              isVeg: item.isVeg !== undefined ? item.isVeg : item.veg,
+              isVeg: (item.isVeg === true || item.veg === true).toString(),
               restaurantName: restaurant?.name || "",
               restaurantId: restaurant?._id || restaurant?.id || restaurantId,
-              inStock: item.inStock === false ? "false" : "true",
-              restaurantIsOpen: restaurant?.isOpen === false ? "false" : "true",
+              inStock: (item.inStock !== false).toString(),
+              restaurantIsOpen: (restaurant?.isOpen !== false).toString(),
             },
           })
         }
