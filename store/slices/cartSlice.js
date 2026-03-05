@@ -2,11 +2,14 @@ import { createSlice, createSelector } from "@reduxjs/toolkit";
 
 const initialState = {
   items: [],
-  pendingItems: [], // Items added before login
+  pendingItems: [],
   total: 0,
   count: 0,
   restaurantId: null,
   restaurantName: null,
+  discountPercent: 0,
+  maxDiscount: 0,
+  minOrderValue: 0,
 };
 
 const cartSlice = createSlice({
@@ -20,6 +23,14 @@ const cartSlice = createSlice({
       if (state.items.length === 0) {
         state.restaurantId = item.restaurantId;
         state.restaurantName = item.restaurantName;
+        state.discountPercent = item.discountPercent || 0;
+        state.maxDiscount = item.maxDiscount || 0;
+        state.minOrderValue = item.minOrderValue || 0;
+      } else if (state.restaurantId === item.restaurantId) {
+        // Update discount fields in case they changed since last time
+        if (item.discountPercent !== undefined) state.discountPercent = item.discountPercent;
+        if (item.maxDiscount !== undefined) state.maxDiscount = item.maxDiscount;
+        if (item.minOrderValue !== undefined) state.minOrderValue = item.minOrderValue;
       }
 
       const existing = state.items.find((i) => i.id === item.id);
@@ -118,6 +129,9 @@ const cartSlice = createSlice({
       state.count = 0;
       state.restaurantId = null;
       state.restaurantName = null;
+      state.discountPercent = 0;
+      state.maxDiscount = 0;
+      state.minOrderValue = 0;
     },
   },
 });

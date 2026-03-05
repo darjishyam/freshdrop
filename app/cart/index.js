@@ -26,6 +26,13 @@ import {
 } from "../../store/slices/cartSlice";
 import { addOrder } from "../../store/slices/ordersSlice";
 import { selectUser, selectLocation, selectLocationType, selectLocationCoords } from "../../store/slices/userSlice";
+
+// Selector for discount fields
+const selectCartDiscount = (state) => ({
+  discountPercent: state.cart.discountPercent || 0,
+  maxDiscount: state.cart.maxDiscount || 0,
+  minOrderValue: state.cart.minOrderValue || 0,
+});
 export default function CartScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -35,6 +42,7 @@ export default function CartScreen() {
   const userAddress = useSelector(selectLocation);
   const userLocationType = useSelector(selectLocationType);
   const userCoords = useSelector(selectLocationCoords);
+  const cartDiscountInfo = useSelector(selectCartDiscount);
   const { showToast } = useToast();
   const { mode } = useLocalSearchParams();
   const [paymentMode, setPaymentMode] = useState(mode === "payment");
@@ -67,14 +75,19 @@ export default function CartScreen() {
   // Calculate taxes and fees based on cart total
   const taxes = Math.round(cartTotal * 0.05); // 5% GST
 
-  // Tiered delivery fee based on number of items
-  // 1-2 items: ₹40
-  // 3-5 items: ₹60
-  // 6+ items: ₹80
+  // Tiered delivery fee
   const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const deliveryFee = itemCount <= 2 ? 40 : itemCount <= 5 ? 60 : 80;
 
-  const grandTotal = Math.round(cartTotal + taxes + deliveryFee);
+  // Discount computation
+  const { discountPercent, maxDiscount, minOrderValue } = cartDiscountInfo;
+  const discountAmount = (() => {
+    if (!discountPercent || cartTotal < minOrderValue) return 0;
+    const computed = Math.round(cartTotal * discountPercent / 100);
+    return maxDiscount > 0 ? Math.min(computed, maxDiscount) : computed;
+  })();
+
+  const grandTotal = Math.round(cartTotal + taxes + deliveryFee - discountAmount);
 
   // Updated Payment Handler
   const handlePayment = async () => {
@@ -147,7 +160,7 @@ export default function CartScreen() {
         itemTotal: cartTotal,
         deliveryFee: deliveryFee,
         taxes: taxes,
-        discount: 0,
+        discount: discountAmount,
         grandTotal: grandTotal,
       },
       deliveryAddress: {
@@ -532,35 +545,23 @@ export default function CartScreen() {
                       typeof item.image === "string"
                         ? isNaN(item.image) && item.image.trim() !== ""
                           ? { uri: item.image }
-                          : parseInt(item.image) // Handle stringified require ID
+                          : parseInt(item.image)
                         : item.image
                     }
                     style={styles.itemImage}
                   />
                   <View style={styles.itemInfo}>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        marginBottom: 4,
-                      }}
-                    >
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
                       <VegNonVegIcon veg={item.veg} size={14} />
-                      <Text style={[styles.itemName, { marginLeft: 6 }]}>
-                        {item.name}
-                      </Text>
+                      <Text style={[styles.itemName, { marginLeft: 6 }]}>{item.name}</Text>
                     </View>
-                    <Text style={styles.itemPrice}>
-                      ₹{item.price * item.quantity}
-                    </Text>
+                    <Text style={styles.itemPrice}>₹{item.price * item.quantity}</Text>
                   </View>
                   <View style={styles.qtyContainer}>
                     <TouchableOpacity
                       onPress={(e) => {
                         e.stopPropagation();
-                        dispatch(
-                          updateQuantity({ itemId: item.id, delta: -1 })
-                        );
+                        dispatch(updateQuantity({ itemId: item.id, delta: -1 }));
                       }}
                       style={styles.qtyBtn}
                     >
@@ -573,34 +574,58 @@ export default function CartScreen() {
                         if (item.quantity >= 10) return;
                         dispatch(updateQuantity({ itemId: item.id, delta: 1 }));
                       }}
-                      style={[
-                        styles.qtyBtn,
-                        item.quantity >= 10 && { opacity: 0.5 },
-                      ]}
+                      style={[styles.qtyBtn, item.quantity >= 10 && { opacity: 0.5 }]}
                       disabled={item.quantity >= 10}
                     >
-                      <Text
-                        style={[
-                          styles.qtyText,
-                          item.quantity >= 10 && { color: "gray" },
-                        ]}
-                      >
-                        +
-                      </Text>
+                      <Text style={[styles.qtyText, item.quantity >= 10 && { color: "gray" }]}>+</Text>
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
               )}
             />
             <View style={styles.footer}>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Total To Pay</Text>
-                <Text style={styles.totalValue}>₹{cartTotal}</Text>
+              <View style={styles.billBox}>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>Item Total</Text>
+                  <Text style={styles.billValue}>₹{cartTotal}</Text>
+                </View>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>Delivery Fee</Text>
+                  <Text style={styles.billValue}>₹{deliveryFee}</Text>
+                </View>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>GST (5%)</Text>
+                  <Text style={styles.billValue}>₹{taxes}</Text>
+                </View>
+                {discountAmount > 0 && (
+                  <View style={styles.billRow}>
+                    <Text style={[styles.billLabel, { color: '#16a34a' }]}>
+                      Discount ({discountPercent}% OFF)
+                    </Text>
+                    <Text style={[styles.billValue, { color: '#16a34a' }]}>-₹{discountAmount}</Text>
+                  </View>
+                )}
+                <View style={[styles.billRow, { borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 10, marginTop: 4 }]}>
+                  <Text style={[styles.billLabel, { fontWeight: 'bold', fontSize: 16 }]}>Total To Pay</Text>
+                  <Text style={[styles.billValue, { fontWeight: 'bold', fontSize: 16 }]}>₹{grandTotal}</Text>
+                </View>
               </View>
-              <TouchableOpacity
-                style={styles.checkoutBtn}
-                onPress={handleCheckout}
-              >
+
+              {discountAmount > 0 ? (
+                <View style={styles.savingsBanner}>
+                  <Ionicons name="sparkles" size={16} color="#15803d" />
+                  <Text style={styles.savingsText}>🎉 You save ₹{discountAmount.toFixed(2)} with this order!</Text>
+                </View>
+              ) : (discountPercent > 0 && cartTotal < minOrderValue) ? (
+                <View style={[styles.savingsBanner, { backgroundColor: '#fff7ed' }]}>
+                  <Ionicons name="alert-circle" size={16} color="#c2410c" />
+                  <Text style={[styles.savingsText, { color: '#c2410c' }]}>
+                    Add ₹{(minOrderValue - cartTotal).toFixed(0)} more to get {discountPercent}% OFF
+                  </Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity style={styles.checkoutBtn} onPress={handleCheckout}>
                 <Text style={styles.checkoutText}>Proceed to Payment</Text>
               </TouchableOpacity>
             </View>
@@ -757,6 +782,25 @@ const styles = StyleSheet.create({
     borderTopColor: "#f0f0f0",
     backgroundColor: "#fff",
   },
+  billBox: {
+    marginBottom: 12,
+  },
+  billRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 5,
+  },
+  billLabel: { fontSize: 14, color: "#4b5563" },
+  billValue: { fontSize: 14, color: "#111", fontWeight: "500" },
+  savingsBanner: {
+    backgroundColor: "#dcfce7",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  savingsText: { color: "#15803d", fontWeight: "700", fontSize: 13 },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",

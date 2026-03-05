@@ -43,7 +43,7 @@ import {
 } from "../../store/slices/userSlice";
 import { io } from "socket.io-client";
 
-const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
+const RESTAURANT_SOCKET_URL = "http://192.168.14.131:5000";
 
 
 const { width } = Dimensions.get("window");
@@ -80,8 +80,27 @@ export default function HomeScreen() {
   // State for search
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Banners State
+  const [homeBanners, setHomeBanners] = useState([]);
+
   // FETCH DATA API
   useEffect(() => {
+    // Fetch Banners
+    const fetchBanners = async () => {
+      try {
+        const url = coords?.latitude && coords?.longitude
+          ? `${API_BASE_URL}/external/banners?lat=${coords.latitude}&lon=${coords.longitude}`
+          : `${API_BASE_URL}/external/banners`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+        setHomeBanners(data);
+      } catch (err) {
+        console.error("Banner fetch failed:", err);
+      }
+    };
+    fetchBanners();
+
     if (!coords?.latitude || !coords?.longitude) return;
     console.log("Fetching home data for:", coords);
     const doFetch = () => {
@@ -97,7 +116,12 @@ export default function HomeScreen() {
           lon: coords.longitude,
         })
       );
-      dispatch(fetchFeaturedProducts()); // [NEW] Fetch products
+      dispatch(
+        fetchFeaturedProducts({
+          lat: coords.latitude,
+          lon: coords.longitude,
+        })
+      ); // [NEW] Fetch products near user
     };
     doFetch();
     // Re-fetch whenever app comes back to foreground (catches isOpen/stock changes)
@@ -253,6 +277,96 @@ export default function HomeScreen() {
   const getImageSource = (img) => {
     if (typeof img === "string") return { uri: img };
     return img;
+  };
+
+  // Banner Click Handler
+  const handleBannerClick = (banner) => {
+    console.log("Banner clicked:", banner.title, "LinkType:", banner.linkType, "LinkId:", banner.linkId);
+
+    if (!banner.linkType || banner.linkType.toLowerCase() === "none") return;
+
+    const type = banner.linkType.toLowerCase();
+    const id = banner.linkId;
+
+    if (!id) return;
+
+    if (type === "restaurant") {
+      router.push({
+        pathname: "/restaurant/[id]",
+        params: { id: id },
+      });
+    } else if (type === "category") {
+      router.push({
+        pathname: "/collection/[id]",
+        params: { id: id },
+      });
+    } else if (type === "web") {
+      // In a real app, use Linking.openURL
+      console.log("Opening web link:", id);
+    }
+  };
+
+  // Banner Carousel Component
+  const BannerCarousel = () => {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const carouselRef = useRef(null);
+
+    useEffect(() => {
+      if (homeBanners.length <= 1) return;
+
+      const interval = setInterval(() => {
+        setActiveIndex((prev) => {
+          const nextIndex = (prev + 1) % homeBanners.length;
+          carouselRef.current?.scrollTo({ x: nextIndex * (width - 32), animated: true });
+          return nextIndex;
+        });
+      }, 4000); // Slightly faster sliding (4s)
+
+      return () => clearInterval(interval);
+    }, [homeBanners.length]); // Removed activeIndex from deps to prevent double-timers
+
+    if (homeBanners.length === 0) return null;
+
+    return (
+      <View style={styles.bannerWrapper}>
+        <ScrollView
+          ref={carouselRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) => {
+            const index = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
+            setActiveIndex(index);
+          }}
+          contentContainerStyle={{ gap: 0 }}
+        >
+          {homeBanners.map((banner) => (
+            <TouchableOpacity
+              key={banner._id}
+              activeOpacity={0.9}
+              onPress={() => handleBannerClick(banner)}
+              style={styles.bannerItem}
+            >
+              <Image
+                source={{ uri: banner.image }}
+                style={styles.bannerImg}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        {homeBanners.length > 1 && (
+          <View style={styles.pagination}>
+            {homeBanners.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.dot, activeIndex === i && styles.activeDot]}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    );
   };
 
   // Scroll refs and state for navigation buttons
@@ -583,6 +697,9 @@ export default function HomeScreen() {
           ) : (
             // STANDARD DASHBOARD VIEW
             <>
+              {/* Promotional Banners */}
+              <BannerCarousel />
+
               {/* Best Food Options - Using Real Featured Products */}
               {(priceRange === "All" && filterType === "All" && featuredProducts.length > 0) && (
                 <View style={styles.section}>
@@ -1662,9 +1779,50 @@ const styles = StyleSheet.create({
   // WEB STYLES (Copied from index.tsx for consistency)
   webSectionDivider: {
     height: 1,
-    backgroundColor: "#f0f0f0",
-    marginVertical: 32,
+    backgroundColor: "#e5e7eb",
+    marginVertical: 20,
     width: "100%",
+  },
+  // Banner Styles
+  bannerWrapper: {
+    marginVertical: 16,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    height: 200, // Increased height
+    backgroundColor: '#f3f4f6',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  bannerItem: {
+    width: width - 32,
+    height: 200, // Match wrapper height
+  },
+  bannerImg: {
+    width: '100%',
+    height: '100%',
+  },
+  pagination: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  activeDot: {
+    width: 20,
+    backgroundColor: '#fff',
   },
   webHorizontalScroll: {
     marginBottom: 40,

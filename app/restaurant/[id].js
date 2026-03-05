@@ -27,7 +27,7 @@ import { API_BASE_URL } from "../../constants/api";
 import { io } from "socket.io-client";
 
 // Restaurant backend socket URL (consolidated to port 5000)
-const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
+const RESTAURANT_SOCKET_URL = "http://192.168.14.131:5000";
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();
@@ -296,6 +296,9 @@ export default function RestaurantScreen() {
                       veg: item.veg,
                       weight: item.weight,
                       supplier: item.supplier,
+                      discountPercent: restaurant?.discountPercent || 0,
+                      maxDiscount: restaurant?.maxDiscount || 0,
+                      minOrderValue: restaurant?.minOrderValue || 0,
                     })
                   );
                   showToast(`${item.name} added to cart`);
@@ -424,7 +427,11 @@ export default function RestaurantScreen() {
               color="#2563eb"
               style={{ marginRight: 6 }}
             />
-            <Text style={styles.offerText}>{restaurant.discount}</Text>
+            <Text style={styles.offerText}>
+              {restaurant.discountPercent > 0
+                ? `${restaurant.discountPercent}% OFF up to ₹${restaurant.maxDiscount}${restaurant.minOrderValue > 0 ? ` on orders above ₹${restaurant.minOrderValue}` : ''}`
+                : restaurant.discount || 'No offers available'}
+            </Text>
           </View>
 
           {/* Veg/Non-Veg Filters */}

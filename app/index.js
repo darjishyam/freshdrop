@@ -323,20 +323,12 @@ function _UnifiedAuthScreenContent() {
     return hasItemMatch;
   });
 
-  // Filter Handpicked Products (Assumed Ahmedabad based for mock data)
+  // Filter Handpicked Products (Only show if restaurant is nearby/filtered)
   const filteredHandpickedProducts = products.filter((item) => {
-    // 0. Location Filtering (Default to Ahmedabad)
-    if (locationQuery.length > 0) {
-      // For demo, we assume these products are available in Ahmedabad.
-      // If user types 'Surat' or 'Gandhinagar', we might hide them or show specific ones.
-      // For now, let's say they are available everywhere OR strict check.
-      // User asked: "show restaurants and all items filtered by that city name".
-      // Since mock data doesn't have city for products, I will just Allow them ALL or strictly restrict.
-      // "Fix the logic so only matching items appear" -> implying if I select "Surat", I shouldn't see "Ahmedabad" items?
-      // The restaurants have locations. Products don't.
-      // I will implement a logic: If locationQuery matches 'Ahmedabad', show products. Else hide.
-      return "Ahmedabad".toLowerCase().includes(locationQuery.toLowerCase());
-    }
+    // 0. Location/Restaurant Filtering
+    // Only show products from restaurants that made it through the filteredRestaurants list
+    const isRestaurantNearby = filteredRestaurants.some(r => r.id === item.restaurantId || r._id === item.restaurantId);
+    if (!isRestaurantNearby) return false;
 
     // 1. Search Query Filtering
     const lowerQ = debouncedSearchQuery.toLowerCase();
@@ -952,136 +944,140 @@ function _UnifiedAuthScreenContent() {
                     ))}
                 </View>
 
-                {/* 1. Food Options */}
-                <View style={styles.webSectionHeader}>
-                  <Text style={styles.webSectionTitle}>
-                    Inspiration for your first order
-                  </Text>
-                  <View style={styles.webArrows}>
-                    <Pressable
-                      onPress={scrollLeft}
-                      disabled={!inspirationCanScrollLeft}
-                      style={({ pressed }) => [
-                        styles.webArrowBtn,
-                        pressed && { opacity: 0.7 },
-                        !inspirationCanScrollLeft && {
-                          opacity: 0.5,
-                          backgroundColor: "#f1f2f6",
-                        },
-                      ]}
-                    >
-                      <Feather
-                        name="arrow-left"
-                        size={24}
-                        color={
-                          !inspirationCanScrollLeft ? "#9ca3af" : "#4b5563"
-                        }
-                      />
-                    </Pressable>
-                    <Pressable
-                      onPress={scrollRight}
-                      disabled={!inspirationCanScrollRight}
-                      style={({ pressed }) => [
-                        styles.webArrowBtn,
-                        pressed && { opacity: 0.7 },
-                        !inspirationCanScrollRight && {
-                          opacity: 0.5,
-                          backgroundColor: "#f1f2f6",
-                        },
-                      ]}
-                    >
-                      <Feather
-                        name="arrow-right"
-                        size={24}
-                        color={
-                          !inspirationCanScrollRight ? "#9ca3af" : "#4b5563"
-                        }
-                      />
-                    </Pressable>
-                  </View>
-                </View>
-                <ScrollView
-                  ref={scrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={[
-                    styles.webHorizontalScroll,
-                    isMobileWeb && {
-                      marginHorizontal: -20,
-                      paddingHorizontal: 20,
-                    },
-                  ]}
-                  onScroll={handleScroll}
-                  scrollEventThrottle={16}
-                  onContentSizeChange={(w) => {
-                    inspirationContentWidth.current = w;
-                  }}
-                  onLayout={(e) => {
-                    inspirationLayoutWidth.current = e.nativeEvent.layout.width;
-                  }}
-                >
-                  {isMobileWeb
-                    ? foodOptions.map((item) => (
-                      <Pressable
-                        key={item.id}
-                        style={styles.webItemValues}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/collection/[id]",
-                            params: { id: item.name },
-                          })
-                        }
-                      >
-                        <View style={styles.webFoodImageContainer}>
-                          <Image
-                            source={
-                              typeof item.image === "string"
-                                ? { uri: item.image }
-                                : item.image
+                {/* 1. Inspiration Section - Only show if restaurants abound */}
+                {filteredRestaurants.length > 0 && (
+                  <View style={styles.webSection}>
+                    <View style={styles.webSectionHeader}>
+                      <Text style={styles.webSectionTitle}>
+                        Inspiration for your first order
+                      </Text>
+                      <View style={styles.webArrows}>
+                        <Pressable
+                          onPress={scrollLeft}
+                          disabled={!inspirationCanScrollLeft}
+                          style={({ pressed }) => [
+                            styles.webArrowBtn,
+                            pressed && { opacity: 0.7 },
+                            !inspirationCanScrollLeft && {
+                              opacity: 0.5,
+                              backgroundColor: "#f1f2f6",
+                            },
+                          ]}
+                        >
+                          <Feather
+                            name="arrow-left"
+                            size={24}
+                            color={
+                              !inspirationCanScrollLeft ? "#9ca3af" : "#4b5563"
                             }
-                            style={styles.webFoodImage}
-                            resizeMode="cover"
                           />
-                        </View>
-                        <Text style={styles.webItemText}>{item.name}</Text>
-                      </Pressable>
-                    ))
-                    : Array.from({
-                      length: Math.ceil(foodOptions.length / 2),
-                    }).map((_, colIndex) => (
-                      <View key={colIndex} style={styles.webDualRowColumn}>
-                        {foodOptions
-                          .slice(colIndex * 2, colIndex * 2 + 2)
-                          .map((item) => (
-                            <Pressable
-                              key={item.id}
-                              style={styles.webItemValues}
-                              onPress={() =>
-                                router.push({
-                                  pathname: "/collection/[id]",
-                                  params: { id: item.name },
-                                })
-                              }
-                            >
-                              <View style={styles.webFoodImageContainer}>
-                                <Image
-                                  source={
-                                    typeof item.image === "string"
-                                      ? { uri: item.image }
-                                      : item.image
-                                  }
-                                  style={styles.webFoodImage}
-                                  resizeMode="cover"
-                                />
-                              </View>
-                              <Text style={styles.webItemText}>
-                                {item.name}
-                              </Text>
-                            </Pressable>
-                          ))}
+                        </Pressable>
+                        <Pressable
+                          onPress={scrollRight}
+                          disabled={!inspirationCanScrollRight}
+                          style={({ pressed }) => [
+                            styles.webArrowBtn,
+                            pressed && { opacity: 0.7 },
+                            !inspirationCanScrollRight && {
+                              opacity: 0.5,
+                              backgroundColor: "#f1f2f6",
+                            },
+                          ]}
+                        >
+                          <Feather
+                            name="arrow-right"
+                            size={24}
+                            color={
+                              !inspirationCanScrollRight ? "#9ca3af" : "#4b5563"
+                            }
+                          />
+                        </Pressable>
                       </View>
-                    ))}
-                </ScrollView>
+                    </View>
+                    <ScrollView
+                      ref={scrollRef}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={[
+                        styles.webHorizontalScroll,
+                        isMobileWeb && {
+                          marginHorizontal: -20,
+                          paddingHorizontal: 20,
+                        },
+                      ]}
+                      onScroll={handleScroll}
+                      scrollEventThrottle={16}
+                      onContentSizeChange={(w) => {
+                        inspirationContentWidth.current = w;
+                      }}
+                      onLayout={(e) => {
+                        inspirationLayoutWidth.current = e.nativeEvent.layout.width;
+                      }}
+                    >
+                      {isMobileWeb
+                        ? foodOptions.map((item) => (
+                          <Pressable
+                            key={item.id}
+                            style={styles.webItemValues}
+                            onPress={() =>
+                              router.push({
+                                pathname: "/collection/[id]",
+                                params: { id: item.name },
+                              })
+                            }
+                          >
+                            <View style={styles.webFoodImageContainer}>
+                              <Image
+                                source={
+                                  typeof item.image === "string"
+                                    ? { uri: item.image }
+                                    : item.image
+                                }
+                                style={styles.webFoodImage}
+                                resizeMode="cover"
+                              />
+                            </View>
+                            <Text style={styles.webItemText}>{item.name}</Text>
+                          </Pressable>
+                        ))
+                        : Array.from({
+                          length: Math.ceil(foodOptions.length / 2),
+                        }).map((_, colIndex) => (
+                          <View key={colIndex} style={styles.webDualRowColumn}>
+                            {foodOptions
+                              .slice(colIndex * 2, colIndex * 2 + 2)
+                              .map((item) => (
+                                <Pressable
+                                  key={item.id}
+                                  style={styles.webItemValues}
+                                  onPress={() =>
+                                    router.push({
+                                      pathname: "/collection/[id]",
+                                      params: { id: item.name },
+                                    })
+                                  }
+                                >
+                                  <View style={styles.webFoodImageContainer}>
+                                    <Image
+                                      source={
+                                        typeof item.image === "string"
+                                          ? { uri: item.image }
+                                          : item.image
+                                      }
+                                      style={styles.webFoodImage}
+                                      resizeMode="cover"
+                                    />
+                                  </View>
+                                  <Text style={styles.webItemText}>
+                                    {item.name}
+                                  </Text>
+                                </Pressable>
+                              ))}
+                          </View>
+                        ))}
+                    </ScrollView>
+                  </View>
+                )}
 
                 <View style={styles.webSectionDivider} />
 
@@ -1130,28 +1126,277 @@ function _UnifiedAuthScreenContent() {
                 </ScrollView>
                 <View style={styles.webSectionDivider} />
               </>
-            ) : null}
+            ) : null
+            }
 
             {/* 2.5. Popular Products - Show when no search OR when search has matching products */}
-            {searchQuery.length === 0 ||
-              (searchQuery.length > 0 &&
-                filteredHandpickedProducts.length > 0) ? (
-              <>
-                {/* 2.5. Popular Products */}
-                {filteredHandpickedProducts.length > 0 && (
-                  <>
-                    <View style={styles.webSectionHeader}>
+            {
+              searchQuery.length === 0 ||
+                (searchQuery.length > 0 &&
+                  filteredHandpickedProducts.length > 0) ? (
+                <>
+                  {/* 2.5. Popular Products */}
+                  {filteredHandpickedProducts.length > 0 && (
+                    <>
+                      <View style={styles.webSectionHeader}>
+                        <Text style={styles.webSectionTitle}>
+                          Handpicked Fresh Products
+                        </Text>
+                        <View style={styles.webArrows}>
+                          <Pressable
+                            onPress={scrollHandpickedLeft}
+                            disabled={!handpickedCanScrollLeft}
+                            style={({ pressed }) => [
+                              styles.webArrowBtn,
+                              pressed && { opacity: 0.7 },
+                              !handpickedCanScrollLeft && {
+                                opacity: 0.5,
+                                backgroundColor: "#f1f2f6",
+                              },
+                            ]}
+                          >
+                            <Feather
+                              name="arrow-left"
+                              size={24}
+                              color={
+                                !handpickedCanScrollLeft ? "#9ca3af" : "#4b5563"
+                              }
+                            />
+                          </Pressable>
+                          <Pressable
+                            onPress={scrollHandpickedRight}
+                            disabled={!handpickedCanScrollRight}
+                            style={({ pressed }) => [
+                              styles.webArrowBtn,
+                              pressed && { opacity: 0.7 },
+                              !handpickedCanScrollRight && {
+                                opacity: 0.5,
+                                backgroundColor: "#f1f2f6",
+                              },
+                            ]}
+                          >
+                            <Feather
+                              name="arrow-right"
+                              size={24}
+                              color={
+                                !handpickedCanScrollRight ? "#9ca3af" : "#4b5563"
+                              }
+                            />
+                          </Pressable>
+                        </View>
+                      </View>
+                      <ScrollView
+                        ref={handpickedScrollRef}
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={[
+                          styles.webHorizontalScroll,
+                          isMobileWeb && {
+                            marginHorizontal: -20,
+                            paddingHorizontal: 20,
+                          },
+                        ]}
+                        onScroll={handleHandpickedScroll}
+                        scrollEventThrottle={16}
+                        onContentSizeChange={(w) => {
+                          handpickedContentWidth.current = w;
+                        }}
+                        onLayout={(e) => {
+                          handpickedLayoutWidth.current =
+                            e.nativeEvent.layout.width;
+                        }}
+                      >
+                        {filteredHandpickedProducts
+                          .slice(0, 15)
+                          .map((item, index) => (
+                            <TouchableOpacity
+                              key={index}
+                              style={styles.webProductCard}
+                              onPress={() =>
+                                router.push({
+                                  pathname: "/product/[id]",
+                                  params: { id: item.name },
+                                })
+                              }
+                            >
+                              <View style={styles.webProductImageContainer}>
+                                <Image
+                                  source={
+                                    typeof item.image === "string"
+                                      ? { uri: item.image }
+                                      : item.image
+                                  }
+                                  style={styles.webProductImage}
+                                  resizeMode="contain"
+                                />
+                                <TouchableOpacity
+                                  style={styles.webAddButton}
+                                  onPress={(e) => {
+                                    e.stopPropagation();
+                                    if (!user.phone) {
+                                      router.push("/auth/login");
+                                    } else {
+                                      // Helper to generate ObjectId from restaurant name
+                                      const toObjectId = (str = "") => {
+                                        const hex = str.toString().split("").map(c => c.charCodeAt(0).toString(16)).join("");
+                                        return (hex + "000000000000000000000000").slice(0, 24);
+                                      };
+
+                                      const targetRestaurantId = item.restaurantId || toObjectId(item.restaurantName || "General");
+                                      const targetRestaurantName = item.restaurantName || "General";
+
+                                      const handleAdd = () => {
+                                        dispatch(
+                                          addToCart({
+                                            id: item.id || item.name,
+                                            name: item.name,
+                                            price: item.price,
+                                            quantity: 1,
+                                            image: item.image,
+                                            veg: item.veg,
+                                            restaurantId: targetRestaurantId,
+                                            restaurantName: targetRestaurantName,
+                                          })
+                                        );
+                                        showToast(`${item.name} added to cart`);
+                                      };
+
+                                      // Validation: Single Restaurant check
+                                      if (cartRestaurant.id && cartRestaurant.id !== targetRestaurantId) {
+                                        const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
+
+                                        if (Platform.OS === 'web') {
+                                          if (window.confirm(msg)) {
+                                            dispatch(clearCart());
+                                            handleAdd();
+                                          }
+                                        } else {
+                                          Alert.alert(
+                                            "Replace cart item?",
+                                            msg,
+                                            [
+                                              { text: "Cancel", style: "cancel" },
+                                              {
+                                                text: "Clear & Add",
+                                                onPress: () => {
+                                                  dispatch(clearCart());
+                                                  handleAdd();
+                                                }
+                                              }
+                                            ]
+                                          );
+                                        }
+                                        return;
+                                      }
+
+                                      handleAdd();
+                                    }
+                                  }}
+                                >
+                                  <Text style={styles.webAddButtonText}>ADD</Text>
+                                </TouchableOpacity>
+                              </View>
+                              <View style={styles.webProductInfo}>
+                                <View
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  <VegNonVegIcon veg={item.veg} size={14} />
+                                </View>
+                                <Text
+                                  style={styles.webProductName}
+                                  numberOfLines={2}
+                                >
+                                  {item.name}
+                                </Text>
+                                <Text style={styles.webProductQty}>
+                                  {item.quantity}
+                                </Text>
+                                <View style={styles.webProductPriceRow}>
+                                  <Text style={styles.webProductPrice}>
+                                    {"₹"}
+                                    {item.price}
+                                  </Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                      </ScrollView>
+                    </>
+                  )}
+                </>
+              ) : null
+            }
+
+            {
+              (filteredRestaurants.length > 0 || searchQuery.length > 0) && (
+                <>
+                  {searchQuery.length === 0 && (
+                    <View style={styles.webSectionDivider} />
+                  )}
+
+                  {/* 3. Top Restaurants / Search Results */}
+                  <View style={styles.webSectionHeader}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
+                        gap: 20,
+                        flex: 1,
+                      }}
+                    >
                       <Text style={styles.webSectionTitle}>
-                        Handpicked Fresh Products
+                        {searchQuery.length > 0
+                          ? `Search Results for "${searchQuery}"`
+                          : "Top Restaurants in Ahmedabad"}
                       </Text>
+                      {/* Veg/Non-Veg Filter Buttons */}
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <TouchableOpacity
+                          style={[
+                            styles.filterButton,
+                            restaurantVegFilter === true &&
+                            styles.filterButtonActiveVeg,
+                          ]}
+                          onPress={() =>
+                            setRestaurantVegFilter(
+                              restaurantVegFilter === true ? null : true
+                            )
+                          }
+                        >
+                          <VegNonVegIcon veg={true} size={14} />
+                          <Text style={styles.filterButtonText}>Veg</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.filterButton,
+                            restaurantVegFilter === false &&
+                            styles.filterButtonActiveNonVeg,
+                          ]}
+                          onPress={() =>
+                            setRestaurantVegFilter(
+                              restaurantVegFilter === false ? null : false
+                            )
+                          }
+                        >
+                          <VegNonVegIcon veg={false} size={14} />
+                          <Text style={styles.filterButtonText}>Non-Veg</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    {searchQuery.length === 0 && (
                       <View style={styles.webArrows}>
                         <Pressable
-                          onPress={scrollHandpickedLeft}
-                          disabled={!handpickedCanScrollLeft}
+                          onPress={scrollRestaurantLeft}
+                          disabled={!restaurantCanScrollLeft}
                           style={({ pressed }) => [
                             styles.webArrowBtn,
                             pressed && { opacity: 0.7 },
-                            !handpickedCanScrollLeft && {
+                            !restaurantCanScrollLeft && {
                               opacity: 0.5,
                               backgroundColor: "#f1f2f6",
                             },
@@ -1161,17 +1406,17 @@ function _UnifiedAuthScreenContent() {
                             name="arrow-left"
                             size={24}
                             color={
-                              !handpickedCanScrollLeft ? "#9ca3af" : "#4b5563"
+                              !restaurantCanScrollLeft ? "#9ca3af" : "#4b5563"
                             }
                           />
                         </Pressable>
                         <Pressable
-                          onPress={scrollHandpickedRight}
-                          disabled={!handpickedCanScrollRight}
+                          onPress={scrollRestaurantRight}
+                          disabled={!restaurantCanScrollRight}
                           style={({ pressed }) => [
                             styles.webArrowBtn,
                             pressed && { opacity: 0.7 },
-                            !handpickedCanScrollRight && {
+                            !restaurantCanScrollRight && {
                               opacity: 0.5,
                               backgroundColor: "#f1f2f6",
                             },
@@ -1181,263 +1426,97 @@ function _UnifiedAuthScreenContent() {
                             name="arrow-right"
                             size={24}
                             color={
-                              !handpickedCanScrollRight ? "#9ca3af" : "#4b5563"
+                              !restaurantCanScrollRight ? "#9ca3af" : "#4b5563"
                             }
                           />
                         </Pressable>
                       </View>
-                    </View>
-                    <ScrollView
-                      ref={handpickedScrollRef}
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      style={[
-                        styles.webHorizontalScroll,
-                        isMobileWeb && {
-                          marginHorizontal: -20,
-                          paddingHorizontal: 20,
-                        },
-                      ]}
-                      onScroll={handleHandpickedScroll}
-                      scrollEventThrottle={16}
-                      onContentSizeChange={(w) => {
-                        handpickedContentWidth.current = w;
-                      }}
-                      onLayout={(e) => {
-                        handpickedLayoutWidth.current =
-                          e.nativeEvent.layout.width;
-                      }}
-                    >
-                      {filteredHandpickedProducts
-                        .slice(0, 15)
-                        .map((item, index) => (
-                          <TouchableOpacity
-                            key={index}
-                            style={styles.webProductCard}
-                            onPress={() =>
-                              router.push({
-                                pathname: "/product/[id]",
-                                params: { id: item.name },
-                              })
-                            }
-                          >
-                            <View style={styles.webProductImageContainer}>
-                              <Image
-                                source={
-                                  typeof item.image === "string"
-                                    ? { uri: item.image }
-                                    : item.image
-                                }
-                                style={styles.webProductImage}
-                                resizeMode="contain"
-                              />
-                              <TouchableOpacity
-                                style={styles.webAddButton}
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  if (!user.phone) {
-                                    router.push("/auth/login");
-                                  } else {
-                                    // Helper to generate ObjectId from restaurant name
-                                    const toObjectId = (str = "") => {
-                                      const hex = str.toString().split("").map(c => c.charCodeAt(0).toString(16)).join("");
-                                      return (hex + "000000000000000000000000").slice(0, 24);
-                                    };
+                    )}
+                  </View>
+                </>
+              )
+            }
 
-                                    const targetRestaurantId = item.restaurantId || toObjectId(item.restaurantName || "General");
-                                    const targetRestaurantName = item.restaurantName || "General";
-
-                                    const handleAdd = () => {
-                                      dispatch(
-                                        addToCart({
-                                          id: item.id || item.name,
-                                          name: item.name,
-                                          price: item.price,
-                                          quantity: 1,
-                                          image: item.image,
-                                          veg: item.veg,
-                                          restaurantId: targetRestaurantId,
-                                          restaurantName: targetRestaurantName,
-                                        })
-                                      );
-                                      showToast(`${item.name} added to cart`);
-                                    };
-
-                                    // Validation: Single Restaurant check
-                                    if (cartRestaurant.id && cartRestaurant.id !== targetRestaurantId) {
-                                      const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
-
-                                      if (Platform.OS === 'web') {
-                                        if (window.confirm(msg)) {
-                                          dispatch(clearCart());
-                                          handleAdd();
-                                        }
-                                      } else {
-                                        Alert.alert(
-                                          "Replace cart item?",
-                                          msg,
-                                          [
-                                            { text: "Cancel", style: "cancel" },
-                                            {
-                                              text: "Clear & Add",
-                                              onPress: () => {
-                                                dispatch(clearCart());
-                                                handleAdd();
-                                              }
-                                            }
-                                          ]
-                                        );
-                                      }
-                                      return;
-                                    }
-
-                                    handleAdd();
-                                  }
-                                }}
-                              >
-                                <Text style={styles.webAddButtonText}>ADD</Text>
-                              </TouchableOpacity>
-                            </View>
-                            <View style={styles.webProductInfo}>
-                              <View
-                                style={{
-                                  flexDirection: "row",
-                                  alignItems: "center",
-                                  marginBottom: 4,
-                                }}
-                              >
-                                <VegNonVegIcon veg={item.veg} size={14} />
-                              </View>
-                              <Text
-                                style={styles.webProductName}
-                                numberOfLines={2}
-                              >
-                                {item.name}
-                              </Text>
-                              <Text style={styles.webProductQty}>
-                                {item.quantity}
-                              </Text>
-                              <View style={styles.webProductPriceRow}>
-                                <Text style={styles.webProductPrice}>
-                                  {"₹"}
-                                  {item.price}
-                                </Text>
-                              </View>
-                            </View>
-                          </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                  </>
-                )}
-              </>
-            ) : null}
-
-            {(filteredRestaurants.length > 0 || searchQuery.length > 0) && (
-              <>
-                {searchQuery.length === 0 && (
-                  <View style={styles.webSectionDivider} />
-                )}
-
-                {/* 3. Top Restaurants / Search Results */}
-                <View style={styles.webSectionHeader}>
+            {
+              isMobileWeb ? (
+                filteredRestaurants.length === 0 &&
+                  filteredHandpickedProducts.length === 0 ? (
                   <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                      gap: 20,
-                      flex: 1,
+                    style={{ width: "100%", alignItems: "center", padding: 40 }}
+                  >
+                    <Feather
+                      name="frown"
+                      size={48}
+                      color="#ccc"
+                      style={{ marginBottom: 16 }}
+                    />
+                    <Text
+                      style={{ fontSize: 18, color: "#666", fontWeight: "600" }}
+                    >
+                      No results found
+                    </Text>
+                    <Text style={{ fontSize: 14, color: "#999", marginTop: 8 }}>
+                      No restaurants, items, or categories match your search
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    ref={restaurantScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={[
+                      styles.webHorizontalScroll,
+                      { marginHorizontal: -20, paddingHorizontal: 20 },
+                    ]}
+                    onScroll={handleRestaurantScroll}
+                    scrollEventThrottle={16}
+                    onContentSizeChange={(w) => {
+                      restaurantContentWidth.current = w;
+                    }}
+                    onLayout={(e) => {
+                      restaurantLayoutWidth.current = e.nativeEvent.layout.width;
                     }}
                   >
-                    <Text style={styles.webSectionTitle}>
-                      {searchQuery.length > 0
-                        ? `Search Results for "${searchQuery}"`
-                        : "Top Restaurants in Ahmedabad"}
-                    </Text>
-                    {/* Veg/Non-Veg Filter Buttons */}
-                    <View style={{ flexDirection: "row", gap: 8 }}>
-                      <TouchableOpacity
+                    {filteredRestaurants.map((item) => (
+                      <Pressable
+                        key={item.id}
                         style={[
-                          styles.filterButton,
-                          restaurantVegFilter === true &&
-                          styles.filterButtonActiveVeg,
+                          styles.webRestCard,
+                          { width: 300, marginRight: 20 },
                         ]}
                         onPress={() =>
-                          setRestaurantVegFilter(
-                            restaurantVegFilter === true ? null : true
-                          )
+                          router.push({
+                            pathname: "/restaurant/[id]",
+                            params: { id: item.id },
+                          })
                         }
                       >
-                        <VegNonVegIcon veg={true} size={14} />
-                        <Text style={styles.filterButtonText}>Veg</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.filterButton,
-                          restaurantVegFilter === false &&
-                          styles.filterButtonActiveNonVeg,
-                        ]}
-                        onPress={() =>
-                          setRestaurantVegFilter(
-                            restaurantVegFilter === false ? null : false
-                          )
-                        }
-                      >
-                        <VegNonVegIcon veg={false} size={14} />
-                        <Text style={styles.filterButtonText}>Non-Veg</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  {searchQuery.length === 0 && (
-                    <View style={styles.webArrows}>
-                      <Pressable
-                        onPress={scrollRestaurantLeft}
-                        disabled={!restaurantCanScrollLeft}
-                        style={({ pressed }) => [
-                          styles.webArrowBtn,
-                          pressed && { opacity: 0.7 },
-                          !restaurantCanScrollLeft && {
-                            opacity: 0.5,
-                            backgroundColor: "#f1f2f6",
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name="arrow-left"
-                          size={24}
-                          color={
-                            !restaurantCanScrollLeft ? "#9ca3af" : "#4b5563"
+                        <Image
+                          source={
+                            typeof item.image === "string"
+                              ? { uri: item.image }
+                              : item.image
                           }
+                          style={styles.webRestImage}
+                          resizeMode="cover"
                         />
+                        <View style={styles.webRestInfo}>
+                          <Text style={styles.webRestName}>{item.name}</Text>
+                          <Text style={styles.webRestMeta}>
+                            {item.rating} • {item.time}
+                          </Text>
+                          <Text style={styles.webRestCuisine}>
+                            {item.cuisine}
+                          </Text>
+                          <Text style={styles.webDiscountText}>
+                            {item.discount}
+                          </Text>
+                        </View>
                       </Pressable>
-                      <Pressable
-                        onPress={scrollRestaurantRight}
-                        disabled={!restaurantCanScrollRight}
-                        style={({ pressed }) => [
-                          styles.webArrowBtn,
-                          pressed && { opacity: 0.7 },
-                          !restaurantCanScrollRight && {
-                            opacity: 0.5,
-                            backgroundColor: "#f1f2f6",
-                          },
-                        ]}
-                      >
-                        <Feather
-                          name="arrow-right"
-                          size={24}
-                          color={
-                            !restaurantCanScrollRight ? "#9ca3af" : "#4b5563"
-                          }
-                        />
-                      </Pressable>
-                    </View>
-                  )}
-                </View>
-              </>
-            )}
-
-            {isMobileWeb ? (
-              filteredRestaurants.length === 0 &&
+                    ))}
+                  </ScrollView>
+                )
+              ) : filteredRestaurants.length === 0 &&
                 filteredHandpickedProducts.length === 0 ? (
                 <View
                   style={{ width: "100%", alignItems: "center", padding: 40 }}
@@ -1462,10 +1541,7 @@ function _UnifiedAuthScreenContent() {
                   ref={restaurantScrollRef}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  style={[
-                    styles.webHorizontalScroll,
-                    { marginHorizontal: -20, paddingHorizontal: 20 },
-                  ]}
+                  style={styles.webHorizontalScroll}
                   onScroll={handleRestaurantScroll}
                   scrollEventThrottle={16}
                   onContentSizeChange={(w) => {
@@ -1478,10 +1554,7 @@ function _UnifiedAuthScreenContent() {
                   {filteredRestaurants.map((item) => (
                     <Pressable
                       key={item.id}
-                      style={[
-                        styles.webRestCard,
-                        { width: 300, marginRight: 20 },
-                      ]}
+                      style={[styles.webRestCard, { marginRight: 20 }]}
                       onPress={() =>
                         router.push({
                           pathname: "/restaurant/[id]",
@@ -1503,9 +1576,7 @@ function _UnifiedAuthScreenContent() {
                         <Text style={styles.webRestMeta}>
                           {item.rating} • {item.time}
                         </Text>
-                        <Text style={styles.webRestCuisine}>
-                          {item.cuisine}
-                        </Text>
+                        <Text style={styles.webRestCuisine}>{item.cuisine}</Text>
                         <Text style={styles.webDiscountText}>
                           {item.discount}
                         </Text>
@@ -1514,88 +1585,22 @@ function _UnifiedAuthScreenContent() {
                   ))}
                 </ScrollView>
               )
-            ) : filteredRestaurants.length === 0 &&
-              filteredHandpickedProducts.length === 0 ? (
-              <View
-                style={{ width: "100%", alignItems: "center", padding: 40 }}
-              >
-                <Feather
-                  name="frown"
-                  size={48}
-                  color="#ccc"
-                  style={{ marginBottom: 16 }}
-                />
-                <Text
-                  style={{ fontSize: 18, color: "#666", fontWeight: "600" }}
-                >
-                  No results found
-                </Text>
-                <Text style={{ fontSize: 14, color: "#999", marginTop: 8 }}>
-                  No restaurants, items, or categories match your search
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                ref={restaurantScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.webHorizontalScroll}
-                onScroll={handleRestaurantScroll}
-                scrollEventThrottle={16}
-                onContentSizeChange={(w) => {
-                  restaurantContentWidth.current = w;
-                }}
-                onLayout={(e) => {
-                  restaurantLayoutWidth.current = e.nativeEvent.layout.width;
-                }}
-              >
-                {filteredRestaurants.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={[styles.webRestCard, { marginRight: 20 }]}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/restaurant/[id]",
-                        params: { id: item.id },
-                      })
-                    }
-                  >
-                    <Image
-                      source={
-                        typeof item.image === "string"
-                          ? { uri: item.image }
-                          : item.image
-                      }
-                      style={styles.webRestImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.webRestInfo}>
-                      <Text style={styles.webRestName}>{item.name}</Text>
-                      <Text style={styles.webRestMeta}>
-                        {item.rating} • {item.time}
-                      </Text>
-                      <Text style={styles.webRestCuisine}>{item.cuisine}</Text>
-                      <Text style={styles.webDiscountText}>
-                        {item.discount}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </ScrollView>
+            }
+          </View >
+        </ScrollView >
       )}
 
       {/* Web: Login Modal */}
       {/* Web: Login Modal */}
-      {IS_WEB && (
-        <WebLoginModal
-          visible={showWebLogin}
-          onClose={() => setShowWebLogin(false)}
-        />
-      )}
-    </View>
+      {
+        IS_WEB && (
+          <WebLoginModal
+            visible={showWebLogin}
+            onClose={() => setShowWebLogin(false)}
+          />
+        )
+      }
+    </View >
   );
 }
 

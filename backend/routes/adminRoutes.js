@@ -11,7 +11,8 @@ const {
     updateAdminDriverStatus,
     getRestaurantMenu,
     getDriverStats,
-    getRestaurantStats
+    getRestaurantStats,
+    getRestaurantOrderHistory
 } = require("../controllers/adminManagementController");
 const {
     getAllBanners,
@@ -30,6 +31,7 @@ router.get("/drivers", getAllDrivers);
 router.get("/restaurants", getAllRestaurants);
 router.get("/restaurants/:id/menu", getRestaurantMenu);
 router.get("/restaurants/:id/stats", getRestaurantStats);
+router.get("/restaurants/:id/history", getRestaurantOrderHistory);
 router.get("/orders", getAllOrders);
 
 router.patch("/users/:id/status", toggleUserStatus);

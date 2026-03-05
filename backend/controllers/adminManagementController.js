@@ -381,6 +381,49 @@ const getRestaurantStats = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+// @desc  Admin: Get full order history for a restaurant
+// @route GET /api/admin/restaurants/:id/history
+const getRestaurantOrderHistory = async (req, res) => {
+    try {
+        const restaurantId = req.params.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const skip = (page - 1) * limit;
+
+        const orders = await Order.find({ restaurant: restaurantId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('driver', 'name phone')
+            .lean();
+
+        const total = await Order.countDocuments({ restaurant: restaurantId });
+
+        const formattedOrders = orders.map(o => ({
+            _id: o._id,
+            orderId: o._id.toString().slice(-6).toUpperCase(),
+            status: o.status,
+            itemsCount: o.items?.length || 0,
+            items: o.items?.map(i => i.name).slice(0, 3).join(', '),
+            itemTotal: o.billDetails?.itemTotal || 0,
+            deliveryFee: o.billDetails?.deliveryFee || 0,
+            grandTotal: o.billDetails?.grandTotal || 0,
+            deliveryAddress: o.deliveryAddress?.street || o.deliveryAddress?.address || 'N/A',
+            driver: o.driver ? `${o.driver.name} (${o.driver.phone})` : 'Unassigned',
+            createdAt: o.createdAt,
+        }));
+
+        res.json({
+            orders: formattedOrders,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        console.error("Restaurant order history error:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
 
 module.exports = {
     getAllUsers,
@@ -392,5 +435,6 @@ module.exports = {
     updateAdminDriverStatus,
     getRestaurantMenu,
     getDriverStats,
-    getRestaurantStats
+    getRestaurantStats,
+    getRestaurantOrderHistory
 };

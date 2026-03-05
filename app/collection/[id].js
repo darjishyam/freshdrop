@@ -15,13 +15,15 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { VegNonVegIcon } from "../../components/VegNonVegIcon";
 import { useToast } from "../../context/ToastContext";
-import { products, restaurantItems } from "../../data/mockData";
 import { addToCart } from "../../store/slices/cartSlice";
-import { selectUser } from "../../store/slices/userSlice";
+import { fetchRestaurants, selectRestaurantItems } from "../../store/slices/dataSlice";
+import { selectLocationCoords, selectUser } from "../../store/slices/userSlice";
 
 export default function CollectionScreen() {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
+  const coords = useSelector(selectLocationCoords);
+  const reduxRestaurantItems = useSelector(selectRestaurantItems) || {};
   const { id } = useLocalSearchParams();
   const categoryName = typeof id === "string" ? id : "";
   const router = useRouter();
@@ -30,17 +32,26 @@ export default function CollectionScreen() {
 
   // Use useMemo for items calculation
   const { allItems, hasVeg, hasNonVeg } = useMemo(() => {
-    // Get items for this category (search both)
-    const restItems = restaurantItems[categoryName] || [];
-    const groceryItems = products.filter((p) => p.category === categoryName);
-    const combined = [...restItems, ...groceryItems];
+    // 1. Get items from Redux (Real data from nearby restaurants)
+    // Flatten all nearby restaurant items and filter by category
+    const nearbyItems = Object.values(reduxRestaurantItems).flat();
+    const filteredByCategory = nearbyItems.filter(
+      (item) => item.category?.toLowerCase() === categoryName.toLowerCase() ||
+        (item.name && item.name.toLowerCase().includes(categoryName.toLowerCase()))
+    );
+
+    // 2. Fallback to mock data ONLY if search/category matches (optional, but user wants to FIX mehsana items showing up)
+    // Actually, user wants it ONLY if nearby. So if nearbyItems is empty, we should show nothing if it's not nearby.
+    // "if there is no resturant and grocery near by so that food also should not be displayed"
+
+    const combined = filteredByCategory;
 
     // Check for mixed content
-    const hasVeg = combined.some((i) => i.veg === true);
-    const hasNonVeg = combined.some((i) => i.veg === false);
+    const hasVeg = combined.some((i) => (i.isVeg ?? i.veg) === true);
+    const hasNonVeg = combined.some((i) => (i.isVeg ?? i.veg) === false);
 
     return { allItems: combined, hasVeg, hasNonVeg };
-  }, [categoryName]);
+  }, [categoryName, reduxRestaurantItems]);
 
   const filteredItems = useMemo(() => {
     if (showVegOnly) {

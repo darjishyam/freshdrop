@@ -66,9 +66,13 @@ export const fetchGroceries = createAsyncThunk(
 // Fetch Featured Products (Best Food Options)
 export const fetchFeaturedProducts = createAsyncThunk(
   "data/fetchFeaturedProducts",
-  async (_, { rejectWithValue }) => {
+  async (coords, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${API_URL}/products/featured`);
+      let url = `${API_URL}/products/featured`;
+      if (coords?.lat && coords?.lon) {
+        url += `?lat=${coords.lat}&lon=${coords.lon}`;
+      }
+      const response = await fetch(url);
       if (!response.ok) throw new Error("Failed to fetch featured products");
       const data = await response.json();
       return data;
