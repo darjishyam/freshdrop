@@ -20,35 +20,60 @@ import { useToast } from "../../context/ToastContext";
 import { restaurants } from "../../data/mockData";
 import {
   clearCart,
+  selectAppliedCoupon,
   selectCartItems,
   selectCartTotal,
+  setAppliedCoupon,
+  removeAppliedCoupon,
   updateQuantity,
 } from "../../store/slices/cartSlice";
 import { addOrder } from "../../store/slices/ordersSlice";
 import { selectUser, selectLocation, selectLocationType, selectLocationCoords } from "../../store/slices/userSlice";
+import { validateCouponAPI } from "../../services/orderService";
 
-// Selector for discount fields
-const selectCartDiscount = (state) => ({
-  discountPercent: state.cart.discountPercent || 0,
-  maxDiscount: state.cart.maxDiscount || 0,
-  minOrderValue: state.cart.minOrderValue || 0,
-});
 export default function CartScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
   const cartItems = useSelector(selectCartItems);
   const cartTotal = useSelector(selectCartTotal);
+  const appliedCoupon = useSelector(selectAppliedCoupon);
   const user = useSelector(selectUser);
   const userAddress = useSelector(selectLocation);
   const userLocationType = useSelector(selectLocationType);
   const userCoords = useSelector(selectLocationCoords);
-  const cartDiscountInfo = useSelector(selectCartDiscount);
   const { showToast } = useToast();
   const { mode } = useLocalSearchParams();
   const [paymentMode, setPaymentMode] = useState(mode === "payment");
   const [upiId, setUpiId] = useState("");
   const [selectedApp, setSelectedApp] = useState("");
   const [submitting, setSubmitting] = useState(false); // [NEW] Prevent double submissions
+
+  // Promo Code States
+  const [couponCodeInput, setCouponCodeInput] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
+
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput.trim()) return;
+    setCouponLoading(true);
+    setCouponError("");
+    try {
+      const data = await validateCouponAPI(couponCodeInput.trim(), cartTotal);
+      dispatch(setAppliedCoupon({ code: data.code, discountAmount: data.discountAmount }));
+      showToast("Coupon applied successfully");
+    } catch (err) {
+      setCouponError(err.message || "Failed to apply coupon");
+      dispatch(removeAppliedCoupon());
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    dispatch(removeAppliedCoupon());
+    setCouponCodeInput("");
+    setCouponError("");
+  };
 
   // Update paymentMode if param changes (e.g. coming back from GPay cancel)
   useEffect(() => {
@@ -80,13 +105,7 @@ export default function CartScreen() {
   const deliveryFee = itemCount <= 2 ? 40 : itemCount <= 5 ? 60 : 80;
 
   // Discount computation
-  const { discountPercent, maxDiscount, minOrderValue } = cartDiscountInfo;
-  const discountAmount = (() => {
-    if (!discountPercent || cartTotal < minOrderValue) return 0;
-    const computed = Math.round(cartTotal * discountPercent / 100);
-    return maxDiscount > 0 ? Math.min(computed, maxDiscount) : computed;
-  })();
-
+  const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
   const grandTotal = Math.round(cartTotal + taxes + deliveryFee - discountAmount);
 
   // Updated Payment Handler
@@ -156,6 +175,8 @@ export default function CartScreen() {
         image: typeof item.image === "object" && item.image !== null ? JSON.stringify(item.image) : item.image,
       })),
       totalAmount: grandTotal,
+      couponCode: appliedCoupon ? appliedCoupon.code : null,
+      discountAmount: discountAmount,
       billDetails: {
         itemTotal: cartTotal,
         deliveryFee: deliveryFee,
@@ -222,6 +243,10 @@ export default function CartScreen() {
             [{ text: "OK" }]
           );
         } else {
+          // [NEW] If error is coupon related, clear it from Redux
+          if (error.message?.toLowerCase().includes("coupon")) {
+            dispatch(removeAppliedCoupon());
+          }
           Alert.alert("Order Failed", error.message || "Could not place order. Please try again.");
           setSubmitting(false); // Reset on error
         }
@@ -252,6 +277,29 @@ export default function CartScreen() {
             contentContainerStyle={styles.paymentContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* NEW: Delivery Address Confirmation Card */}
+            <View style={styles.addressConfirmationCard}>
+              <View style={styles.addressCardHeader}>
+                <View style={styles.addressCardTitleRow}>
+                  <Ionicons
+                    name={userLocationType === "Work" ? "briefcase" : userLocationType === "Other" ? "location" : "home"}
+                    size={20}
+                    color="#4b5563"
+                  />
+                  <Text style={styles.addressCardTitle}>Delivery Address ({userLocationType || "Home"})</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.changeAddressBtn}
+                  onPress={() => router.push("/profile/addresses")}
+                >
+                  <Text style={styles.changeAddressText}>CHANGE</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.addressCardValue} numberOfLines={2}>
+                {userAddress || "No address selected. Please tap CHANGE to set your delivery location."}
+              </Text>
+            </View>
+
             <Text style={styles.selectMethodTitle}>Select Payment Method</Text>
 
             {/* Accordion: Debit / Credit Card */}
@@ -584,6 +632,37 @@ export default function CartScreen() {
               )}
             />
             <View style={styles.footer}>
+              {/* Promo Code UI */}
+              <View style={styles.couponContainer}>
+                <View style={styles.couponInputRow}>
+                  <TextInput
+                    style={styles.couponInput}
+                    placeholder="Enter Promo Code"
+                    value={couponCodeInput}
+                    onChangeText={(text) => {
+                      setCouponCodeInput(text.toUpperCase());
+                      setCouponError("");
+                    }}
+                    autoCapitalize="characters"
+                    editable={!appliedCoupon && !couponLoading}
+                  />
+                  {appliedCoupon ? (
+                    <TouchableOpacity style={styles.removeCouponBtn} onPress={handleRemoveCoupon}>
+                      <Text style={styles.removeCouponText}>Remove</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.applyCouponBtn, (!couponCodeInput || couponLoading) && { opacity: 0.6 }]}
+                      onPress={handleApplyCoupon}
+                      disabled={!couponCodeInput || couponLoading}
+                    >
+                      <Text style={styles.applyCouponText}>{couponLoading ? "..." : "APPLY"}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {couponError ? <Text style={styles.couponErrorText}>{couponError}</Text> : null}
+              </View>
+
               <View style={styles.billBox}>
                 <View style={styles.billRow}>
                   <Text style={styles.billLabel}>Item Total</Text>
@@ -600,7 +679,7 @@ export default function CartScreen() {
                 {discountAmount > 0 && (
                   <View style={styles.billRow}>
                     <Text style={[styles.billLabel, { color: '#16a34a' }]}>
-                      Discount ({discountPercent}% OFF)
+                      Coupon Discount ({appliedCoupon?.code})
                     </Text>
                     <Text style={[styles.billValue, { color: '#16a34a' }]}>-₹{discountAmount}</Text>
                   </View>
@@ -611,19 +690,12 @@ export default function CartScreen() {
                 </View>
               </View>
 
-              {discountAmount > 0 ? (
+              {discountAmount > 0 && (
                 <View style={styles.savingsBanner}>
                   <Ionicons name="sparkles" size={16} color="#15803d" />
                   <Text style={styles.savingsText}>🎉 You save ₹{discountAmount.toFixed(2)} with this order!</Text>
                 </View>
-              ) : (discountPercent > 0 && cartTotal < minOrderValue) ? (
-                <View style={[styles.savingsBanner, { backgroundColor: '#fff7ed' }]}>
-                  <Ionicons name="alert-circle" size={16} color="#c2410c" />
-                  <Text style={[styles.savingsText, { color: '#c2410c' }]}>
-                    Add ₹{(minOrderValue - cartTotal).toFixed(0)} more to get {discountPercent}% OFF
-                  </Text>
-                </View>
-              ) : null}
+              )}
 
               <TouchableOpacity style={styles.checkoutBtn} onPress={handleCheckout}>
                 <Text style={styles.checkoutText}>Proceed to Payment</Text>
@@ -850,6 +922,53 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     backgroundColor: "#f9fafb",
   },
+  addressConfirmationCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  addressCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  addressCardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  addressCardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#4b5563",
+  },
+  changeAddressBtn: {
+    backgroundColor: "#fff0e6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#FC8019",
+  },
+  changeAddressText: {
+    color: "#FC8019",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  addressCardValue: {
+    fontSize: 14,
+    color: "#6b7280",
+    lineHeight: 20,
+  },
   selectMethodTitle: {
     fontSize: 13,
     color: "#6b7280",
@@ -997,4 +1116,70 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: "#f0f0f0",
   },
+  couponContainer: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderStyle: "dashed"
+  },
+  couponInputRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  couponInput: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    textTransform: "uppercase",
+    backgroundColor: "#f9fafb"
+  },
+  applyCouponBtn: {
+    backgroundColor: "#4F46E5",
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 6,
+    height: 44,
+  },
+  applyCouponText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  removeCouponBtn: {
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 6,
+    height: 44,
+  },
+  removeCouponText: {
+    color: "#EF4444",
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  couponErrorText: {
+    color: "#EF4444",
+    fontSize: 12,
+    marginTop: 8,
+  },
+  couponSuccessBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    gap: 6
+  },
+  couponSuccessText: {
+    color: "#16a34a",
+    fontSize: 12,
+    fontWeight: "600"
+  }
 });

@@ -330,7 +330,12 @@ const updatePushToken = async (req, res) => {
     }
 
     try {
-        // Check both collections
+        // [BUG FIX]: Ensure this exact pushToken is removed from ALL OTHER accounts first
+        // so that a single device doesn't push to multiple logged-out accounts.
+        await Restaurant.updateMany({ pushToken }, { $set: { pushToken: null } });
+        await Grocery.updateMany({ pushToken }, { $set: { pushToken: null } });
+
+        // Check both collections for the current logging-in user
         const restaurant = await Restaurant.findOne({ email });
         const grocery = await Grocery.findOne({ email });
 
@@ -398,10 +403,23 @@ const updateProfile = async (req, res) => {
             if (!store) store = await Grocery.findById(decoded.id);
 
             console.log("📥 [updateProfile] Request Body:", req.body);
-            const { priceRange, deliveryTime, discount, discountPercent, maxDiscount, minOrderValue, image, isOpen } = req.body;
+            const { priceRange, deliveryTime, discount, discountPercent, maxDiscount, minOrderValue, image, isOpen, address } = req.body;
 
             if (priceRange !== undefined) store.priceRange = priceRange;
             if (deliveryTime !== undefined) store.deliveryTime = deliveryTime;
+            if (address !== undefined) {
+                if (!store.address) store.address = {};
+                if (address.street !== undefined) store.address.street = address.street;
+                if (address.city !== undefined) store.address.city = address.city;
+                if (address.zip !== undefined) store.address.zip = address.zip;
+                if (address.coordinates) {
+                    store.address.coordinates = {
+                        lat: Number(address.coordinates.lat) || 0,
+                        lon: Number(address.coordinates.lon) || 0
+                    };
+                }
+                store.markModified('address');
+            }
 
             if (discountPercent !== undefined) {
                 store.discountPercent = Number(discountPercent) || 0;

@@ -74,23 +74,39 @@ const getNearbyData = async (req, res) => {
       .filter((r) => r.distance <= 10)
       .sort((a, b) => a.distance - b.distance);
 
-    // 3. Fetch Products only for nearby restaurants
+    // 3. Fetch Products for nearby restaurants and groceries
     const nearbyRestaurantIds = nearbyRestaurants.map((r) => r._id);
+    const nearbyGroceryIds = nearbyGroceries.map((g) => g._id);
+    const allNearbyMerchantIds = [...nearbyRestaurantIds, ...nearbyGroceryIds];
+
     const products = await Product.find({
-      restaurant: { $in: nearbyRestaurantIds },
+      restaurant: { $in: allNearbyMerchantIds },
     });
 
-    // Group Products by Restaurant ID
+    // Create a lookup map for merchant names
+    const merchantNames = {};
+    nearbyRestaurants.forEach(r => merchantNames[r._id.toString()] = r.name);
+    nearbyGroceries.forEach(g => merchantNames[g._id.toString()] = g.name);
+
+    // Group Products by Merchant ID and standardize fields for frontend
     const restaurantItems = {};
-    nearbyRestaurantIds.forEach((id) => {
-      restaurantItems[id] = products.filter(
-        (p) => p.restaurant.toString() === id.toString()
-      );
+    allNearbyMerchantIds.forEach((id) => {
+      const merchantIdStr = id.toString();
+      restaurantItems[merchantIdStr] = products
+        .filter((p) => p.restaurant.toString() === merchantIdStr)
+        .map(p => ({
+          ...p.toObject(),
+          id: p._id,
+          restaurantId: merchantIdStr,
+          restaurantName: merchantNames[merchantIdStr] || "Merchant",
+          veg: p.isVeg, // Map isVeg to veg for consistency
+          bestSeller: p.isBestSeller, // Map isBestSeller
+        }));
     });
 
     res.json({
-      restaurants: nearbyRestaurants,   // Only Restaurant model entries
-      groceries: nearbyGroceries,        // Only Grocery model entries
+      restaurants: nearbyRestaurants,
+      groceries: nearbyGroceries,
       restaurantItems,
     });
   } catch (error) {

@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch } from "react-redux";
 import { useToast } from "../../context/ToastContext";
-import { clearCart } from "../../store/slices/cartSlice";
+import { clearCart, removeAppliedCoupon } from "../../store/slices/cartSlice";
 import { addOrder } from "../../store/slices/ordersSlice";
 import { deductStock } from "../../store/slices/stockSlice";
 
@@ -132,17 +132,29 @@ export default function PhonePePaymentScreen() {
         }
       } catch (error) {
         isProcessingOrder.current = false; // Release lock after error
-        setProcessing(false);
         console.error("Error processing order:", error);
-        if (error.message?.toLowerCase().includes("suspended")) {
+
+        let errorMessage = error.message || "Could not complete payment. Please try again.";
+        if (typeof error === 'string') errorMessage = error;
+
+        if (errorMessage.toLowerCase().includes("suspended")) {
+          setProcessing(false);
           Alert.alert(
             "Account Suspended",
             "Your account has been suspended. Please contact support.",
             [{ text: "OK", onPress: () => router.replace("/auth") }]
           );
         } else {
-          Alert.alert("Payment Failed", error.message || "Could not complete payment. Please try again.");
-          router.back();
+          // [NEW] If error is coupon related, clear it from Redux
+          if (errorMessage.toLowerCase().includes("coupon")) {
+            dispatch(removeAppliedCoupon());
+          }
+
+          showToast(errorMessage);
+          setTimeout(() => {
+            setProcessing(false);
+            router.back();
+          }, 2000);
         }
         return;
       }
@@ -243,7 +255,7 @@ export default function PhonePePaymentScreen() {
             </Text>
           </View>
         ) : paymentSuccess ? (
-          // Success State
+          // Success State (Standardized)
           <View style={styles.successContainer}>
             <Animated.View
               style={[
@@ -257,23 +269,77 @@ export default function PhonePePaymentScreen() {
               <Ionicons name="checkmark-circle" size={100} color="#22c55e" />
             </Animated.View>
 
-            <Animated.View style={{ opacity: fadeAnim, width: "100%", alignItems: 'center' }}>
-              <Text style={styles.successTitle}>Payment Successful</Text>
+            <Animated.View style={{ opacity: fadeAnim, width: "100%" }}>
+              <Text style={styles.successTitle}>Payment Successful!</Text>
+              <Text style={styles.successSubtitle}>
+                Your payment has been processed successfully via PhonePe
+              </Text>
 
+              {/* Transaction Details Card */}
               <View style={styles.detailsCard}>
-                <Text style={styles.paidText}>Paid to Merchant</Text>
-                <Text style={styles.amountPaid}><RupeeSymbol />{amount}</Text>
-
-                <View style={[styles.divider, { marginVertical: 16 }]} />
-
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Transaction ID</Text>
-                  <Text style={styles.detailValue}>{transactionId}</Text>
+                  <Text style={styles.detailValue}>
+                    {transactionId}
+                  </Text>
+                </View>
+                <View style={styles.divider} />
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Payment Method</Text>
+                  <View style={styles.paymentMethodRow}>
+                    <Image
+                      source={{
+                        uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/71/PhonePe_Logo.svg/1200px-PhonePe_Logo.svg.png",
+                      }}
+                      style={styles.smallLogo}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.detailValue}>PhonePe</Text>
+                  </View>
+                </View>
+                <View style={styles.divider} />
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Amount Paid</Text>
+                  <Text style={[styles.detailValue, styles.amountPaid]}>
+                    <RupeeSymbol />
+                    {amount}
+                  </Text>
+                </View>
+                <View style={styles.divider} />
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Date & Time</Text>
+                  <View>
+                    <Text style={styles.detailValue}>{new Date().toLocaleDateString()}</Text>
+                    <Text style={styles.detailValueSmall}>{new Date().toLocaleTimeString()}</Text>
+                  </View>
+                </View>
+                <View style={styles.divider} />
+
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <View style={styles.statusBadge}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={14}
+                      color="#15803d"
+                    />
+                    <Text style={styles.statusText}>Success</Text>
+                  </View>
                 </View>
               </View>
 
               <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-                <Text style={styles.doneButtonText}>Done</Text>
+                <Text style={styles.doneButtonText}>View Order</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.homeButton}
+                onPress={() => router.replace("/(tabs)/home")}
+              >
+                <Text style={styles.homeButtonText}>Back to Home</Text>
               </TouchableOpacity>
             </Animated.View>
           </View>
@@ -561,35 +627,86 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#e0e0e0',
-    width: '100%'
+    backgroundColor: '#e5e7eb',
+    width: '100%',
+    marginVertical: 0,
   },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%'
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 12,
   },
   detailLabel: {
-    color: '#666',
-    fontSize: 14
+    color: '#6b7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
   detailValue: {
     fontWeight: '600',
-    color: '#333',
-    fontSize: 14
+    color: '#111827',
+    fontSize: 14,
+  },
+  detailValueSmall: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'right',
+  },
+  paymentMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  smallLogo: {
+    width: 24,
+    height: 24,
+  },
+  amountPaid: {
+    color: '#22c55e',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dcfce7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  statusText: {
+    color: '#15803d',
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   doneButton: {
-    backgroundColor: '#5f259f',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 8,
+    backgroundColor: '#FC8019',
+    paddingVertical: 16,
+    borderRadius: 12,
     width: '100%',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginBottom: 12,
   },
   doneButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold'
+  },
+  homeButton: {
+    width: "100%",
+    backgroundColor: "#fff",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  homeButtonText: {
+    color: "#333",
+    fontSize: 16,
+    fontWeight: "600",
   },
   // Initial Screen Styles
   initialContainer: {

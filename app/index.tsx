@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -33,9 +33,9 @@ import {
   foodOptions,
   products,
 } from "../data/mockData";
-import { fetchGroceries, selectGroceries, fetchRestaurants, selectRestaurants, selectRestaurantItems } from "../store/slices/dataSlice";
+import { fetchGroceries, selectGroceries, fetchRestaurants, selectRestaurants, selectRestaurantItems, selectCategories, fetchCategories } from "../store/slices/dataSlice";
 import { addToCart, clearCart, selectCartRestaurant } from "../store/slices/cartSlice";
-import { selectUser, selectLocationCoords } from "../store/slices/userSlice";
+import { selectUser, selectLocationCoords, selectLocation } from "../store/slices/userSlice";
 
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -170,11 +170,18 @@ function _UnifiedAuthScreenContent() {
   const groceryItems = useSelector(selectGroceries); // [GROCERY FEATURE - REDUX]
   const restaurants = useSelector(selectRestaurants); // [REAL DATA]
   const restaurantItems = useSelector(selectRestaurantItems) || {}; // [REAL DATA]
+  const dbCategories = useSelector(selectCategories); // [NEW] Dynamic Categories
+
+  // Use dynamic categories with fallback to mock
+  const displayCategories = useMemo(() => {
+    return dbCategories && dbCategories.length > 0 ? dbCategories : categories;
+  }, [dbCategories]);
 
   // Derived products for search/handpicked (Flatten all items)
   const products = Object.values(restaurantItems).flat();
 
   const coords = useSelector(selectLocationCoords);
+  const location = useSelector(selectLocation);
 
   // Fetch Groceries & Restaurants (Landing Page)
   useEffect(() => {
@@ -185,6 +192,7 @@ function _UnifiedAuthScreenContent() {
     console.log("Landing Page: Fetching data for:", { lat, lon });
     dispatch(fetchGroceries({ lat, lon }));
     dispatch(fetchRestaurants({ lat, lon }));
+    dispatch(fetchCategories()); // [NEW] Fetch dynamic categories
   }, [dispatch, coords?.latitude, coords?.longitude]);
 
   // Auth Redirect
@@ -192,15 +200,19 @@ function _UnifiedAuthScreenContent() {
   // Auth Redirect
   useEffect(() => {
     if (user.phone) {
-      // User Request: ALWAYS ask for address on login/startup to ensure location is correct.
-      // Redirect to Address Setup (Mandatory)
-      router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
-
+      if (!location) {
+        // User Request: ALWAYS ask for address on login/startup to ensure location is correct.
+        // Redirect to Address Setup (Mandatory)
+        router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
+      } else {
+        // Address already exists, skip onboarding and go home
+        router.replace("/(tabs)/home");
+      }
     } else if (!IS_WEB) {
       // Mobile users without login should go to proper login screen
       router.replace("/auth/login");
     }
-  }, [user.phone]); // Removed user.location dependency to avoid skipping checks
+  }, [user.phone, location]); // Watch both phone and location
 
   // Debounce Effect - Reduced to 300ms for better UX
   useEffect(() => {
@@ -255,7 +267,7 @@ function _UnifiedAuthScreenContent() {
           addSuggestion("category", category, null, category);
         }
       });
-      categories.forEach((cat) => {
+      displayCategories.forEach((cat) => {
         if (cat.name.toLowerCase().startsWith(lowerQ)) {
           addSuggestion("category", cat.name, null, cat.name);
         }
@@ -1015,9 +1027,9 @@ function _UnifiedAuthScreenContent() {
                       }}
                     >
                       {isMobileWeb
-                        ? foodOptions.map((item) => (
+                        ? displayCategories.map((item, index) => (
                           <Pressable
-                            key={item.id}
+                            key={item._id || index}
                             style={styles.webItemValues}
                             onPress={() =>
                               router.push({
@@ -1041,14 +1053,14 @@ function _UnifiedAuthScreenContent() {
                           </Pressable>
                         ))
                         : Array.from({
-                          length: Math.ceil(foodOptions.length / 2),
+                          length: Math.ceil(displayCategories.length / 2),
                         }).map((_, colIndex) => (
                           <View key={colIndex} style={styles.webDualRowColumn}>
-                            {foodOptions
+                            {displayCategories
                               .slice(colIndex * 2, colIndex * 2 + 2)
-                              .map((item) => (
+                              .map((item, index) => (
                                 <Pressable
-                                  key={item.id}
+                                  key={item._id || index}
                                   style={styles.webItemValues}
                                   onPress={() =>
                                     router.push({

@@ -14,12 +14,23 @@ router.get("/featured", async (req, res) => {
         let query = {};
         let restaurantFilter = { status: 'APPROVED' };
 
-        // 1. Fetch all products initially (or optimize if DB is huge)
-        const products = await Product.find()
-            .sort({ createdAt: -1 })
+        // 1. Fetch ONLY in-stock products sorted by quality/featured status
+        const products = await Product.find({ inStock: true })
+            .sort({
+                isBestSeller: -1,
+                isMustTry: -1,
+                rating: -1,
+                votes: -1,
+                createdAt: -1
+            })
             .populate("restaurant");
 
-        let featuredProducts = products.filter(p => p.restaurant && !p.restaurant.externalId && p.restaurant.status === 'APPROVED');
+        let featuredProducts = products.filter(p =>
+            p.restaurant &&
+            !p.restaurant.externalId &&
+            p.restaurant.status === 'APPROVED' &&
+            p.restaurant.isOpen !== false  // Also exclude closed restaurants
+        );
 
         // 2. Filter by location if provided
         if (lat && lon) {

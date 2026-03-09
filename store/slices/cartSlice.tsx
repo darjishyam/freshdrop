@@ -10,6 +10,7 @@ const initialState = {
   discountPercent: 0,
   maxDiscount: 0,
   minOrderValue: 0,
+  appliedCoupon: null, // { code, discountAmount }
 };
 
 const cartSlice = createSlice({
@@ -132,6 +133,15 @@ const cartSlice = createSlice({
       state.discountPercent = 0;
       state.maxDiscount = 0;
       state.minOrderValue = 0;
+      state.appliedCoupon = null;
+    },
+
+    setAppliedCoupon: (state, action) => {
+      state.appliedCoupon = action.payload;
+    },
+
+    removeAppliedCoupon: (state) => {
+      state.appliedCoupon = null;
     },
   },
 });
@@ -143,6 +153,8 @@ export const {
   removeFromCart,
   updateQuantity,
   clearCart,
+  setAppliedCoupon,
+  removeAppliedCoupon,
 } = cartSlice.actions;
 
 export default cartSlice.reducer;
@@ -150,6 +162,7 @@ export default cartSlice.reducer;
 // Selectors
 export const selectCartItems = (state) => state.cart.items;
 export const selectCartTotal = (state) => state.cart.total;
+export const selectAppliedCoupon = (state) => state.cart.appliedCoupon;
 export const selectCartCount = (state) => (state.cart.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
 export const selectPendingItems = (state) => state.cart.pendingItems;
 export const selectCartRestaurant = createSelector(

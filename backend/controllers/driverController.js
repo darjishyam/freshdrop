@@ -455,8 +455,10 @@ const getDriverProfile = async (req, res) => {
             const todayHours = await getOnlineHours(startOfToday, aggr.todayOrders);
             const weekHours = await getOnlineHours(startOfWeek, aggr.weekOrders);
             const monthHours = await getOnlineHours(startOfMonth, aggr.monthOrders);
+            const allHours = await getOnlineHours(new Date(0), aggr.lifetimeOrders);
 
             console.log(`Stats (Today): ₹${aggr.todayEarnings}, ${aggr.todayOrders} orders, ${todayHours} hrs`);
+            console.log(`Stats (All): ₹${aggr.lifetimeEarnings}, ${aggr.lifetimeOrders} orders, ${allHours} hrs`);
 
             // New Stats Object & Bonus Calculation
             const bonusTiers = [
@@ -510,10 +512,15 @@ const getDriverProfile = async (req, res) => {
                         orders: aggr.monthOrders,
                         hours: monthHours
                     },
+                    all: {
+                        earnings: driver.lifetimeEarnings || 0,
+                        orders: driver.totalOrders || 0,
+                        hours: allHours
+                    },
                     lifetime: {
                         earnings: driver.lifetimeEarnings || 0,
                         orders: driver.totalOrders || 0,
-                        hours: "0" // Lifetime hours not tracked historically
+                        hours: allHours
                     },
                     // Incentive Data
                     incentives: {

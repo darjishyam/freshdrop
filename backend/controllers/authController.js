@@ -668,6 +668,7 @@ const getProfile = async (req, res) => {
         googleId: user.googleId,
         image: user.image,
         recentlyViewed: user.recentlyViewed,
+        savedAddresses: user.savedAddresses, // <-- This is necessary to prevent list from wiping
       });
     } else {
       res.status(404).json({ message: "User not found" });
@@ -992,6 +993,65 @@ const removePushToken = async (req, res) => {
   }
 };
 
+// @desc    Add a saved address to the user's profile
+// @route   POST /api/auth/profile/addresses
+// @access  Private
+const addAddress = async (req, res) => {
+  try {
+    const { type, street, city, lat, lon } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!street) {
+      return res.status(400).json({ message: "Street address is required" });
+    }
+
+    // Add new address to array
+    user.savedAddresses.push({
+      type: type || "Other",
+      street,
+      city:
+        city,
+      lat,
+      lon
+    });
+
+    await user.save();
+    res.status(201).json(user.savedAddresses);
+  } catch (error) {
+    console.error("Add Address Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete a saved address from the user's profile
+// @route   DELETE /api/auth/profile/addresses/:addressId
+// @access  Private
+const deleteAddress = async (req, res) => {
+  try {
+    const { addressId } = req.params;
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Filter out the requested address
+    user.savedAddresses = user.savedAddresses.filter(
+      (addr) => addr._id.toString() !== addressId
+    );
+
+    await user.save();
+    res.json(user.savedAddresses);
+  } catch (error) {
+    console.error("Delete Address Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -1006,4 +1066,6 @@ module.exports = {
   addToHistory,
   updatePushToken,
   removePushToken,
+  addAddress,
+  deleteAddress,
 };

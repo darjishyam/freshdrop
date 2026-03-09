@@ -62,6 +62,20 @@ const userSchema = new mongoose.Schema(
       enum: ["ACTIVE", "SUSPENDED"],
       default: "ACTIVE",
     },
+    // Swiggy-Style Saved Addresses
+    savedAddresses: [
+      {
+        type: {
+          type: String,
+          enum: ["Home", "Work", "Other"],
+          default: "Other",
+        },
+        street: String,
+        city: String,
+        lat: Number,
+        lon: Number,
+      },
+    ],
   },
   {
     timestamps: true,

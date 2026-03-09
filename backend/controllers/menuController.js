@@ -105,9 +105,45 @@ const deleteMenuItem = async (req, res) => {
     }
 };
 
+// @desc    Update a menu item
+// @route   PUT /api/menu/:id
+const updateMenuItem = async (req, res) => {
+    try {
+        const item = await Product.findByIdAndUpdate(
+            req.params.id,
+            { $set: req.body },
+            { new: true, runValidators: true }
+        );
+
+        if (!item) {
+            return res.status(404).json({ message: 'Item not found' });
+        }
+
+        res.json(item);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get a single menu item by ID
+// @route   GET /api/menu/restaurant-item/:id
+const getMenuItemById = async (req, res) => {
+    try {
+        const item = await Product.findById(req.params.id);
+        if (!item) {
+            return res.status(404).json({ message: 'Item not found' });
+        }
+        res.json(item);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getMenu,
+    getMenuItemById,
     addMenuItem,
     toggleStock,
-    deleteMenuItem
+    deleteMenuItem,
+    updateMenuItem
 };

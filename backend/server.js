@@ -218,12 +218,21 @@ app.use("/api/driver", driverRoutes);
 app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/menu", require("./routes/menuRoutes")); // New Menu Routes // New Product Routes
 app.use("/api/admin", require("./routes/adminRoutes")); // Admin Routes
+app.use("/api/banner-requests", require("./routes/bannerRequestRoutes"));
+app.use("/api/coupons", require("./routes/couponRoutes")); // Coupon Routes
+app.use("/api/categories", require("./routes/categoryRoutes")); // Category Routes
+
 
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
     await connectDB();
+
+    // Seed default banner tiers
+    const seedBannerTiers = require('./config/seedTiers');
+    await seedBannerTiers();
+
     // Use server.listen instead of app.listen for Socket.io
     server.listen(PORT, "0.0.0.0", () => console.log(`Server started on port ${PORT}`));
   } catch (error) {

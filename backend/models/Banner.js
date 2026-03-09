@@ -2,36 +2,35 @@ const mongoose = require("mongoose");
 
 const bannerSchema = new mongoose.Schema(
     {
-        title: {
-            type: String,
-            required: true,
-        },
+        title: { type: String, required: true },
         description: String,
-        image: {
+        image: { type: String, required: true },
+        // Discount details (from approved request)
+        discountType: {
             type: String,
-            required: true,
+            enum: ["percentage", "flat", "free_item", "none"],
+            default: "none",
         },
+        discountValue: { type: Number, default: 0 },
+        discountOn: { type: String, default: "All Items" },
+        minOrderAmount: { type: Number, default: 0 },
+        validUntil: { type: Date, default: null },
         // Link Type determines what happens when clicked
         linkType: {
             type: String,
             enum: ["Restaurant", "Category", "Web", "None"],
             default: "None",
         },
-        // ID of the restaurant/category or a full URL for 'Web' linkType
-        linkId: {
-            type: String,
-            default: null,
-        },
-        isActive: {
-            type: Boolean,
-            default: true,
-        },
-        priority: {
-            type: Number,
-            default: 0, // Higher numbers show up first
-        },
+        linkId: { type: String, default: null },
+        requestId: { type: mongoose.Schema.Types.ObjectId, ref: "BannerRequest", default: null },
+        expiresAt: { type: Date, default: null },
+        isActive: { type: Boolean, default: true },
+        priority: { type: Number, default: 0 },
+        views: { type: Number, default: 0 },
+        clicks: { type: Number, default: 0 },
     },
     { timestamps: true }
 );
 
 module.exports = mongoose.model("Banner", bannerSchema);
+

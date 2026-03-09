@@ -32,19 +32,37 @@ export default function CollectionScreen() {
 
   // Use useMemo for items calculation
   const { allItems, hasVeg, hasNonVeg } = useMemo(() => {
-    // 1. Get items from Redux (Real data from nearby restaurants)
-    // Flatten all nearby restaurant items and filter by category
     const nearbyItems = Object.values(reduxRestaurantItems).flat();
-    const filteredByCategory = nearbyItems.filter(
-      (item) => item.category?.toLowerCase() === categoryName.toLowerCase() ||
-        (item.name && item.name.toLowerCase().includes(categoryName.toLowerCase()))
-    );
+
+    // Normalization helper: remove spaces, lowercase, and handle common spelling variations (u/v)
+    const normalize = (str) => {
+      if (!str) return "";
+      return str
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/[uv]/g, "v"); // Treat u and v as the same for Indian dishes (e.g., Vadapav/Vadapau)
+    };
+
+    const cleanCategory = normalize(categoryName);
+
+    const filteredByCategory = nearbyItems.filter((item) => {
+      const itemCategory = normalize(item.category);
+      const itemName = normalize(item.name);
+
+      return (
+        itemCategory.includes(cleanCategory) ||
+        cleanCategory.includes(itemCategory) ||
+        itemName.includes(cleanCategory) ||
+        cleanCategory.includes(itemName)
+      );
+    });
 
     // 2. Fallback to mock data ONLY if search/category matches (optional, but user wants to FIX mehsana items showing up)
     // Actually, user wants it ONLY if nearby. So if nearbyItems is empty, we should show nothing if it's not nearby.
     // "if there is no resturant and grocery near by so that food also should not be displayed"
 
-    const combined = filteredByCategory;
+    // Only show in-stock items
+    const combined = filteredByCategory.filter(item => item.inStock !== false);
 
     // Check for mixed content
     const hasVeg = combined.some((i) => (i.isVeg ?? i.veg) === true);
@@ -136,8 +154,10 @@ export default function CollectionScreen() {
             resizeMode="contain"
           />
           <TouchableOpacity
-            style={styles.addButton}
+            style={[styles.addButton, item.inStock === false && styles.outOfStockButton]}
+            disabled={item.inStock === false}
             onPress={() => {
+              if (item.inStock === false) return;
               if (!user.phone) {
                 router.push("/auth/login");
               } else {
@@ -156,7 +176,9 @@ export default function CollectionScreen() {
               }
             }}
           >
-            <Text style={styles.addButtonText}>ADD</Text>
+            <Text style={[styles.addButtonText, item.inStock === false && styles.outOfStockText]}>
+              {item.inStock === false ? "OUT OF STOCK" : "ADD"}
+            </Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -327,10 +349,19 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   addButtonText: {
-    color: "#22c55e", // Green text
+    color: "#22c55e",
     fontWeight: "800",
     fontSize: 14,
     fontFamily: "Poppins_700Bold",
+  },
+  outOfStockButton: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#d1d5db",
+  },
+  outOfStockText: {
+    color: "#9ca3af",
+    fontSize: 11,
+    fontWeight: "700",
   },
   separator: {
     height: 1,

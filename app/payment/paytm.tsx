@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,7 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch } from "react-redux";
 import { useToast } from "../../context/ToastContext";
-import { clearCart } from "../../store/slices/cartSlice";
+import { clearCart, removeAppliedCoupon } from "../../store/slices/cartSlice";
 import { addOrder } from "../../store/slices/ordersSlice";
 import { deductStock } from "../../store/slices/stockSlice";
 
@@ -26,10 +27,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Rupee Symbol Component
 const RupeeSymbol = () => <Text>₹</Text>;
 
-export default function GPayPaymentScreen() {
+export default function PaytmPaymentScreen() {
   const router = useRouter();
   const dispatch = useDispatch();
-  // const { addOrder } = useOrders(); // Removed Context
   const { showToast } = useToast();
   const params = useLocalSearchParams();
 
@@ -46,21 +46,20 @@ export default function GPayPaymentScreen() {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Parse the amount from params
+  // Amount
   const amount = params.amount
     ? Math.round(parseFloat(params.amount)).toString()
     : "0";
 
-  // Generate realistic transaction ID (Google/UPI style)
+  // Generate realistic transaction ID
   const generateTransactionId = useCallback(() => {
-    // Generate a random 12-digit number like a UPI/Bank Ref ID
     const randomRef = Math.floor(Math.random() * 1000000000000)
       .toString()
       .padStart(12, "0");
     return randomRef;
   }, []);
 
-  // Handle Pay button click - SHOW PIN SCREEN FIRST
+  // Handle Pay click - SHOW PIN FIRST
   const handlePayClick = useCallback(() => {
     setShowPin(true);
   }, []);
@@ -73,7 +72,7 @@ export default function GPayPaymentScreen() {
     }
     setShowPin(false);
     startProcessing();
-  }, [pin]);
+  }, [pin, showToast]);
 
   // Handle PIN Input
   const handlePinPress = (digit) => {
@@ -87,10 +86,10 @@ export default function GPayPaymentScreen() {
   const startProcessing = useCallback(async () => {
     // STRICT GUARD: If already processing, bail out immediately
     if (isProcessingOrder.current) {
-      console.log("[GPAY] startProcessing called but already locked. Ignoring.");
+      console.log("[PAYTM] startProcessing called but already locked. Ignoring.");
       return;
     }
-    console.log("PIN Verified! Starting Payment...");
+    console.log("PIN Verified! Starting Paytm Payment...");
 
     // Set lock BEFORE any async work
     isProcessingOrder.current = true;
@@ -100,8 +99,7 @@ export default function GPayPaymentScreen() {
 
     // Simulate payment processing (4 seconds)
     timerRef.current = setTimeout(async () => {
-
-      // Parse order data
+      // Parse order data and call backend API
       try {
         const orderData = params.orderData
           ? JSON.parse(params.orderData)
@@ -110,13 +108,13 @@ export default function GPayPaymentScreen() {
           const orderPayload = {
             ...orderData,
             transactionId: txnId,
+            paymentMethod: "Paytm",
           };
 
-          // ✅ Call real backend API - this will catch suspension
+          // ✅ Call real backend API - blocks suspended users
           const { createNewOrder } = require("../../services/orderService");
           const createdOrder = await createNewOrder(orderPayload);
 
-          // Only show success if API call succeeded
           isProcessingOrder.current = false; // Release lock after success
           setProcessing(false);
           setPaymentSuccess(true);
@@ -128,61 +126,149 @@ export default function GPayPaymentScreen() {
         }
       } catch (error) {
         isProcessingOrder.current = false; // Release lock after error
-        setProcessing(false);
         console.error("Error processing order:", error);
-        if (error.message?.toLowerCase().includes("suspended")) {
+
+        let errorMessage = error.message || "Failed to place order";
+        if (typeof error === 'string') errorMessage = error;
+
+        if (errorMessage.toLowerCase().includes("suspended")) {
+          setProcessing(false);
           Alert.alert(
             "Account Suspended",
             "Your account has been suspended. Please contact support.",
             [{ text: "OK", onPress: () => router.replace("/auth") }]
           );
         } else {
-          Alert.alert("Payment Failed", error.message || "Could not complete payment. Please try again.");
-          router.back();
+          // [NEW] If error is coupon related, clear it from Redux
+          if (errorMessage.toLowerCase().includes("coupon")) {
+            dispatch(removeAppliedCoupon());
+          }
+
+          showToast(errorMessage);
+          setTimeout(() => {
+            setProcessing(false);
+            router.back();
+          }, 2000);
         }
         return;
       }
 
-      // Trigger success animation
+      // Trigger success animation AFTER order is saved
       Animated.sequence([
         Animated.parallel([
-          Animated.spring(scaleAnim, { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
-          Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            tension: 50,
+            friction: 7,
+            useNativeDriver: true,
+          }),
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
         ]),
       ]).start(() => {
+        // Automatically redirect after showing success screen for a few seconds
         redirectTimerRef.current = setTimeout(() => {
           showToast("Payment Successful! Redirecting to Orders...");
-          router.replace({ pathname: "/orders", params: { fromPayment: "true" } });
+          router.replace({
+            pathname: "/orders",
+            params: { fromPayment: "true" },
+          });
         }, 1500);
       });
-    }, 4000); // 4 seconds processing
-  }, [amount, generateTransactionId, scaleAnim, fadeAnim, params, dispatch, showToast, router]);
+    }, 4000);
+  }, [
+    amount,
+    generateTransactionId,
+    scaleAnim,
+    fadeAnim,
+    params,
+    dispatch,
+    showToast,
+    router,
+  ]);
 
-  // Handle cancel payment
+  // Handle cancel payment - returns to cart
   const handleCancelPayment = useCallback(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    console.log("Cancel button clicked!");
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (redirectTimerRef.current) {
+      clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = null;
+    }
     showToast("Payment cancelled");
     router.back();
   }, [router, showToast]);
 
-  const handleDone = useCallback(() => {
-    router.replace({ pathname: "/orders", params: { fromPayment: "true" } });
-  }, [router]);
+  // Lifecycle management
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
+  }, []);
 
-  // ... useEffects ...
+  // Handle Android hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        if (processing) {
+          return true; // Block back during processing
+        } else if (!paymentSuccess) {
+          handleCancelPayment();
+          return true;
+        }
+        return false;
+      }
+    );
+
+    return () => {
+      backHandler.remove();
+    };
+  }, [processing, paymentSuccess, handleCancelPayment]);
+
+  const handleDone = useCallback(() => {
+    showToast("Payment Successful! Your order has been placed.");
+    router.replace({ pathname: "/orders", params: { fromPayment: "true" } });
+  }, [router, showToast]);
+
+  // Get current date and time
+  const getTransactionDateTime = () => {
+    const now = new Date();
+    const date = now.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const time = now.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return { date, time };
+  };
+
+  const { date, time } = getTransactionDateTime();
 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
+      {/* Header */}
+
       <View style={styles.content}>
         {showPin ? (
-          // PIN ENTRY SCREEN
+          // PIN ENTRY SCREEN (Paytm Style - Light Blue)
           <View style={styles.pinContainer}>
             {/* Header */}
             <View style={styles.pinHeader}>
-              <Text style={styles.pinHeaderTitle}>Google Pay</Text>
-              <Text style={styles.pinHeaderSubtitle}>USER@okaxis</Text>
+              <Text style={styles.pinHeaderTitle}>Paytm</Text>
+              <Text style={styles.pinHeaderSubtitle}>USER@paytm</Text>
             </View>
 
             <View style={styles.pinBody}>
@@ -213,7 +299,7 @@ export default function GPayPaymentScreen() {
                 <Text style={styles.numKeyText}>0</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.numKey, { backgroundColor: '#4285F4' }, processing && { opacity: 0.5 }]}
+                style={[styles.numKey, { backgroundColor: '#00BAF2' }, processing && { opacity: 0.5 }]}
                 onPress={handlePinSubmit}
                 disabled={processing}
               >
@@ -223,18 +309,17 @@ export default function GPayPaymentScreen() {
           </View>
         ) : processing ? (
           // Processing State
-
           <View style={styles.processingContainer}>
             <Image
               source={{
-                uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/512px-Google_Pay_Logo.svg.png",
+                uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/600px-Paytm_Logo_%28standalone%29.svg.png",
               }}
               style={styles.gpayLogo}
               resizeMode="contain"
             />
             <ActivityIndicator
               size="large"
-              color="#4285F4"
+              color="#00BAF2" // Paytm Blue
               style={styles.loader}
             />
             <Text style={styles.processingText}>Processing Payment...</Text>
@@ -247,7 +332,7 @@ export default function GPayPaymentScreen() {
             </Text>
           </View>
         ) : paymentSuccess ? (
-          // Success State with Animation
+          // Success State with Animation (Matching GPay detail level)
           <View style={styles.successContainer}>
             <Animated.View
               style={[
@@ -263,11 +348,10 @@ export default function GPayPaymentScreen() {
 
             <Animated.View style={{ opacity: fadeAnim, width: "100%" }}>
               <Text style={styles.successTitle}>Payment Successful!</Text>
-              <Text style={styles.successSubtitle}>
-                Your payment has been processed successfully
+              <Text style={styles.successSub}>
+                Your order has been placed successfully via Paytm.
               </Text>
 
-              {/* Transaction Details Card */}
               <View style={styles.detailsCard}>
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Transaction ID</Text>
@@ -282,12 +366,12 @@ export default function GPayPaymentScreen() {
                   <View style={styles.paymentMethodRow}>
                     <Image
                       source={{
-                        uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/512px-Google_Pay_Logo.svg.png",
+                        uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/600px-Paytm_Logo_%28standalone%29.svg.png",
                       }}
                       style={styles.smallGpayLogo}
                       resizeMode="contain"
                     />
-                    <Text style={styles.detailValue}>Google Pay</Text>
+                    <Text style={styles.detailValue}>Paytm</Text>
                   </View>
                 </View>
                 <View style={styles.divider} />
@@ -304,8 +388,8 @@ export default function GPayPaymentScreen() {
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Date & Time</Text>
                   <View>
-                    <Text style={styles.detailValue}>{new Date().toLocaleDateString()}</Text>
-                    <Text style={styles.detailValueSmall}>{new Date().toLocaleTimeString()}</Text>
+                    <Text style={styles.detailValue}>{date}</Text>
+                    <Text style={styles.detailValueSmall}>{time}</Text>
                   </View>
                 </View>
                 <View style={styles.divider} />
@@ -340,16 +424,14 @@ export default function GPayPaymentScreen() {
           <View style={styles.initialContainer}>
             <Image
               source={{
-                uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Google_Pay_Logo.svg/512px-Google_Pay_Logo.svg.png",
+                uri: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/600px-Paytm_Logo_%28standalone%29.svg.png",
               }}
               style={styles.gpayLogo}
               resizeMode="contain"
             />
 
-            {/* Bill Details Card */}
             <View style={styles.billDetailsCard}>
               <Text style={styles.billDetailsTitle}>Bill Details</Text>
-
               {(() => {
                 try {
                   const orderData = params.orderData
@@ -458,13 +540,11 @@ export default function GPayPaymentScreen() {
                 } catch (error) {
                   console.error("Error parsing bill details:", error);
                 }
-
                 return (
                   <View style={styles.billRow}>
                     <Text style={styles.billTotalLabel}>Amount to Pay</Text>
                     <Text style={styles.billTotalValue}>
-                      <RupeeSymbol />
-                      {amount}
+                      <RupeeSymbol /> {amount}
                     </Text>
                   </View>
                 );
@@ -473,9 +553,10 @@ export default function GPayPaymentScreen() {
 
             <View style={styles.buttonContainer}>
               <TouchableOpacity
-                style={styles.payButton}
+                style={[styles.payButton, processing && { opacity: 0.7 }]}
                 onPress={handlePayClick}
                 activeOpacity={0.7}
+                disabled={processing}
               >
                 <Text style={styles.payButtonText}>
                   Pay <RupeeSymbol />
@@ -502,6 +583,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitleContainer: {
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  secureBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  secureText: {
+    fontSize: 12,
+    color: "#0F9D58",
+    fontWeight: "500",
   },
   content: {
     flex: 1,
@@ -566,7 +677,7 @@ const styles = StyleSheet.create({
   },
   billTotalValue: {
     fontSize: 20,
-    color: "#4285F4",
+    color: "#00BAF2", // Paytm Color
     fontWeight: "bold",
   },
   buttonContainer: {
@@ -575,11 +686,11 @@ const styles = StyleSheet.create({
   },
   payButton: {
     width: "100%",
-    backgroundColor: "#4285F4",
+    backgroundColor: "#00BAF2", // Paytm Color
     paddingVertical: Platform.OS === "web" ? 16 : 14,
     borderRadius: 12,
     alignItems: "center",
-    shadowColor: "#4285F4",
+    shadowColor: "#00BAF2",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -626,7 +737,7 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#4285F4",
+    color: "#00BAF2", // Paytm Color
     marginTop: 8,
     marginBottom: 32,
   },
@@ -651,7 +762,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: "center",
   },
-  successSubtitle: {
+  successSub: {
     fontSize: 14,
     color: "#666",
     textAlign: "center",
@@ -691,7 +802,7 @@ const styles = StyleSheet.create({
   txnId: {
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
     fontSize: 12,
-    color: "#4285F4",
+    color: "#00BAF2", // Paytm Color
   },
   amountPaid: {
     fontSize: 16,
@@ -704,8 +815,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   smallGpayLogo: {
-    width: 50,
-    height: 20,
+    width: 60,
+    height: 24,
   },
   divider: {
     height: 1,
@@ -798,7 +909,7 @@ const styles = StyleSheet.create({
   pinAmt: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
+    color: "#00BAF2",
   },
   pinDotsContainer: {
     flexDirection: 'row',

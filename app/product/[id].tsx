@@ -23,6 +23,7 @@ import { groceryItems, products, restaurantItems } from "../../data/mockData";
 import { addToCart, clearCart, selectCartItems, selectCartRestaurant } from "../../store/slices/cartSlice";
 import { selectStock } from "../../store/slices/stockSlice";
 import { selectUser } from "../../store/slices/userSlice";
+import { API_BASE_URL, SOCKET_URL } from "../../constants/api";
 import { loadReviews, selectProductReviews } from "../../store/slices/reviewsSlice";
 
 const { width, height } = Dimensions.get("window");
@@ -148,7 +149,7 @@ export default function ProductDetailsScreen() {
     const targetRestId = product?.restaurantId;
     if (!targetRestId) return;
 
-    const socket = io("https://freshdrop-backend.onrender.com", { transports: ["websocket"] });
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
 
     socket.on("stockUpdate", ({ itemId: updatedItemId, inStock }) => {
       // Logic: if the socket event matches this item, update state

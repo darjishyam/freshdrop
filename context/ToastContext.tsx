@@ -63,10 +63,10 @@ export const ToastProvider = ({ children }) => {
       case "success":
         return "#10B981"; // Emerald Green
       case "error":
-        return "#EF4444"; // Red
+        return "#F43F5E"; // Rose/Vibrant Red
       case "info":
       default:
-        return "#333333"; // Dark Grey
+        return "#3B82F6"; // Vibrant Blue
     }
   };
 
@@ -130,17 +130,17 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 50,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 16, // More modern rounded look
     zIndex: 9999,
-    elevation: 6,
+    elevation: 10,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    maxWidth: "90%",
-    minWidth: 200,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    maxWidth: "92%",
+    minWidth: 220,
   },
   icon: {
     marginRight: 10,

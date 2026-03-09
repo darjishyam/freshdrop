@@ -73,10 +73,18 @@ const updateBanner = async (req, res) => {
 // @desc    Delete a banner
 // @route   DELETE /api/admin/banners/:id
 // @access  Private/Admin
+const BannerRequest = require("../models/BannerRequest");
+
 const deleteBanner = async (req, res) => {
     try {
         const banner = await Banner.findByIdAndDelete(req.params.id);
         if (!banner) return res.status(404).json({ message: "Banner not found" });
+
+        // If this banner was created from a request, mark the request as deleted
+        if (banner.requestId) {
+            await BannerRequest.findByIdAndUpdate(banner.requestId, { status: "deleted" });
+        }
+
         res.json({ message: "Banner deleted successfully" });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -89,7 +97,20 @@ const deleteBanner = async (req, res) => {
 const getActiveBanners = async (req, res) => {
     try {
         const { lat, lon } = req.query;
-        const banners = await Banner.find({ isActive: true }).sort({ priority: -1, createdAt: -1 });
+        const now = new Date();
+        const banners = await Banner.find({
+            isActive: true,
+            $or: [
+                { expiresAt: null },
+                { expiresAt: { $gt: now } }
+            ]
+        }).sort({ priority: -1, createdAt: -1 });
+
+        // Record views for tracking performance
+        if (banners.length > 0) {
+            const bannerIds = banners.map(b => b._id);
+            await Banner.updateMany({ _id: { $in: bannerIds } }, { $inc: { views: 1 } });
+        }
 
         // If no coordinates, return all (fallback)
         if (!lat || !lon) {
@@ -132,10 +153,21 @@ const getActiveBanners = async (req, res) => {
     }
 };
 
+const recordBannerClick = async (req, res) => {
+    try {
+        const banner = await Banner.findByIdAndUpdate(req.params.id, { $inc: { clicks: 1 } }, { new: true });
+        if (!banner) return res.status(404).json({ message: "Banner not found" });
+        res.json({ message: "Click recorded", clicks: banner.clicks });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getAllBanners,
     createBanner,
     updateBanner,
     deleteBanner,
-    getActiveBanners
+    getActiveBanners,
+    recordBannerClick
 };

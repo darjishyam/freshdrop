@@ -31,7 +31,7 @@ class SocketService {
             }
 
             this.socket = io(SOCKET_URL, {
-                transports: ["websocket"],
+                transports: ["websocket", "polling"],
                 query: { token },
                 reconnection: true,
                 reconnectionAttempts: 5,

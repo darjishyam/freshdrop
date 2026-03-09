@@ -21,11 +21,11 @@ import { useToast } from "../../context/ToastContext";
 import { getGroceryInventory, groceryCategories } from "../../data/mockData";
 import { addToCart, clearCart, selectCartRestaurant } from "../../store/slices/cartSlice";
 import { selectUser } from "../../store/slices/userSlice";
-import { API_BASE_URL } from "../../constants/api";
+import { API_BASE_URL, SOCKET_URL } from "../../constants/api";
 import { io } from "socket.io-client";
 
 // Restaurant/Grocery backend socket URL
-const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
+const RESTAURANT_SOCKET_URL = SOCKET_URL;
 
 export default function GroceryStoreScreen() {
     const dispatch = useDispatch();

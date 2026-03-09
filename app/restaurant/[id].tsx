@@ -23,11 +23,11 @@ import { addToCart, clearCart, selectCartRestaurant } from "../../store/slices/c
 import { loadReviews, selectReviews } from "../../store/slices/reviewsSlice";
 
 import { selectUser } from "../../store/slices/userSlice";
-import { API_BASE_URL } from "../../constants/api";
+import { API_BASE_URL, SOCKET_URL } from "../../constants/api";
 import { io } from "socket.io-client";
 
 // Restaurant backend socket URL (consolidated to port 5000)
-const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
+const RESTAURANT_SOCKET_URL = SOCKET_URL;
 
 export default function RestaurantScreen() {
   const dispatch = useDispatch();

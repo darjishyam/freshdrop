@@ -425,11 +425,78 @@ const getRestaurantOrderHistory = async (req, res) => {
     }
 };
 
+// @desc    Admin: Manually update order status (Override)
+// @route   PATCH /api/admin/orders/:id/status
+// @access  Private/Admin
+const updateOrderStatus = async (req, res) => {
+    try {
+        const { status } = req.body;
+        const validStatuses = ['Placed', 'Confirmed', 'Preparing', 'Out for Delivery', 'Delivered', 'Cancelled'];
+
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        const oldStatus = order.status;
+        order.status = status;
+
+        // If cancelled by admin, we might want to track who did it or add a note
+        if (status === 'Cancelled') {
+            order.timeline.push({ status: 'Cancelled', message: 'Order cancelled by administrator' });
+        } else {
+            order.timeline.push({ status, message: `Status manually updated to ${status} by administrator` });
+        }
+
+        await order.save();
+
+        // Socket.io Real-time Sync
+        const io = req.app.get("io");
+        if (io) {
+            const updatePayload = {
+                orderId: order._id,
+                status: status,
+                message: `Order status updated to ${status} by Administrator`
+            };
+
+            // Notify User
+            io.to(`user_${order.user}`).emit("orderUpdate", updatePayload);
+
+            // Notify Restaurant
+            io.to(`restaurant_${order.restaurant}`).emit("orderUpdate", updatePayload);
+
+            // Notify Driver (if assigned)
+            if (order.driver) {
+                io.to(`driver_${order.driver}`).emit("orderUpdate", updatePayload);
+
+                // If cancelled, notify driver to stop delivery
+                if (status === 'Cancelled') {
+                    io.to(`driver_${order.driver}`).emit("orderCancelled", {
+                        orderId: order._id,
+                        message: "This order has been cancelled by the administrator."
+                    });
+                }
+            }
+
+            console.log(`[Socket] Admin Override: Order ${order._id} -> ${status}`);
+        }
+
+        res.json({ message: `Order status updated to ${status}`, order });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getAllUsers,
     getAllDrivers,
     getAllRestaurants,
     getAllOrders,
+    updateOrderStatus,
     toggleUserStatus,
     updateRestaurantStatus,
     updateAdminDriverStatus,

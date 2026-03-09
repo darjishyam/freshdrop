@@ -503,6 +503,16 @@ export default function OrderDetailsScreen() {
               ₹{formatPrice(order.billDetails ? order.billDetails.taxes : 0)}
             </Text>
           </View>
+          {order.billDetails && order.billDetails.discount > 0 && (
+            <View style={styles.billRow}>
+              <Text style={[styles.billLabel, { color: '#16a34a' }]}>
+                {order.couponCode ? `Coupon Discount (${order.couponCode})` : 'Discount'}
+              </Text>
+              <Text style={[styles.billValue, { color: '#16a34a' }]}>
+                -₹{formatPrice(order.billDetails.discount)}
+              </Text>
+            </View>
+          )}
           <View style={styles.divider} />
           <View style={styles.billRow}>
             <Text style={styles.totalLabel}>To Pay</Text>

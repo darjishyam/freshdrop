@@ -97,3 +97,31 @@ export const cancelOrderAPI = async (orderId) => {
         throw error;
     }
 };
+
+/**
+ * Validate Coupon Code
+ * POST /api/coupons/validate
+ */
+export const validateCouponAPI = async (code, cartTotal) => {
+    try {
+        const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+        if (!token) {
+            throw new Error("You must be logged in to apply a coupon");
+        }
+
+        const response = await apiClient.request(`${API_URL}/coupons/validate`, {
+            method: "POST",
+            body: JSON.stringify({ code, cartTotal }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || "Failed to validate coupon");
+        }
+        return data; // { success, message, discountAmount, code }
+    } catch (error) {
+        console.error("Error validating coupon:", error);
+        throw error;
+    }
+};
+

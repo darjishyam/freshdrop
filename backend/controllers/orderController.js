@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Driver = require("../models/Driver");
 const Restaurant = require("../models/Restaurant");
 const Grocery = require("../models/Grocery");
+const Coupon = require("../models/Coupon");
 const { sendPushNotification } = require("../services/notificationService");
 
 const logFile = path.join(__dirname, "../logs/order_dispatch.log");
@@ -28,6 +29,7 @@ const createOrder = async (req, res) => {
             totalAmount,
             deliveryAddress,
             paymentMethod,
+            couponCode,
         } = req.body;
 
         // Log ALL incoming order requests with a counter to distinguish duplicates
@@ -78,13 +80,68 @@ const createOrder = async (req, res) => {
         // Calculate bill details
         const itemTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
         // Tiered delivery fee based on number of items
-        // 1-2 items: ₹40
-        // 3-5 items: ₹60
-        // 6+ items: ₹80
         const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
         const deliveryFee = itemCount <= 2 ? 40 : itemCount <= 5 ? 60 : 80;
         const taxes = Math.round(itemTotal * 0.05); // 5% tax
-        const grandTotal = itemTotal + deliveryFee + taxes;
+
+        // --- COUPON LOGIC ---
+        let finalDiscount = 0;
+        let appliedCouponCode = null;
+
+        if (couponCode) {
+            const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+
+            // If the coupon doesn't exist at all
+            if (!coupon) {
+                return res.status(400).json({ message: "The applied coupon code is no longer valid." });
+            }
+
+            // If the admin disabled the coupon while the user was at checkout
+            if (!coupon.isActive) {
+                return res.status(400).json({ message: "This coupon has been disabled and is no longer valid." });
+            }
+
+            // Expiration and order value checks
+            if (new Date(coupon.expiresAt) <= new Date()) {
+                return res.status(400).json({ message: "The applied coupon has expired." });
+            }
+            if (itemTotal < coupon.minOrderValue) {
+                return res.status(400).json({ message: `This coupon requires a minimum subtotal of ₹${coupon.minOrderValue}.` });
+            }
+
+            // Limits check
+            const isUnderGlobalLimit = !coupon.usageLimit || coupon.usedCount < coupon.usageLimit;
+            const userUsesCount = coupon.usersUsed.filter(id => id.toString() === req.user._id.toString()).length;
+            const isUnderUserLimit = userUsesCount < coupon.perUserLimit;
+
+            if (!isUnderGlobalLimit) {
+                return res.status(400).json({ message: "This coupon has reached its maximum global usage limit." });
+            }
+            if (!isUnderUserLimit) {
+                return res.status(400).json({ message: "You have already reached the maximum usage limit for this coupon." });
+            }
+
+            // Passed all checks, calculate discount
+            if (coupon.discountType === "FLAT") {
+                finalDiscount = coupon.discountValue;
+            } else if (coupon.discountType === "PERCENTAGE") {
+                finalDiscount = (itemTotal * coupon.discountValue) / 100;
+                if (coupon.maxDiscount && finalDiscount > coupon.maxDiscount) {
+                    finalDiscount = coupon.maxDiscount;
+                }
+            }
+            finalDiscount = Math.round(finalDiscount);
+            if (finalDiscount > itemTotal) finalDiscount = itemTotal; // Cap discount to max out at itemTotal
+
+            appliedCouponCode = coupon.code;
+
+            // Consume the coupon
+            coupon.usedCount += 1;
+            coupon.usersUsed.push(req.user._id);
+            await coupon.save();
+        }
+
+        const grandTotal = itemTotal + deliveryFee + taxes - finalDiscount;
 
         const order = new Order({
             user: req.user._id,
@@ -92,12 +149,15 @@ const createOrder = async (req, res) => {
             restaurant: restaurantId,
             items,
             totalAmount: grandTotal,
+            couponCode: appliedCouponCode,
+            discountAmount: finalDiscount,
             billDetails: {
                 itemTotal,
                 deliveryFee,
                 taxes,
-                discount: 0,
+                discount: finalDiscount,
                 grandTotal,
+
             },
             customerDetails: {
                 name: req.user.name || "Customer",
@@ -188,22 +248,67 @@ const createOrder = async (req, res) => {
                 console.log(`[PUSH] Notifying User of success: ${req.user.email}`);
                 await sendPushNotification(
                     [{ userId: req.user._id, pushToken: req.user.pushToken }],
-                    "✅ Order placed successfully",
-                    "We’re confirming your order with the restaurant.",
-                    { type: 'ORDER_PLACED', orderId: createdOrder._id },
-                    'User'
+                    "✅ Order Placed Successfully",
+                    `Your order from ${restaurantDoc.name || 'the store'} is placed! Waiting for confirmation.`,
+                    { orderId: createdOrder._id, type: 'ORDER_UPDATE' }
                 );
-                console.log(`[PUSH] User success notification sent.`);
             }
-        } catch (pushError) {
-            console.error("Failed to send push notifications:", pushError);
+        } catch (pushErr) {
+            console.error("[PUSH] Error sending notifications:", pushErr);
         }
         // ------------------------------------------
 
-        res.status(201).json(populatedOrder);
+        // --- Restaurant SLA Timeout (10 Minutes) ---
+        // If the restaurant hasn't moved the order from "Order Placed" to "Confirmed" ideally in 10 mins, cancel it.
+        const SLA_TIMEOUT = 10 * 60 * 1000; // 10 minutes for everyone
+
+        setTimeout(async () => {
+            try {
+                const checkOrder = await Order.findById(createdOrder._id).populate("user").populate("restaurant");
+                if (checkOrder && checkOrder.status === "Order Placed") {
+                    console.log(`[SLA TIMEOUT] Order ${checkOrder._id} was not accepted in time. Cancelling...`);
+
+                    checkOrder.status = "Cancelled";
+                    checkOrder.timeline.push({
+                        status: "Cancelled",
+                        time: new Date(),
+                        description: "Your order was automatically cancelled because the restaurant did not accept it in time.",
+                    });
+
+                    await checkOrder.save();
+
+                    // Standardized Socket Emissions
+                    if (io) {
+                        // Notify Customer (matches app/orders/[id].js listener: `order_${id}`)
+                        io.emit(`order_${checkOrder._id}`, checkOrder);
+
+                        // Notify Restaurant (matches app/(main)/orders.js listener: `orderUpdated`)
+                        io.emit('orderUpdated', checkOrder);
+
+                        // Legacy/Admin sync
+                        io.to(`user_${checkOrder.user._id}`).emit('orderUpdate', checkOrder);
+                        io.to("admin_room").emit('adminRemoveOrder', checkOrder._id);
+                    }
+
+                    // Push Notification to Customer
+                    if (checkOrder.user && checkOrder.user.pushToken) {
+                        await sendPushNotification(
+                            [{ userId: checkOrder.user._id, pushToken: checkOrder.user.pushToken }],
+                            "❌ Order Cancelled",
+                            `We're sorry! ${checkOrder.restaurant.name || 'The store'} didn't confirm your order in time so it was cancelled. Refund initiated if applicable.`,
+                            { orderId: checkOrder._id, type: 'ORDER_UPDATE' }
+                        );
+                    }
+                }
+            } catch (err) {
+                console.error("[SLA TIMEOUT ERROR]", err);
+            }
+        }, SLA_TIMEOUT);
+
+        res.status(201).json(createdOrder);
     } catch (error) {
-        console.error("Order Create Error:", error);
-        res.status(500).json({ message: "Failed to place order" });
+        console.error("Error creating order:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 
@@ -559,6 +664,23 @@ const getDriverActiveOrder = async (req, res) => {
     }
 }
 
+// Helper for Haversine Distance
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    // Check for null/undefined specifically
+    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+
+    const R = 6371; // Radius of the earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const d = R * c;
+    return d.toFixed(1); // Return 1 decimal place string
+};
+
 // @desc    Get Driver's Order History
 // @route   GET /api/driver/history
 const getDriverHistory = async (req, res) => {
@@ -573,10 +695,56 @@ const getDriverHistory = async (req, res) => {
             .limit(20)
             .populate("restaurant", "name image address storeType");
 
-        res.json(orders);
+        // Calculate dynamic metrics for each order
+        const enhancedOrders = orders.map(order => {
+            const orderObj = order.toObject();
+
+            // 1. Calculate Distance
+            let distance = null;
+            const resCoords = order.restaurant?.address?.coordinates;
+            const devCoords = order.deliveryAddress;
+
+            if (resCoords && (resCoords.lat != null || resCoords.latitude != null) && devCoords && (devCoords.lat != null || devCoords.latitude != null)) {
+                const rLat = resCoords.lat ?? resCoords.latitude;
+                const rLon = resCoords.lon ?? resCoords.longitude;
+                const dLat = devCoords.lat ?? devCoords.latitude;
+                const dLon = devCoords.lon ?? devCoords.longitude;
+
+                distance = calculateDistance(rLat, rLon, dLat, dLon);
+            }
+            orderObj.deliveryDistance = distance ? `${distance} km` : "N/A";
+
+            // 2. Calculate Duration
+            let duration = null;
+            // Fallback chain for start time: Out for Delivery -> Confirmed -> Order Placed (createdAt)
+            const pickupEvent = order.timeline.find(t => t.status === "Out for Delivery") ||
+                order.timeline.find(t => t.status === "Confirmed") ||
+                order.timeline.find(t => t.status === "Order Placed");
+
+            const deliveryEvent = order.timeline.find(t => t.status === "Delivered");
+
+            if (pickupEvent && deliveryEvent) {
+                const startTime = new Date(pickupEvent.time);
+                const endTime = new Date(deliveryEvent.time);
+                const diffMs = endTime - startTime;
+                duration = Math.max(1, Math.round(diffMs / 60000)); // Minimum 1 min
+            } else if (deliveryEvent) {
+                // Last resort: compare delivered time to overall order creation if timeline is missing milestones
+                const startTime = new Date(order.createdAt);
+                const endTime = new Date(deliveryEvent.time);
+                const diffMs = endTime - startTime;
+                duration = Math.max(1, Math.round(diffMs / 60000));
+            }
+
+            orderObj.deliveryDuration = duration ? `${duration} mins` : "N/A";
+
+            return orderObj;
+        });
+
+        res.json(enhancedOrders);
     } catch (error) {
         console.error("Get Driver History Error:", error);
-        res.status(500).json({ message: "Failed to fetch history" });
+        res.status(500).json({ message: error.message });
     }
 }
 

@@ -83,11 +83,28 @@ export const fetchFeaturedProducts = createAsyncThunk(
   }
 );
 
+// Fetch All Categories
+export const fetchCategories = createAsyncThunk(
+  "data/fetchCategories",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${API_URL}/categories`);
+      if (!response.ok) throw new Error("Failed to fetch categories");
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Categories fetch error:", error.message);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const initialState = {
   restaurants: [],
   restaurantItems: {},
   groceries: [],
   featuredProducts: [], // NEW
+  categories: [], // NEW: From DB
   isLoading: false,
   error: null,
 };
@@ -150,6 +167,11 @@ const dataSlice = createSlice({
     builder.addCase(fetchFeaturedProducts.fulfilled, (state, action) => {
       state.featuredProducts = action.payload;
     });
+
+    // Categories
+    builder.addCase(fetchCategories.fulfilled, (state, action) => {
+      state.categories = action.payload;
+    });
   },
 });
 
@@ -159,4 +181,5 @@ export const selectRestaurants = (state) => state.data.restaurants;
 export const selectRestaurantItems = (state) => state.data.restaurantItems;
 export const selectGroceries = (state) => state.data.groceries;
 export const selectFeaturedProducts = (state) => state.data.featuredProducts;
+export const selectCategories = (state) => state.data.categories;
 export const selectDataLoading = (state) => state.data.isLoading;

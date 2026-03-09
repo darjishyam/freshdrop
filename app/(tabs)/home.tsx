@@ -23,7 +23,7 @@ import {
   groceryStores,
   restaurants, // [NEW] Mock Data
 } from "../../data/mockData";
-import { API_BASE_URL } from "../../constants/api";
+import { API_BASE_URL, SOCKET_URL } from "../../constants/api";
 import { addToCart } from "../../store/slices/cartSlice";
 import {
   fetchRestaurants,
@@ -34,6 +34,8 @@ import {
   selectRestaurants,
   selectGroceries,
   selectFeaturedProducts,
+  selectCategories,
+  fetchCategories
 } from "../../store/slices/dataSlice";
 import {
   selectLocation,
@@ -43,7 +45,7 @@ import {
 } from "../../store/slices/userSlice";
 import { io } from "socket.io-client";
 
-const RESTAURANT_SOCKET_URL = "https://freshdrop-backend.onrender.com";
+const RESTAURANT_SOCKET_URL = SOCKET_URL;
 
 
 const { width } = Dimensions.get("window");
@@ -71,11 +73,13 @@ export default function HomeScreen() {
   const nearbyRestaurants = useSelector(selectRestaurants); // USE REDUX DATA
   const groceryItems = useSelector(selectGroceries); // [NEW] Use fetched data
   const featuredProducts = useSelector(selectFeaturedProducts); // [NEW]
+  const dbCategories = useSelector(selectCategories); // [NEW] Dynamic Categories
 
   // State
   // Filter State
   const [filterType, setFilterType] = useState("All"); // All, Veg, Non-Veg
   const [priceRange, setPriceRange] = useState("All"); // All, Low, Medium, High
+  const [ratingFilter, setRatingFilter] = useState(0); // 0, 4.0, 4.5
 
   // State for search
   const [searchQuery, setSearchQuery] = useState("");
@@ -122,6 +126,7 @@ export default function HomeScreen() {
           lon: coords.longitude,
         })
       ); // [NEW] Fetch products near user
+      dispatch(fetchCategories()); // [NEW] Fetch dynamic categories
     };
     doFetch();
     // Re-fetch whenever app comes back to foreground (catches isOpen/stock changes)
@@ -155,13 +160,17 @@ export default function HomeScreen() {
   // Derived Data with Filters
   const filteredRestaurants = useMemo(() => {
     let result = nearbyRestaurants || [];
-    // Note: detailed restaurant filtering (veg/price) would require more data fields
-    // For now, we assume restaurants match search query if applicable
+
+    // Filter by Rating
+    if (ratingFilter > 0) {
+      result = result.filter((r) => r.rating >= ratingFilter);
+    }
+
     if (searchQuery) {
       // Search logic handled in searchResults below for global search
     }
     return result;
-  }, [nearbyRestaurants, filterType, priceRange]);
+  }, [nearbyRestaurants, filterType, priceRange, ratingFilter]);
 
   const filteredProductsDisplay = useMemo(() => {
     let result = featuredProducts || [];
@@ -183,8 +192,18 @@ export default function HomeScreen() {
       result = result.filter((p) => p.price > 200);
     }
 
+    // Filter by Rating
+    if (ratingFilter > 0) {
+      result = result.filter((p) => p.rating >= ratingFilter);
+    }
+
     return result;
-  }, [featuredProducts, filterType, priceRange]);
+  }, [featuredProducts, filterType, priceRange, ratingFilter]);
+
+  // Use dynamic categories with fallback to mock
+  const displayCategories = useMemo(() => {
+    return dbCategories && dbCategories.length > 0 ? dbCategories : categories;
+  }, [dbCategories]);
 
   // Update Search Results with useMemo
   const searchResults = useMemo(() => {
@@ -197,7 +216,7 @@ export default function HomeScreen() {
       .filter((r) => r.name.toLowerCase().includes(query))
       .map((r) => ({ type: "Restaurant", data: r }));
     // Filter Categories
-    const filteredCategories = categories
+    const filteredCategories = displayCategories
       .filter((c) => c.name.toLowerCase().includes(query))
       .map((c) => ({ type: "Category", data: c }));
     // Filter Food Options
@@ -280,8 +299,19 @@ export default function HomeScreen() {
   };
 
   // Banner Click Handler
-  const handleBannerClick = (banner) => {
+  const handleBannerClick = async (banner) => {
     console.log("Banner clicked:", banner.title, "LinkType:", banner.linkType, "LinkId:", banner.linkId);
+
+    // Record click for analytics
+    try {
+      // Await fetch to ensure it sends before the component unmounts for navigation
+      await fetch(`${API_BASE_URL}/external/banners/click/${banner._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+    } catch (err) {
+      console.error("Click record fail:", err);
+    }
 
     if (!banner.linkType || banner.linkType.toLowerCase() === "none") return;
 
@@ -311,31 +341,34 @@ export default function HomeScreen() {
     const [activeIndex, setActiveIndex] = useState(0);
     const carouselRef = useRef(null);
 
+    // Adjusted Width logic to match styles
+    const bannerWidth = Platform.OS === 'web' ? (width > 1200 ? 1168 : width - 40) : width - 32;
+
     useEffect(() => {
       if (homeBanners.length <= 1) return;
 
       const interval = setInterval(() => {
         setActiveIndex((prev) => {
           const nextIndex = (prev + 1) % homeBanners.length;
-          carouselRef.current?.scrollTo({ x: nextIndex * (width - 32), animated: true });
+          carouselRef.current?.scrollTo({ x: nextIndex * bannerWidth, animated: true });
           return nextIndex;
         });
       }, 4000); // Slightly faster sliding (4s)
 
       return () => clearInterval(interval);
-    }, [homeBanners.length]); // Removed activeIndex from deps to prevent double-timers
+    }, [homeBanners.length, bannerWidth]);
 
     if (homeBanners.length === 0) return null;
 
     return (
-      <View style={styles.bannerWrapper}>
+      <View style={[styles.bannerWrapper, Platform.OS === 'web' && { alignSelf: 'center' }]}>
         <ScrollView
           ref={carouselRef}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={(e) => {
-            const index = Math.round(e.nativeEvent.contentOffset.x / (width - 32));
+            const index = Math.round(e.nativeEvent.contentOffset.x / bannerWidth);
             setActiveIndex(index);
           }}
           contentContainerStyle={{ gap: 0 }}
@@ -352,6 +385,15 @@ export default function HomeScreen() {
                 style={styles.bannerImg}
                 resizeMode="cover"
               />
+              {/* Discount Badge */}
+              {banner.discountType && banner.discountType !== 'none' && (
+                <View style={[styles.discountBadge, { top: 10, left: 10, borderBottomRightRadius: 6, borderTopLeftRadius: 6, borderBottomLeftRadius: 0, borderTopRightRadius: 0, backgroundColor: '#FC8019' }]}>
+                  <Text style={styles.discountText}>
+                    {banner.discountType === 'percentage' ? `${banner.discountValue}% OFF` :
+                      banner.discountType === 'flat' ? `₹${banner.discountValue} OFF` : 'FREE ITEM'}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -496,7 +538,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.contentContainer}>
+      <View style={[styles.contentContainer, Platform.OS === 'web' && { width: '100%' }]}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -624,6 +666,33 @@ export default function HomeScreen() {
             >
               <Text style={{ color: priceRange === "High" ? "#FC8019" : "#333", fontWeight: "600" }}>₹200+</Text>
             </TouchableOpacity>
+
+            {/* Rating Filter Chips */}
+            <TouchableOpacity
+              onPress={() => setRatingFilter(ratingFilter === 4.0 ? 0 : 4.0)}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                borderColor: ratingFilter === 4.0 ? "#FC8019" : "#e0e0e0",
+                backgroundColor: ratingFilter === 4.0 ? "#FFF7ED" : "#fff",
+                flexDirection: 'row', alignItems: 'center'
+              }}
+            >
+              <Text style={{ color: ratingFilter === 4.0 ? "#FC8019" : "#333", fontWeight: "600" }}>4.0+ </Text>
+              <Ionicons name="star" size={14} color={ratingFilter === 4.0 ? "#FC8019" : "#FFC107"} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setRatingFilter(ratingFilter === 4.5 ? 0 : 4.5)}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1,
+                borderColor: ratingFilter === 4.5 ? "#FC8019" : "#e0e0e0",
+                backgroundColor: ratingFilter === 4.5 ? "#FFF7ED" : "#fff",
+                flexDirection: 'row', alignItems: 'center'
+              }}
+            >
+              <Text style={{ color: ratingFilter === 4.5 ? "#FC8019" : "#333", fontWeight: "600" }}>4.5+ </Text>
+              <Ionicons name="star" size={14} color={ratingFilter === 4.5 ? "#FC8019" : "#FFC107"} />
+            </TouchableOpacity>
           </ScrollView>
         </View>
 
@@ -700,8 +769,85 @@ export default function HomeScreen() {
               {/* Promotional Banners */}
               <BannerCarousel />
 
+              {/* What's on your mind? (Categories) - only show when no type filter active */}
+              {filterType === "All" && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>What's on your mind?</Text>
+                    <View style={styles.navButtons}>
+                      <TouchableOpacity
+                        style={[
+                          styles.navBtn,
+                          !categoryCanScrollLeft && styles.navBtnDisabled,
+                        ]}
+                        onPress={() => scrollCategory("left")}
+                        disabled={!categoryCanScrollLeft}
+                      >
+                        <Ionicons
+                          name="arrow-back"
+                          size={20}
+                          color={categoryCanScrollLeft ? "#4b5563" : "#9ca3af"}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.navBtn,
+                          !categoryCanScrollRight && styles.navBtnDisabled,
+                        ]}
+                        onPress={() => scrollCategory("right")}
+                        disabled={!categoryCanScrollRight}
+                      >
+                        <Ionicons
+                          name="arrow-forward"
+                          size={20}
+                          color={categoryCanScrollRight ? "#4b5563" : "#9ca3af"}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <ScrollView
+                    ref={categoryScrollRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.horizontalList}
+                    onScroll={handleCategoryScroll}
+                    scrollEventThrottle={16}
+                    onContentSizeChange={(w) => {
+                      categoryContentWidth.current = w;
+                    }}
+                    onLayout={(e) => {
+                      categoryLayoutWidth.current = e.nativeEvent.layout.width;
+                    }}
+                  >
+                    {displayCategories.map((item, index) => (
+                      <TouchableOpacity
+                        key={item._id || index}
+                        style={styles.categoryItem}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/collection/[id]",
+                            params: { id: item.name },
+                          })
+                        }
+                      >
+                        <View style={styles.categoryImageContainer}>
+                          <Image
+                            source={getImageSource(item.image)}
+                            style={styles.categoryImage}
+                            resizeMode="contain"
+                          />
+                        </View>
+                        <Text style={styles.categoryLabel} numberOfLines={2}>
+                          {item.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
               {/* Best Food Options - Using Real Featured Products */}
-              {(priceRange === "All" && filterType === "All" && featuredProducts.length > 0) && (
+              {(filteredProductsDisplay.length > 0) && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>
@@ -755,10 +901,10 @@ export default function HomeScreen() {
                       foodLayoutWidth.current = e.nativeEvent.layout.width;
                     }}
                   >
-                    {featuredProducts.map((item) => (
+                    {filteredProductsDisplay.map((item) => (
                       <TouchableOpacity
                         key={item._id}
-                        style={styles.foodItem}
+                        style={Platform.OS === 'web' ? styles.webItemValues : styles.foodItem}
                         onPress={() =>
                           router.push({
                             pathname: "/product/[id]",
@@ -777,15 +923,23 @@ export default function HomeScreen() {
                           })
                         }
                       >
-                        <View style={styles.foodImageContainer}>
+                        <View style={Platform.OS === 'web' ? { position: 'relative', width: '100%', height: 180, overflow: 'hidden', borderRadius: 16 } : styles.foodImageContainer}>
                           <Image
                             source={getImageSource(item.image)}
-                            style={styles.foodOptionImage}
+                            style={Platform.OS === 'web' ? styles.webFoodImage : styles.foodOptionImage}
                             resizeMode="cover"
                           />
+                          {Platform.OS === 'web' && (item.isBestSeller || item.isMustTry) && (
+                            <View style={styles.webBestSellerBadge}>
+                              <Ionicons name="star" size={10} color="#fff" style={{ marginRight: 4 }} />
+                              <Text style={styles.webBestSellerText}>
+                                {item.isBestSeller ? "BESTSELLER" : "MUST TRY"}
+                              </Text>
+                            </View>
+                          )}
                         </View>
-                        <Text style={styles.itemLabel} numberOfLines={2}>{item.name}</Text>
-                        <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }} numberOfLines={1}>
+                        <Text style={Platform.OS === 'web' ? styles.webItemText : styles.itemLabel} numberOfLines={2}>{item.name}</Text>
+                        <Text style={Platform.OS === 'web' ? [styles.webRestMeta, { textAlign: 'center' }] : { fontSize: 12, color: '#666', marginTop: 2, textAlign: 'center' }} numberOfLines={1}>
                           {item.restaurant?.name}
                         </Text>
                       </TouchableOpacity>
@@ -797,8 +951,8 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {/* Near By Grocery - Hidden when any filter is active */}
-              {(priceRange === "All" && filterType === "All") && (
+              {/* Near By Grocery - Hidden when Non-Veg filter is active (grocery is veg/daily needs only) */}
+              {filterType !== "Non-Veg" && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Near By Grocery</Text>
@@ -814,13 +968,12 @@ export default function HomeScreen() {
                     {groceryItems.map((item) => (
                       <TouchableOpacity
                         key={item.id}
-                        style={{
+                        style={Platform.OS === 'web' ? styles.webGroceryCard : {
                           marginRight: 16,
                           width: 140,
                           backgroundColor: '#fff',
                           borderRadius: 12,
                           overflow: 'hidden',
-                          // Shadow for iOS/Android
                           shadowColor: "#000",
                           shadowOffset: { width: 0, height: 2 },
                           shadowOpacity: 0.1,
@@ -843,15 +996,15 @@ export default function HomeScreen() {
                       >
                         <Image
                           source={{ uri: item.image }}
-                          style={{
+                          style={Platform.OS === 'web' ? styles.webGroceryImage : {
                             width: '100%',
                             height: 100,
                             resizeMode: 'cover',
                             backgroundColor: '#f8f8f8'
                           }}
                         />
-                        <View style={{ padding: 8 }}>
-                          <Text style={{
+                        <View style={Platform.OS === 'web' ? styles.webRestInfo : { padding: 8 }}>
+                          <Text style={Platform.OS === 'web' ? styles.webRestName : {
                             fontSize: 14,
                             fontWeight: '700',
                             color: '#1f2937',
@@ -859,7 +1012,7 @@ export default function HomeScreen() {
                           }} numberOfLines={1}>
                             {item.name}
                           </Text>
-                          <Text style={{
+                          <Text style={Platform.OS === 'web' ? styles.webRestMeta : {
                             fontSize: 12,
                             color: '#6b7280'
                           }}>
@@ -1089,8 +1242,8 @@ export default function HomeScreen() {
                   ))}
                 </ScrollView>
               </View>
-              {/* RESTAURANTS SECTION - Hidden when any filter is active */}
-              {(priceRange === "All" && filterType === "All") && (
+              {/* RESTAURANTS SECTION - Always visible regardless of filter */}
+              {nearbyRestaurants && nearbyRestaurants.length > 0 && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>
@@ -1574,26 +1727,38 @@ const styles = StyleSheet.create({
   // UPDATED CATEGORY STYLES
   categoryItem: {
     alignItems: "center",
-    width: Platform.OS === "web" ? 120 : 85,
-    marginRight: Platform.OS === "web" ? 20 : 0,
+    width: Platform.OS === "web" ? 180 : 85,
+    marginRight: Platform.OS === "web" ? 24 : 0,
+    ...Platform.select({
+      web: {
+        transition: "transform 0.2s ease-in-out",
+        cursor: "pointer",
+      }
+    }),
   },
   categoryImageContainer: {
-    width: Platform.OS === "web" ? 100 : 80,
-    height: Platform.OS === "web" ? 100 : 80,
-    borderRadius: 16,
+    width: Platform.OS === "web" ? 150 : 80,
+    height: Platform.OS === "web" ? 150 : 80,
+    borderRadius: Platform.OS === "web" ? 24 : 16,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
     borderWidth: 0,
     overflow: "hidden",
+    backgroundColor: "#fff",
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 4px 15px rgba(0,0,0,0.05)",
+      }
+    }),
   },
   categoryImage: { width: "100%", height: "100%" },
   categoryLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#334155",
+    fontSize: Platform.OS === "web" ? 16 : 12,
+    fontWeight: "800",
+    color: "#1f2937",
     textAlign: "center",
-    lineHeight: 16,
+    lineHeight: 20,
     paddingHorizontal: 2,
   },
 
@@ -1786,10 +1951,11 @@ const styles = StyleSheet.create({
   // Banner Styles
   bannerWrapper: {
     marginVertical: 16,
-    marginHorizontal: 16,
+    marginHorizontal: Platform.OS === 'web' ? 'auto' : 16,
     borderRadius: 16,
     overflow: 'hidden',
-    height: 200, // Increased height
+    height: Platform.OS === 'web' ? 400 : 200,
+    width: Platform.OS === 'web' ? (width > 1200 ? 1168 : width - 40) : width - 32,
     backgroundColor: '#f3f4f6',
     elevation: 3,
     shadowColor: '#000',
@@ -1798,12 +1964,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   bannerItem: {
-    width: width - 32,
-    height: 200, // Match wrapper height
+    width: Platform.OS === 'web' ? (width > 1200 ? 1168 : width - 40) : width - 32,
+    height: Platform.OS === 'web' ? 400 : 200,
   },
   bannerImg: {
     width: '100%',
     height: '100%',
+    borderRadius: 16,
   },
   pagination: {
     flexDirection: 'row',
@@ -1825,48 +1992,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   webHorizontalScroll: {
+    paddingBottom: 20,
     marginBottom: 40,
   },
   webItemValues: {
     alignItems: "center",
-    width: 140,
-    marginRight: 20,
+    width: 250, // [BIGGER] Matched to restaurant card width
+    marginRight: 24,
   },
-
-  // Web Restaurant Card
+  webFoodImage: {
+    width: 250, // [BIGGER] Matched to restaurant card width
+    height: 180, // More cinematic aspect ratio
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  webItemText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1f2937",
+    textAlign: 'center',
+  },
   webRestCard: {
     width: 250,
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 20,
-    marginRight: 20,
-    // Shadow
-    // Shadow
+    marginRight: 24,
+    overflow: 'hidden',
     ...Platform.select({
-      web: { boxShadow: "0px 2px 5px rgba(0,0,0,0.1)" },
-      default: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-      },
+      web: {
+        boxShadow: "0px 4px 15px rgba(0,0,0,0.08)",
+        transition: "transform 0.2s ease-in-out"
+      }
     }),
     ...Platform.select({ web: { cursor: "pointer" } }),
   },
   webRestImage: {
     width: "100%",
-    height: 160,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    height: 180,
   },
   webRestInfo: {
-    padding: 12,
+    padding: 16,
   },
   webRestName: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#1f2937",
-    marginBottom: 4,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 6,
   },
   webRestMeta: {
     fontSize: 14,
@@ -1885,28 +2057,58 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  // Web Grocery Card
+  webGroceryCard: {
+    width: 250,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    marginBottom: 20,
+    marginRight: 24,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 4px 15px rgba(0,0,0,0.08)",
+        transition: "transform 0.2s ease-in-out"
+      }
+    }),
+    ...Platform.select({ web: { cursor: "pointer" } }),
+  },
+  webGroceryImage: {
+    width: "100%",
+    height: 180,
+  },
+
   // Web Product Card
   webProductCard: {
-    width: 160,
-    marginRight: 20,
+    width: 250,
+    marginRight: 24,
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: "#f3f4f6",
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 4px 15px rgba(0,0,0,0.08)",
+        transition: "transform 0.2s ease-in-out"
+      },
+    }),
   },
   webProductImageContainer: {
     width: "100%",
-    height: 140,
+    height: 180,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
-    borderRadius: 12,
-    marginBottom: 8,
+    borderRadius: 0,
+    marginBottom: 0,
     position: "relative",
-    borderWidth: 1,
-    borderColor: "#e2e2e7",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
   },
   webProductImage: {
-    width: 120,
-    height: 120,
+    width: "100%",
+    height: "100%",
   },
   webAddButton: {
     position: "absolute",
@@ -1964,23 +2166,17 @@ const styles = StyleSheet.create({
     color: "#9fa3af",
     textDecorationLine: "line-through",
   },
-  webFoodImageContainer: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    overflow: "hidden",
-    marginBottom: 8,
+  sectionTitle: {
+    fontSize: Platform.OS === "web" ? 24 : 18,
+    fontWeight: "900",
+    color: "#1f2937",
+    marginBottom: 4,
+    letterSpacing: -0.5,
   },
-  webFoodImage: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    marginBottom: 8,
-  },
-  webItemText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#4b5563",
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginBottom: 16,
   },
   navButtons: {
     flexDirection: "row",
@@ -2026,5 +2222,23 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 11,
     fontWeight: "bold",
+  },
+  webBestSellerBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(2, 6, 23, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backdropFilter: 'blur(4px)',
+  },
+  webBestSellerText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 });

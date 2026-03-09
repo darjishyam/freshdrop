@@ -14,6 +14,8 @@ const {
   addToHistory,
   updatePushToken,
   removePushToken,
+  addAddress,
+  deleteAddress,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -30,5 +32,7 @@ router.post("/profile/otp/verify", verifyProfileUpdateOtp);
 router.post("/profile/history", protect, addToHistory);
 router.put("/push-token", protect, updatePushToken);
 router.delete("/push-token", protect, removePushToken);
+router.post("/profile/addresses", protect, addAddress);
+router.delete("/profile/addresses/:addressId", protect, deleteAddress);
 
 module.exports = router;
