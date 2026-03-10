@@ -403,7 +403,7 @@ const updateProfile = async (req, res) => {
             if (!store) store = await Grocery.findById(decoded.id);
 
             console.log("📥 [updateProfile] Request Body:", req.body);
-            const { priceRange, deliveryTime, discount, discountPercent, maxDiscount, minOrderValue, image, isOpen, address } = req.body;
+            const { priceRange, deliveryTime, discount, discountPercent, maxDiscount, minOrderValue, image, isOpen, address, operatingHours } = req.body;
 
             if (priceRange !== undefined) store.priceRange = priceRange;
             if (deliveryTime !== undefined) store.deliveryTime = deliveryTime;
@@ -443,6 +443,10 @@ const updateProfile = async (req, res) => {
 
             if (image !== undefined) store.image = image;
             if (isOpen !== undefined) store.isOpen = isOpen;
+            if (operatingHours !== undefined) {
+                store.operatingHours = operatingHours;
+                store.markModified('operatingHours');
+            }
 
             await store.save();
             console.log("✅ [updateProfile] Store saved successfully:", store._id);

@@ -40,19 +40,31 @@ const getRestaurants = async (req, res) => {
       const allLocal = await Restaurant.find({});
 
       localRestaurants = allLocal.map(r => {
-        const rLat = r.address?.coordinates?.lat || 0;
-        const rLon = r.address?.coordinates?.lon || 0;
+        const rLat = r.address?.coordinates?.lat;
+        const rLon = r.address?.coordinates?.lon;
 
-        // Simple Distance Check (optional, but good to filter relevant ones)
-        const dist = Math.sqrt(Math.pow(rLat - parseFloat(lat), 2) + Math.pow(rLon - parseFloat(lon), 2)) * 111; // Approx km
+        if (rLat === undefined || rLon === undefined) {
+          console.log(`⚠️ Restaurant ${r.name} has no coordinates`);
+          return null;
+        }
 
-        // Only include if within ~20km (generous radius for test)
+        const dist = calculateDistance(parseFloat(lat), parseFloat(lon), rLat, rLon);
+
+        console.log(`📍 Restaurant ${r.name}: ${dist.toFixed(2)}km away (at ${rLat}, ${rLon})`);
+
+        // Only include if within 50km
         if (dist > 50) return null;
+
+        // Also check if status is approved (added for safety)
+        if (r.status !== 'APPROVED') {
+          console.log(`⏳ Restaurant ${r.name} is not APPROVED (status: ${r.status})`);
+          // For now, let's keep it visible in dev mode, but typically we'd return null
+        }
 
         return {
           id: r._id.toString(),
           name: r.name,
-          cuisine: r.cuisines.join(", "),
+          cuisine: (r.cuisines && r.cuisines.length > 0) ? r.cuisines.join(", ") : "Multi-Cuisine",
           lat: rLat,
           lon: rLon,
           address: `${r.address.street}, ${r.address.city}`,
@@ -63,10 +75,12 @@ const getRestaurants = async (req, res) => {
           discount: r.discount || "",
           promoted: r.isPromoted,
           image: r.image,
-          tags: [...r.cuisines, "Fast Delivery"],
+          tags: [...(r.cuisines || []), "Fast Delivery"],
           coordinates: { lat: rLat, lng: rLon },
           location: r.address.city,
-          isLocal: true // Flag to identify our DB restaurants
+          isLocal: true,
+          status: r.status,
+          isOpen: r.isOpen
         };
       }).filter(Boolean);
 
