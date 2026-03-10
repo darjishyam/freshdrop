@@ -1009,15 +1009,40 @@ const addAddress = async (req, res) => {
       return res.status(400).json({ message: "Street address is required" });
     }
 
-    // Add new address to array
-    user.savedAddresses.push({
-      type: type || "Other",
-      street,
-      city:
+    const typeToSave = type || "Other";
+
+    // --- UPSERT LOGIC ---
+    // If it's Home or Work, we only want ONE of each.
+    // If it's 'Other', we might allow multiple? Swiggy usually allows multiple 'Other', 
+    // but the user said "always display only one address for home,office,other".
+    // So let's enforce uniqueness for ALL types including 'Other' if that's the goal.
+    
+    const existingIndex = user.savedAddresses.findIndex(
+      (addr) => addr.type.toLowerCase() === typeToSave.toLowerCase()
+    );
+
+    if (existingIndex !== -1) {
+      // Update existing
+      user.savedAddresses[existingIndex] = {
+        ...user.savedAddresses[existingIndex],
+        street,
+        city: city || user.savedAddresses[existingIndex].city,
+        lat: lat !== undefined ? lat : user.savedAddresses[existingIndex].lat,
+        lon: lon !== undefined ? lon : user.savedAddresses[existingIndex].lon,
+        type: typeToSave
+      };
+      console.log(`[ADDRESS] Updated existing ${typeToSave} address`);
+    } else {
+      // Add new
+      user.savedAddresses.push({
+        type: typeToSave,
+        street,
         city,
-      lat,
-      lon
-    });
+        lat,
+        lon
+      });
+      console.log(`[ADDRESS] Added new ${typeToSave} address`);
+    }
 
     await user.save();
     res.status(201).json(user.savedAddresses);
@@ -1039,12 +1064,21 @@ const deleteAddress = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log(`[ADDRESS] Attempting to delete address: ${addressId} for user: ${user._id}`);
+    const initialCount = user.savedAddresses.length;
+
     // Filter out the requested address
     user.savedAddresses = user.savedAddresses.filter(
       (addr) => addr._id.toString() !== addressId
     );
 
-    await user.save();
+    if (user.savedAddresses.length === initialCount) {
+      console.warn(`[ADDRESS] No address found with ID ${addressId} to delete`);
+    } else {
+      console.log(`[ADDRESS] Successfully deleted address ${addressId}`);
+      await user.save();
+    }
+
     res.json(user.savedAddresses);
   } catch (error) {
     console.error("Delete Address Error:", error);

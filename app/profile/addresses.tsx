@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
+import MapPicker from "../../components/MapPicker";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDispatch, useSelector } from "react-redux";
@@ -49,10 +51,54 @@ export default function ManageAddressScreen() {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Map & Search State
+  const [mapRegion, setMapRegion] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [accuracy, setAccuracy] = useState(null);
+
   useEffect(() => {
     // Fetch user's saved addresses when screen opens
-    dispatch(fetchSavedAddresses());
+    dispatch(fetchSavedAddresses() as any);
+
+    // Initialize map region if coords exist
+    if (locationCoords) {
+      setMapRegion({
+        ...locationCoords,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      });
+    }
   }, []);
+
+  // Helper: Calculate distance in meters between two coordinates
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 999999;
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  };
+
+  // Check if coordinates match any saved address (within 50 meters)
+  const checkForSavedMatch = (lat, lon) => {
+    if (!savedAddresses || savedAddresses.length === 0) return null;
+
+    const match = savedAddresses.find(addr => {
+      const dist = calculateDistance(lat, lon, addr.lat, addr.lon);
+      return dist < 50; // Match if within 50 meters
+    });
+
+    return match;
+  };
 
   const getCurrentLocation = async () => {
     try {
@@ -71,10 +117,31 @@ export default function ManageAddressScreen() {
         accuracy: Location.Accuracy.High,
       });
 
-      const { latitude, longitude } = currentLocation.coords;
+      const { latitude, longitude, accuracy: posAccuracy } = currentLocation.coords;
+      setAccuracy(posAccuracy);
+
+      if (posAccuracy > 100) {
+        showToast(`📍 Accuracy is low (${Math.round(posAccuracy)}m). Please adjust the pin.`);
+      }
+
+      const newCoords = { latitude, longitude };
+      setMapRegion({
+        ...newCoords,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      });
 
       // Update Redux coords early for maps
-      dispatch(updateLocationCoords({ latitude, longitude }));
+      dispatch(updateLocationCoords(newCoords));
+
+      // --- LOCATION SNAPPING ---
+      const savedMatch = checkForSavedMatch(latitude, longitude);
+      if (savedMatch) {
+        setAddress(savedMatch.street);
+        setType(savedMatch.type);
+        showToast(`Recognized as ${savedMatch.type}`);
+        return;
+      }
 
       try {
         const reverseGeocode = await Location.reverseGeocodeAsync({
@@ -111,7 +178,7 @@ export default function ManageAddressScreen() {
         );
 
         if (response.ok) {
-          const data = await response.json();
+          const data = (await response.json()) as any;
           if (data && data.display_name) {
             setAddress(data.display_name);
             showToast("Address fetched from OpenStreetMap!");
@@ -133,6 +200,83 @@ export default function ManageAddressScreen() {
     }
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    Keyboard.dismiss();
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=1`,
+        { headers: { "User-Agent": "SwiggyCloneApp/1.0" } }
+      );
+      const data = (await response.json()) as any;
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        const latFloat = parseFloat(lat);
+        const lonFloat = parseFloat(lon);
+        const newCoords = { latitude: latFloat, longitude: lonFloat };
+        const newRegion = {
+          ...newCoords,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        };
+        setMapRegion(newRegion);
+
+        // --- LOCATION SNAPPING ---
+        const savedMatch = checkForSavedMatch(latFloat, lonFloat);
+        if (savedMatch) {
+          setAddress(savedMatch.street);
+          setType(savedMatch.type);
+          showToast(`Recognized as ${savedMatch.type}`);
+        } else {
+          setAddress(display_name);
+        }
+
+        dispatch(updateLocationCoords(newCoords));
+        showToast("Location found!");
+      } else {
+        showToast("No locations found for this search.");
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      showToast("Search failed. Check your connection.");
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleRegionChangeComplete = async (region) => {
+    // Only update if the distance moved is significant to avoid infinite loops or jitter
+    setMapRegion(region);
+    const { latitude, longitude } = region;
+
+    // --- LOCATION SNAPPING ---
+    const savedMatch = checkForSavedMatch(latitude, longitude);
+    if (savedMatch) {
+      setAddress(savedMatch.street);
+      setType(savedMatch.type);
+      dispatch(updateLocationCoords({ latitude, longitude }));
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
+        { headers: { "User-Agent": "SwiggyCloneApp/1.0", "Accept-Language": "en" } }
+      );
+
+      if (response.ok) {
+        const data = (await response.json()) as any;
+        if (data && data.display_name) {
+          setAddress(data.display_name);
+          dispatch(updateLocationCoords({ latitude, longitude }));
+        }
+      }
+    } catch (err) {
+      console.warn("Reverse geocode on drag failed:", err);
+    }
+  };
+
   const handleSaveNewAddress = async () => {
     if (!address.trim()) {
       Alert.alert("Error", "Address cannot be empty");
@@ -147,7 +291,7 @@ export default function ManageAddressScreen() {
       const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
       const response = await fetch(geocodeUrl, { headers: { "User-Agent": "SwiggyCloneApp/1.0" } });
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as any;
         if (data && data.length > 0) {
           finalCoords = { latitude: parseFloat(data[0].lat), longitude: parseFloat(data[0].lon) };
         }
@@ -158,13 +302,13 @@ export default function ManageAddressScreen() {
 
     try {
       // 1. Save to backend and Redux array
-      await dispatch(saveUserAddress({
+      await (dispatch(saveUserAddress({
         street: address,
         type: type,
         city: "City", // Extrapolated from OSM in production
         lat: finalCoords?.latitude,
         lon: finalCoords?.longitude
-      })).unwrap();
+      } as any) as any)).unwrap();
 
       showToast("Address saved successfully!");
 
@@ -203,19 +347,35 @@ export default function ManageAddressScreen() {
   };
 
   const handleDeleteAddress = async (id) => {
+    if (!id) {
+      showToast("Error: Address ID not found");
+      return;
+    }
+
+    const performDelete = async () => {
+      try {
+        console.log(`[ADDRESS] Deleting address with ID: ${id}`);
+        await (dispatch(deleteUserAddress(id) as any)).unwrap();
+        showToast("Address deleted");
+      } catch (err) {
+        console.error("[ADDRESS] Delete failed:", err);
+        showToast("Failed to delete address");
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm("Are you sure you want to remove this address?")) {
+        performDelete();
+      }
+      return;
+    }
+
     Alert.alert("Delete Address", "Are you sure you want to remove this address?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
-        onPress: async () => {
-          try {
-            await dispatch(deleteUserAddress(id)).unwrap();
-            showToast("Address deleted");
-          } catch (err) {
-            showToast("Failed to delete address");
-          }
-        }
+        onPress: performDelete
       }
     ]);
   };
@@ -279,9 +439,19 @@ export default function ManageAddressScreen() {
               </View>
             ) : (
               savedAddresses.map((item) => {
-                // Check if this is the currently selected address in Redux
-                const isActive = item.street === activeLocation && item.type === locationType;
-                const iconName = item.type === "Work" ? "briefcase" : item.type === "Other" ? "location" : "home";
+                // Check for match: either exact state match OR GPS proximity match
+                const isExactActive = item.street === activeLocation && item.type === locationType;
+
+                // Cords proximity check (if available)
+                const isProximityActive = locationCoords ?
+                  calculateDistance(locationCoords.latitude, locationCoords.longitude, item.lat, item.lon) < 50 :
+                  false;
+
+                const isActive = isExactActive || isProximityActive;
+
+                const iconName = item.type === "Work" ? "briefcase" :
+                  item.type === "Other" ? "location" :
+                    item.type === "Home" ? "home" : "map";
 
                 return (
                   <TouchableOpacity
@@ -294,7 +464,14 @@ export default function ManageAddressScreen() {
                       <Ionicons name={iconName} size={24} color={isActive ? "#FC8019" : "#64748b"} />
                     </View>
                     <View style={styles.addressInfo}>
-                      <Text style={styles.addressType}>{item.type}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.addressType}>{item.type}</Text>
+                        {isActive && (
+                          <View style={styles.activePill}>
+                            <Text style={styles.activePillText}>ACTIVE</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.addressStreet} numberOfLines={2}>{item.street}</Text>
                     </View>
                     <TouchableOpacity
@@ -319,6 +496,41 @@ export default function ManageAddressScreen() {
         {/* ========================================================= */}
         {viewMode === "add" && (
           <View style={styles.card}>
+            {/* Search Bar */}
+            <Text style={styles.label}>Search Your Location</Text>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search for area, street, landmark..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={handleSearch}
+              />
+              <TouchableOpacity style={styles.searchIconBtn} onPress={handleSearch} disabled={isSearching}>
+                {isSearching ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="search" size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Map Picker */}
+            <MapPicker
+              region={mapRegion}
+              onRegionChangeComplete={handleRegionChangeComplete}
+              showsUserLocation={true}
+            />
+
+            {accuracy && accuracy > 100 && (
+              <View style={styles.accuracyWarning}>
+                <Ionicons name="warning" size={16} color="#b45309" />
+                <Text style={styles.accuracyWarningText}>
+                  Location may be inaccurate. Please adjust the pin.
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.label}>Address Type</Text>
             <View style={styles.typeRow}>
               <TouchableOpacity
@@ -504,6 +716,18 @@ const styles = StyleSheet.create({
     padding: 8,
     marginLeft: 8,
   },
+  activePill: {
+    backgroundColor: "#FC8019",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  activePillText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
+  },
 
   // --- FORM MODE STYLES ---
   card: {
@@ -587,5 +811,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 1.2,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    marginBottom: 20,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#dfe6e9",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    backgroundColor: "#fafafa",
+  },
+  searchIconBtn: {
+    backgroundColor: "#FC8019",
+    width: 50,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  accuracyWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fffbeb",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#fde68a",
+  },
+  accuracyWarningText: {
+    color: "#b45309",
+    fontSize: 13,
+    marginLeft: 8,
+    fontWeight: "500",
   },
 });

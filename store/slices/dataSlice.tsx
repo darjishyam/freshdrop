@@ -6,7 +6,7 @@ const API_URL = API_BASE_URL;
 // Fetch Restaurants from Overpass API (real nearby places)
 export const fetchRestaurants = createAsyncThunk(
   "data/fetchRestaurants",
-  async ({ lat, lon }, { rejectWithValue }) => {
+  async ({ lat, lon }: any, { rejectWithValue }) => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
@@ -24,9 +24,9 @@ export const fetchRestaurants = createAsyncThunk(
       }
 
       const data = await response.json();
-      console.log("✅ Restaurants fetched:", data.length);
+      console.log("✅ Restaurants fetched:", (data as any[]).length);
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Restaurant fetch error:", error.message);
       return rejectWithValue(error.message);
     }
@@ -36,7 +36,7 @@ export const fetchRestaurants = createAsyncThunk(
 // Fetch Groceries (Stores)
 export const fetchGroceries = createAsyncThunk(
   "data/fetchGroceries",
-  async ({ lat, lon }, { rejectWithValue }) => {
+  async ({ lat, lon }: any, { rejectWithValue }) => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
@@ -54,9 +54,9 @@ export const fetchGroceries = createAsyncThunk(
       }
 
       const data = await response.json();
-      console.log("✅ Groceries fetched:", data.length);
+      console.log("✅ Groceries fetched:", (data as any[]).length);
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Groceries fetch error:", error.message);
       return rejectWithValue(error.message);
     }
@@ -66,7 +66,7 @@ export const fetchGroceries = createAsyncThunk(
 // Fetch Featured Products (Best Food Options)
 export const fetchFeaturedProducts = createAsyncThunk(
   "data/fetchFeaturedProducts",
-  async (coords, { rejectWithValue }) => {
+  async (coords: any, { rejectWithValue }) => {
     try {
       let url = `${API_URL}/products/featured`;
       if (coords?.lat && coords?.lon) {
@@ -76,7 +76,7 @@ export const fetchFeaturedProducts = createAsyncThunk(
       if (!response.ok) throw new Error("Failed to fetch featured products");
       const data = await response.json();
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Featured products fetch error:", error.message);
       return rejectWithValue(error.message);
     }
@@ -92,7 +92,7 @@ export const fetchCategories = createAsyncThunk(
       if (!response.ok) throw new Error("Failed to fetch categories");
       const data = await response.json();
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Categories fetch error:", error.message);
       return rejectWithValue(error.message);
     }
@@ -131,23 +131,24 @@ const dataSlice = createSlice({
     });
     builder.addCase(fetchRestaurants.fulfilled, (state, action) => {
       state.isLoading = false;
+      const payload = action.payload as any;
       // Handle payload structure { restaurants: [], groceries: [], restaurantItems: {} }
-      if (action.payload.restaurants && action.payload.restaurantItems) {
-        state.restaurants = action.payload.restaurants;
-        state.restaurantItems = action.payload.restaurantItems;
+      if (payload.restaurants && payload.restaurantItems) {
+        state.restaurants = payload.restaurants;
+        state.restaurantItems = payload.restaurantItems;
         // Also populate DB groceries if returned from the same endpoint
-        if (action.payload.groceries) {
-          state.groceries = action.payload.groceries;
+        if (payload.groceries) {
+          state.groceries = payload.groceries;
         }
       } else {
         // Fallback if backend structure differs
-        state.restaurants = action.payload;
+        state.restaurants = payload;
         state.restaurantItems = {};
       }
     });
     builder.addCase(fetchRestaurants.rejected, (state, action) => {
       state.isLoading = false;
-      state.error = action.payload;
+      state.error = action.payload as any;
     });
 
     // Groceries
@@ -156,21 +157,21 @@ const dataSlice = createSlice({
     });
     builder.addCase(fetchGroceries.fulfilled, (state, action) => {
       state.isLoading = false;
-      state.groceries = action.payload;
+      state.groceries = action.payload as any[];
     });
     builder.addCase(fetchGroceries.rejected, (state, action) => {
       state.isLoading = false;
-      state.error = action.payload;
+      state.error = action.payload as any;
     });
 
     // Featured Products
     builder.addCase(fetchFeaturedProducts.fulfilled, (state, action) => {
-      state.featuredProducts = action.payload;
+      state.featuredProducts = action.payload as any[];
     });
 
     // Categories
     builder.addCase(fetchCategories.fulfilled, (state, action) => {
-      state.categories = action.payload;
+      state.categories = action.payload as any[];
     });
   },
 });

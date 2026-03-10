@@ -85,12 +85,12 @@ export default function GroceryStoreScreen() {
                     console.log("Fetching real grocery data for store:", id);
                     const response = await fetch(`${API_BASE_URL}/restaurants/${id}`);
                     if (!response.ok) throw new Error("Failed to fetch store data");
-                    const data = await response.json();
+                    const data = await response.json() as any;
 
                     setStore(data);
 
                     if (data.products) {
-                        const formattedProducts = data.products.map(p => ({
+                        const formattedProducts = (data.products as any[]).map(p => ({
                             id: p.id || p._id,
                             name: p.name,
                             price: p.price,
@@ -247,12 +247,10 @@ export default function GroceryStoreScreen() {
                                 if (cartRestaurant.id && cartRestaurant.id !== id) {
                                     const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
 
-                                    if (Platform.OS === 'web') {
-                                        if (window.confirm(msg)) {
+                                        if (Platform.OS === 'web' && (global as any).confirm?.(msg)) {
                                             dispatch(clearCart());
                                             handleAddAction();
-                                        }
-                                    } else {
+                                        } else if (Platform.OS !== 'web') {
                                         Alert.alert(
                                             "Replace cart item?",
                                             msg,
@@ -278,7 +276,7 @@ export default function GroceryStoreScreen() {
                         </TouchableOpacity>
                     )}
                 </View>
-            </Pressable>
+            </Pressable >
         );
     };
 
@@ -384,6 +382,9 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
         backgroundColor: '#fff'
+    },
+    backBtn: {
+        padding: 4,
     },
     headerTitle: {
         fontSize: 18,

@@ -19,6 +19,25 @@ import { addToCart } from "../../store/slices/cartSlice";
 import { fetchRestaurants, selectRestaurantItems } from "../../store/slices/dataSlice";
 import { selectLocationCoords, selectUser } from "../../store/slices/userSlice";
 
+interface Item {
+  id?: string;
+  name: string;
+  category: string;
+  price: number;
+  image?: string | any;
+  description?: string;
+  rating?: number;
+  ratingCount?: number;
+  weight?: string;
+  quantity?: string;
+  restaurantName?: string;
+  restaurantId?: string;
+  inStock?: boolean;
+  veg?: boolean;
+  isVeg?: boolean;
+  bestSeller?: boolean;
+}
+
 export default function CollectionScreen() {
   const dispatch = useDispatch();
   const user = useSelector(selectUser);
@@ -32,10 +51,10 @@ export default function CollectionScreen() {
 
   // Use useMemo for items calculation
   const { allItems, hasVeg, hasNonVeg } = useMemo(() => {
-    const nearbyItems = Object.values(reduxRestaurantItems).flat();
+    const nearbyItems = Object.values(reduxRestaurantItems).flat() as Item[];
 
     // Normalization helper: remove spaces, lowercase, and handle common spelling variations (u/v)
-    const normalize = (str) => {
+    const normalize = (str: string | undefined | null) => {
       if (!str) return "";
       return str
         .toLowerCase()
@@ -65,20 +84,20 @@ export default function CollectionScreen() {
     const combined = filteredByCategory.filter(item => item.inStock !== false);
 
     // Check for mixed content
-    const hasVeg = combined.some((i) => (i.isVeg ?? i.veg) === true);
-    const hasNonVeg = combined.some((i) => (i.isVeg ?? i.veg) === false);
+    const hasVeg = combined.some((i: Item) => (i.isVeg ?? i.veg) === true);
+    const hasNonVeg = combined.some((i: Item) => (i.isVeg ?? i.veg) === false);
 
     return { allItems: combined, hasVeg, hasNonVeg };
   }, [categoryName, reduxRestaurantItems]);
 
   const filteredItems = useMemo(() => {
     if (showVegOnly) {
-      return allItems.filter((item) => item.veg === true);
+      return allItems.filter((item: Item) => (item.isVeg ?? item.veg) === true);
     }
     return allItems;
   }, [allItems, showVegOnly]);
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item }: { item: Item }) => {
     const isFood = !!item.restaurantName;
 
     const handlePress = () => {

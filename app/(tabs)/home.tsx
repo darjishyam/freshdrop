@@ -97,7 +97,7 @@ export default function HomeScreen() {
           : `${API_BASE_URL}/external/banners`;
 
         const response = await fetch(url);
-        const data = await response.json();
+        const data = (await response.json()) as any[];
         setHomeBanners(data);
       } catch (err) {
         console.error("Banner fetch failed:", err);
@@ -108,25 +108,25 @@ export default function HomeScreen() {
     if (!coords?.latitude || !coords?.longitude) return;
     console.log("Fetching home data for:", coords);
     const doFetch = () => {
-      dispatch(
+      (dispatch as any)(
         fetchRestaurants({
           lat: coords.latitude,
           lon: coords.longitude,
-        })
+        } as any)
       );
-      dispatch(
+      (dispatch as any)(
         fetchGroceries({
           lat: coords.latitude,
           lon: coords.longitude,
-        })
+        } as any)
       );
-      dispatch(
+      (dispatch as any)(
         fetchFeaturedProducts({
           lat: coords.latitude,
           lon: coords.longitude,
-        })
+        } as any)
       ); // [NEW] Fetch products near user
-      dispatch(fetchCategories()); // [NEW] Fetch dynamic categories
+      (dispatch as any)(fetchCategories()); // [NEW] Fetch dynamic categories
     };
     doFetch();
     // Re-fetch whenever app comes back to foreground (catches isOpen/stock changes)
@@ -153,7 +153,9 @@ export default function HomeScreen() {
       dispatch(updateRestaurantStatus({ restaurantId, isOpen }));
     });
 
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+    };
   }, [dispatch]);
 
 
@@ -275,7 +277,7 @@ export default function HomeScreen() {
         }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as any;
 
       if (!response.ok) {
         throw new Error(data.message || "Failed to save restaurant");
@@ -286,9 +288,9 @@ export default function HomeScreen() {
         pathname: "/restaurant/[id]",
         params: { id: data._id },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving restaurant:", error);
-      showToast("Error loading restaurant", "error");
+      showToast(error.message || "Error loading restaurant", "error");
     }
   };
 
@@ -549,7 +551,10 @@ export default function HomeScreen() {
               <View>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons
-                    name={locationType === "Work" ? "briefcase" : "home"}
+                    name={
+                      locationType === "Work" ? "briefcase" :
+                        locationType === "Other" ? "location" : "home"
+                    }
                     size={20}
                     color="#FC8019"
                     style={{ marginRight: 6 }}
@@ -557,7 +562,7 @@ export default function HomeScreen() {
                   <Text
                     style={{ fontSize: 18, fontWeight: "bold", color: "#333" }}
                   >
-                    {locationType}
+                    {locationType || "Home"}
                   </Text>
                   <Ionicons
                     name="chevron-down"
@@ -1440,6 +1445,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#fff",
   },
+  headerLeft: {
+    flex: 1,
+    marginRight: 16,
+  },
+  addressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1531,7 +1544,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         outlineStyle: "none",
-      },
+      } as any,
     }),
   },
   placeholderContainer: {
@@ -1572,12 +1585,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: Platform.OS === "web" ? 0 : 0,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: Platform.OS === "web" ? 24 : 20,
     fontWeight: "bold",
     color: "#020617",
-    marginBottom: 16,
+    marginBottom: 4,
     paddingHorizontal: 16,
     letterSpacing: -0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  navButtons: {
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 16,
+  },
+  navBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#e2e8f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  navBtnDisabled: {
+    opacity: 0.5,
+    backgroundColor: "#f1f2f6",
   },
   sectionHeader: {
     flexDirection: "row",
@@ -1610,22 +1646,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // RESTAURANT CARD STYLES
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  navButtons: { flexDirection: "row", gap: 10 },
-  navBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f3f4f6",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  // Consistently named styles (removes duplicates)
   restaurantCard: {
     width: 280,
     marginRight: 16,
@@ -2165,34 +2186,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#9fa3af",
     textDecorationLine: "line-through",
-  },
-  sectionTitle: {
-    fontSize: Platform.OS === "web" ? 24 : 18,
-    fontWeight: "900",
-    color: "#1f2937",
-    marginBottom: 4,
-    letterSpacing: -0.5,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#6b7280",
-    marginBottom: 16,
-  },
-  navButtons: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#e2e8f0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  navBtnDisabled: {
-    opacity: 0.5,
-    backgroundColor: "#f1f2f6",
   },
   restClosedOverlay: {
     position: "absolute",

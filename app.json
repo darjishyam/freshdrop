@@ -19,7 +19,12 @@
         "foregroundImage": "./assets/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDummyKey_Please_Add_Your_Real_Key_Here"
+        }
+      }
     },
     "web": {
       "output": "static",
