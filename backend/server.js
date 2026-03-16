@@ -185,8 +185,12 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   if (req.method === 'POST' || req.method === 'PUT') {
     const bodyStr = JSON.stringify(req.body);
-    const logBody = bodyStr.length > 200 ? bodyStr.substring(0, 200) + "..." : bodyStr;
-    console.log(`Payload: ${logBody}`);
+    if (bodyStr) {
+      const logBody = bodyStr.length > 200 ? bodyStr.substring(0, 200) + "..." : bodyStr;
+      console.log(`Payload: ${logBody}`);
+    } else {
+      console.log(`Payload: (undefined or empty)`);
+    }
   }
   next();
 });
