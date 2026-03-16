@@ -12,8 +12,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Pressable,
   View,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming
+} from "react-native-reanimated";
 import { useDispatch, useSelector } from "react-redux";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -47,6 +54,71 @@ const RESTAURANT_SOCKET_URL = SOCKET_URL;
 
 
 const { width } = Dimensions.get("window");
+
+// --- Interactive Components ---
+const InteractiveCard = ({ children, onPress, style }: any) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const onPressIn = () => {
+    scale.value = withTiming(0.95, { duration: 100 });
+  };
+
+  const onPressOut = () => {
+    scale.value = withSpring(1);
+  };
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={style}
+    >
+      <Animated.View style={[animatedStyle, { width: '100%', height: '100%', alignItems: 'center' }]}>
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+};
+
+const SectionHeader = ({ title, subtitle, onScrollLeft, onScrollRight, canScrollLeft, canScrollRight }: any) => (
+  <View style={styles.sectionHeaderContainer}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+    </View>
+    {(onScrollLeft || onScrollRight) && (
+      <View style={styles.navButtons}>
+        <TouchableOpacity
+          style={[styles.navBtn, !canScrollLeft && styles.navBtnDisabled]}
+          onPress={onScrollLeft}
+          disabled={!canScrollLeft}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={18}
+            color={canScrollLeft ? "#4b5563" : "#9ca3af"}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.navBtn, !canScrollRight && styles.navBtnDisabled]}
+          onPress={onScrollRight}
+          disabled={!canScrollRight}
+        >
+          <Ionicons
+            name="arrow-forward"
+            size={18}
+            color={canScrollRight ? "#4b5563" : "#9ca3af"}
+          />
+        </TouchableOpacity>
+      </View>
+    )}
+  </View>
+);
 
 // --- Mock Data ---
 const SEARCH_ITEMS = [
@@ -783,39 +855,13 @@ export default function HomeScreen() {
               {/* What's on your mind? (Categories) - only show when no type filter active */}
               {filterType === "All" && (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>What's on your mind?</Text>
-                    <View style={styles.navButtons}>
-                      <TouchableOpacity
-                        style={[
-                          styles.navBtn,
-                          !categoryCanScrollLeft && styles.navBtnDisabled,
-                        ]}
-                        onPress={() => scrollCategory("left")}
-                        disabled={!categoryCanScrollLeft}
-                      >
-                        <Ionicons
-                          name="arrow-back"
-                          size={20}
-                          color={categoryCanScrollLeft ? "#4b5563" : "#9ca3af"}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.navBtn,
-                          !categoryCanScrollRight && styles.navBtnDisabled,
-                        ]}
-                        onPress={() => scrollCategory("right")}
-                        disabled={!categoryCanScrollRight}
-                      >
-                        <Ionicons
-                          name="arrow-forward"
-                          size={20}
-                          color={categoryCanScrollRight ? "#4b5563" : "#9ca3af"}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <SectionHeader
+                    title="What's on your mind?"
+                    onScrollLeft={() => scrollCategory("left")}
+                    onScrollRight={() => scrollCategory("right")}
+                    canScrollLeft={categoryCanScrollLeft}
+                    canScrollRight={categoryCanScrollRight}
+                  />
                   <ScrollView
                     ref={categoryScrollRef}
                     horizontal
@@ -831,7 +877,7 @@ export default function HomeScreen() {
                     }}
                   >
                     {displayCategories.map((item, index) => (
-                      <TouchableOpacity
+                      <InteractiveCard
                         key={item._id || index}
                         style={styles.categoryItem}
                         onPress={() =>
@@ -851,7 +897,7 @@ export default function HomeScreen() {
                         <Text style={styles.categoryLabel} numberOfLines={2}>
                           {item.name}
                         </Text>
-                      </TouchableOpacity>
+                      </InteractiveCard>
                     ))}
                   </ScrollView>
                 </View>
@@ -860,41 +906,13 @@ export default function HomeScreen() {
               {/* Best Food Options - Using Real Featured Products */}
               {(filteredProductsDisplay.length > 0) && (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>
-                      Order our best food options
-                    </Text>
-                    <View style={styles.navButtons}>
-                      <TouchableOpacity
-                        style={[
-                          styles.navBtn,
-                          !foodCanScrollLeft && styles.navBtnDisabled,
-                        ]}
-                        onPress={() => scrollFood("left")}
-                        disabled={!foodCanScrollLeft}
-                      >
-                        <Ionicons
-                          name="arrow-back"
-                          size={20}
-                          color={foodCanScrollLeft ? "#4b5563" : "#9ca3af"}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.navBtn,
-                          !foodCanScrollRight && styles.navBtnDisabled,
-                        ]}
-                        onPress={() => scrollFood("right")}
-                        disabled={!foodCanScrollRight}
-                      >
-                        <Ionicons
-                          name="arrow-forward"
-                          size={20}
-                          color={foodCanScrollRight ? "#4b5563" : "#9ca3af"}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <SectionHeader
+                    title="Order our best food options"
+                    onScrollLeft={() => scrollFood("left")}
+                    onScrollRight={() => scrollFood("right")}
+                    canScrollLeft={foodCanScrollLeft}
+                    canScrollRight={foodCanScrollRight}
+                  />
                   <ScrollView
                     ref={foodScrollRef}
                     horizontal
@@ -913,7 +931,7 @@ export default function HomeScreen() {
                     }}
                   >
                     {filteredProductsDisplay.map((item) => (
-                      <TouchableOpacity
+                      <InteractiveCard
                         key={item._id}
                         style={Platform.OS === 'web' ? styles.webItemValues : styles.foodItem}
                         onPress={() =>
@@ -940,7 +958,7 @@ export default function HomeScreen() {
                             style={Platform.OS === 'web' ? styles.webFoodImage : styles.foodOptionImage}
                             resizeMode="cover"
                           />
-                          {Platform.OS === 'web' && (item.isBestSeller || item.isMustTry) && (
+                          {(item.isBestSeller || item.isMustTry) && (
                             <View style={styles.webBestSellerBadge}>
                               <Ionicons name="star" size={10} color="#fff" style={{ marginRight: 4 }} />
                               <Text style={styles.webBestSellerText}>
@@ -950,10 +968,10 @@ export default function HomeScreen() {
                           )}
                         </View>
                         <Text style={Platform.OS === 'web' ? styles.webItemText : styles.itemLabel} numberOfLines={2}>{item.name}</Text>
-                        <Text style={Platform.OS === 'web' ? [styles.webRestMeta, { textAlign: 'center' }] : { fontSize: 12, color: '#666', marginTop: 2, textAlign: 'center' }} numberOfLines={1}>
+                        <Text style={Platform.OS === 'web' ? [styles.webRestMeta, { textAlign: 'center' }] : { fontSize: 12, color: '#666', marginTop: 4, textAlign: 'center' }} numberOfLines={1}>
                           {item.restaurant?.name}
                         </Text>
-                      </TouchableOpacity>
+                      </InteractiveCard>
                     ))}
                   </ScrollView>
                   {Platform.OS === "web" && (
@@ -965,9 +983,7 @@ export default function HomeScreen() {
               {/* Near By Grocery - Hidden when Non-Veg filter is active or grocery items are empty */}
               {filterType !== "Non-Veg" && groceryItems && groceryItems.length > 0 && (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Near By Grocery</Text>
-                  </View>
+                  <SectionHeader title="Near By Grocery" />
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -977,7 +993,7 @@ export default function HomeScreen() {
                     ]}
                   >
                     {groceryItems.map((item) => (
-                      <TouchableOpacity
+                      <InteractiveCard
                         key={item.id}
                         style={Platform.OS === 'web' ? styles.webGroceryCard : {
                           marginRight: 16,
@@ -1030,7 +1046,7 @@ export default function HomeScreen() {
                             {item.time || "20-30 min"}
                           </Text>
                         </View>
-                      </TouchableOpacity>
+                      </InteractiveCard>
                     ))}
                   </ScrollView>
 
@@ -1042,39 +1058,13 @@ export default function HomeScreen() {
 
               {/* Suggested Products (NEW) */}
               <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>Suggested Products</Text>
-                  <View style={styles.navButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !productCanScrollLeft && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollProduct("left")}
-                      disabled={!productCanScrollLeft}
-                    >
-                      <Ionicons
-                        name="arrow-back"
-                        size={20}
-                        color={productCanScrollLeft ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.navBtn,
-                        !productCanScrollRight && styles.navBtnDisabled,
-                      ]}
-                      onPress={() => scrollProduct("right")}
-                      disabled={!productCanScrollRight}
-                    >
-                      <Ionicons
-                        name="arrow-forward"
-                        size={20}
-                        color={productCanScrollRight ? "#4b5563" : "#9ca3af"}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <SectionHeader
+                  title="Suggested Products"
+                  onScrollLeft={() => scrollProduct("left")}
+                  onScrollRight={() => scrollProduct("right")}
+                  canScrollLeft={productCanScrollLeft}
+                  canScrollRight={productCanScrollRight}
+                />
                 <ScrollView
                   ref={productScrollRef}
                   horizontal
@@ -1093,7 +1083,7 @@ export default function HomeScreen() {
                   }}
                 >
                   {filteredProductsDisplay.map((item, index) => (
-                    <TouchableOpacity
+                    <InteractiveCard
                       key={index}
                       style={
                         Platform.OS === "web"
@@ -1249,48 +1239,20 @@ export default function HomeScreen() {
                           </TouchableOpacity>
                         )}
                       </View>
-                    </TouchableOpacity>
+                    </InteractiveCard>
                   ))}
                 </ScrollView>
               </View>
               {/* RESTAURANTS SECTION - Always visible regardless of filter */}
               {nearbyRestaurants && nearbyRestaurants.length > 0 && (
                 <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>
-                      Discover best restaurants
-                    </Text>
-                    <View style={styles.navButtons}>
-                      <TouchableOpacity
-                        style={[
-                          styles.navBtn,
-                          !restaurantCanScrollLeft && styles.navBtnDisabled,
-                        ]}
-                        onPress={() => scrollRestaurant("left")}
-                        disabled={!restaurantCanScrollLeft}
-                      >
-                        <Ionicons
-                          name="arrow-back"
-                          size={20}
-                          color={restaurantCanScrollLeft ? "#4b5563" : "#9ca3af"}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.navBtn,
-                          !restaurantCanScrollRight && styles.navBtnDisabled,
-                        ]}
-                        onPress={() => scrollRestaurant("right")}
-                        disabled={!restaurantCanScrollRight}
-                      >
-                        <Ionicons
-                          name="arrow-forward"
-                          size={20}
-                          color={restaurantCanScrollRight ? "#4b5563" : "#9ca3af"}
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <SectionHeader
+                    title="Discover best restaurants"
+                    onScrollLeft={() => scrollRestaurant("left")}
+                    onScrollRight={() => scrollRestaurant("right")}
+                    canScrollLeft={restaurantCanScrollLeft}
+                    canScrollRight={restaurantCanScrollRight}
+                  />
                   <ScrollView
                     ref={restaurantScrollRef}
                     horizontal
@@ -1319,7 +1281,7 @@ export default function HomeScreen() {
                       </View>
                     ) : filteredRestaurants.map((item) =>
                       Platform.OS === "web" ? (
-                        <TouchableOpacity
+                        <InteractiveCard
                           key={item.id}
                           style={styles.webRestCard}
                           onPress={() => handleRestaurantClick(item)}
@@ -1341,9 +1303,9 @@ export default function HomeScreen() {
                               {item.discount}
                             </Text>
                           </View>
-                        </TouchableOpacity>
+                        </InteractiveCard>
                       ) : (
-                        <TouchableOpacity
+                        <InteractiveCard
                           key={item.id || item._id}
                           style={[styles.restaurantCard, item.isOpen === false && { opacity: 0.75 }]}
                           onPress={() => handleRestaurantClick(item)}
@@ -1416,7 +1378,7 @@ export default function HomeScreen() {
                               </View>
                             )}
                           </View>
-                        </TouchableOpacity>
+                        </InteractiveCard>
                       )
                     )}
                   </ScrollView>
@@ -1587,70 +1549,90 @@ const styles = StyleSheet.create({
     paddingHorizontal: Platform.OS === "web" ? 20 : 0,
   },
   section: {
-    marginTop: 24,
-    paddingHorizontal: Platform.OS === "web" ? 0 : 0,
+    marginTop: 20,
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+  },
+  sectionHeaderContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: Platform.OS === "web" ? 24 : 20,
-    fontWeight: "bold",
-    color: "#020617",
-    marginBottom: 4,
-    paddingHorizontal: 16,
-    letterSpacing: -0.5,
+    fontSize: Platform.OS === "web" ? 22 : 18,
+    fontWeight: "900",
+    color: "#282C3F",
+    letterSpacing: -0.3,
   },
   sectionSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: "#6b7280",
-    marginBottom: 16,
-    paddingHorizontal: 16,
+    marginTop: 2,
   },
   navButtons: {
     flexDirection: "row",
-    gap: 8,
-    paddingRight: 16,
+    gap: 12,
   },
   navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#e2e8f0",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F2F2F3",
     justifyContent: "center",
     alignItems: "center",
   },
   navBtnDisabled: {
-    opacity: 0.5,
-    backgroundColor: "#f1f2f6",
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 0,
+    opacity: 0.3,
   },
   horizontalList: {
     paddingHorizontal: 16,
-    gap: 16,
+    paddingBottom: 10,
   },
 
   // Food Items (Circular)
-  foodItem: { alignItems: "center", width: 110 },
+  foodItem: {
+    alignItems: "center",
+    width: 85,
+    marginRight: 20
+  },
   foodImageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 75,
+    height: 75,
+    borderRadius: 38,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
-    // Remove Border for cleaner look if images are transparent
-    borderWidth: 0,
-    overflow: "hidden", // NEW: ensure cover images don't leak
+    backgroundColor: '#f9f9f9',
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+      web: {
+        boxShadow: '0px 2px 8px rgba(0,0,0,0.06)'
+      }
+    })
   },
-  foodOptionImage: { width: "100%", height: "100%", borderRadius: 50, resizeMode: "cover" },
+  foodOptionImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 38,
+    resizeMode: "cover"
+  },
   itemLabel: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#4b5563",
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#3d4152",
     textAlign: "center",
+    height: 34,
   },
 
   // Consistently named styles (removes duplicates)
@@ -1755,39 +1737,41 @@ const styles = StyleSheet.create({
   // UPDATED CATEGORY STYLES
   categoryItem: {
     alignItems: "center",
-    width: Platform.OS === "web" ? 250 : 110,
-    marginRight: Platform.OS === "web" ? 24 : 0,
-    ...Platform.select({
-      web: {
-        transition: "transform 0.2s ease-in-out",
-        cursor: "pointer",
-      }
-    }),
+    width: Platform.OS === "web" ? 250 : 80,
+    marginRight: Platform.OS === "web" ? 24 : 20,
   },
   categoryImageContainer: {
-    width: Platform.OS === "web" ? 250 : 100,
-    height: Platform.OS === "web" ? 180 : 100,
-    borderRadius: Platform.OS === "web" ? 16 : 50,
+    width: Platform.OS === "web" ? 250 : 75,
+    height: Platform.OS === "web" ? 180 : 75,
+    borderRadius: Platform.OS === "web" ? 16 : 38,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
-    borderWidth: 0,
-    overflow: "hidden",
     backgroundColor: "#fff",
+    overflow: "hidden",
     ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
       web: {
         boxShadow: "0px 4px 15px rgba(0,0,0,0.05)",
       }
     }),
   },
-  categoryImage: { width: "100%", height: "100%" },
+  categoryImage: { width: "100%", height: "100%", resizeMode: 'cover' },
   categoryLabel: {
-    fontSize: Platform.OS === "web" ? 16 : 12,
-    fontWeight: "800",
-    color: "#1f2937",
+    fontSize: Platform.OS === "web" ? 16 : 11,
+    fontWeight: "700",
+    color: "#3d4152",
     textAlign: "center",
-    lineHeight: 20,
-    paddingHorizontal: 2,
+    lineHeight: 14,
+    height: 28,
   },
 
   // PRODUCT CARD STYLES
