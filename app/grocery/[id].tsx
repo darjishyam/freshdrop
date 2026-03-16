@@ -188,10 +188,18 @@ export default function GroceryStoreScreen() {
                 <View style={styles.itemInfo}>
                     <View style={styles.classifierRow}>
                         <VegNonVegIcon veg={item.veg} size={16} />
+                        {item.isBestSeller && (
+                            <Text style={styles.bestSellerTag}>Bestseller</Text>
+                        )}
+                        {outOfStock && (
+                            <View style={styles.outOfStockBadge}>
+                                <Text style={styles.outOfStockText}>OUT OF STOCK</Text>
+                            </View>
+                        )}
                     </View>
-                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={[styles.itemName, outOfStock && { color: '#aaa' }]}>{item.name}</Text>
                     <Text style={styles.itemPrice}>
-                        <FontAwesome name="rupee" size={13} color="#333" /> {item.price}
+                        <FontAwesome name="rupee" size={13} color={outOfStock ? '#aaa' : '#333'} /> {item.price}
                         {item.oldPrice && (
                             <Text style={styles.oldPrice}> <FontAwesome name="rupee" size={11} color="#999" /> {item.oldPrice}</Text>
                         )}
@@ -207,13 +215,11 @@ export default function GroceryStoreScreen() {
                         style={[styles.itemImage, (outOfStock || restaurantClosed) && { opacity: 0.5 }]}
                         resizeMode="cover"
                     />
-                    {outOfStock ? (
+                    {outOfStock || restaurantClosed ? (
                         <View style={[styles.addButton, styles.addButtonDisabled]}>
-                            <Text style={[styles.addButtonText, { color: '#ef4444', fontSize: 10 }]}>OUT OF STOCK</Text>
-                        </View>
-                    ) : restaurantClosed ? (
-                        <View style={[styles.addButton, styles.addButtonDisabled]}>
-                            <Text style={[styles.addButtonText, { color: '#aaa' }]}>🔴</Text>
+                            <Text style={[styles.addButtonText, { color: '#aaa' }]}>
+                                {restaurantClosed ? '🔴' : 'N/A'}
+                            </Text>
                         </View>
                     ) : (
                         <TouchableOpacity
@@ -247,10 +253,10 @@ export default function GroceryStoreScreen() {
                                 if (cartRestaurant.id && cartRestaurant.id !== id) {
                                     const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
 
-                                        if (Platform.OS === 'web' && (global as any).confirm?.(msg)) {
-                                            dispatch(clearCart());
-                                            handleAddAction();
-                                        } else if (Platform.OS !== 'web') {
+                                    if (Platform.OS === 'web' && (global as any).confirm?.(msg)) {
+                                        dispatch(clearCart());
+                                        handleAddAction();
+                                    } else if (Platform.OS !== 'web') {
                                         Alert.alert(
                                             "Replace cart item?",
                                             msg,
@@ -487,28 +493,68 @@ const styles = StyleSheet.create({
         color: '#111'
     },
     itemCard: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 16
+        flexDirection: "row",
+        justifyContent: "space-between",
+        padding: 16,
+        marginVertical: 8,
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        ...Platform.select({
+            web: {
+                boxShadow: "0px 4px 12px rgba(0,0,0,0.06)",
+                border: "1px solid #f3f4f6",
+            },
+            default: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.08,
+                shadowRadius: 4,
+                elevation: 3,
+            },
+        }),
     },
     itemInfo: {
         flex: 1,
-        paddingRight: 12
+        paddingRight: 16,
     },
     classifierRow: {
-        marginBottom: 4
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 4,
+    },
+    bestSellerTag: {
+        fontSize: 10,
+        color: "#ff6600",
+        backgroundColor: "#fff5e6",
+        paddingHorizontal: 4,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginLeft: 6,
+        fontWeight: "600",
+    },
+    outOfStockBadge: {
+        backgroundColor: '#fee2e2',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        marginLeft: 6,
+    },
+    outOfStockText: {
+        color: '#ef4444',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     itemName: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#1f2937',
-        marginBottom: 4
+        fontWeight: "700",
+        color: "#1f2937",
+        marginBottom: 4,
     },
     itemPrice: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: '#111',
-        marginBottom: 6
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#374151",
+        marginBottom: 6,
     },
     oldPrice: {
         fontSize: 13,
@@ -518,45 +564,51 @@ const styles = StyleSheet.create({
     },
     itemDesc: {
         fontSize: 13,
-        color: '#666',
-        lineHeight: 18
+        color: "#6b7280",
+        lineHeight: 18,
+        marginBottom: 6,
     },
     itemImageContainer: {
-        width: 110,
-        height: 110,
-        position: 'relative'
+        width: 120,
+        height: 120,
+        position: "relative",
+        borderRadius: 16,
     },
     itemImage: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 12,
-        backgroundColor: '#f0f0f0'
+        width: "100%",
+        height: "100%",
+        borderRadius: 16,
+        backgroundColor: "#f3f4f6",
     },
     addButton: {
-        position: 'absolute',
-        bottom: -10,
-        left: '15%',
-        width: '70%',
-        backgroundColor: '#fff',
+        position: "absolute",
+        bottom: -15,
+        left: "15%",
+        width: "70%",
+        backgroundColor: "#fff",
+        paddingVertical: 10,
+        borderRadius: 10,
         borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        paddingVertical: 6,
-        alignItems: 'center',
-        elevation: 3,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowOffset: { width: 0, height: 2 }
+        borderColor: "#e5e7eb",
+        alignItems: "center",
+        ...Platform.select({
+            web: { boxShadow: "0px 4px 6px rgba(0,0,0,0.1)" },
+            default: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.15,
+                shadowRadius: 6,
+                elevation: 4,
+            }
+        }),
     },
     addButtonText: {
-        color: '#22c55e',
-        fontWeight: '800',
-        fontSize: 14
+        color: "#22c55e",
+        fontWeight: "800",
+        fontSize: 15,
     },
     separator: {
-        height: 1,
-        backgroundColor: '#f0f0f0',
-        marginBottom: 16
+        display: "none",
     },
     emptyContainer: {
         alignItems: 'center',

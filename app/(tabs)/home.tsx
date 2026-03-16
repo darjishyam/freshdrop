@@ -992,26 +992,14 @@ export default function HomeScreen() {
                       Platform.OS === "web" && styles.webHorizontalScroll,
                     ]}
                   >
-                    {groceryItems.map((item) => (
+                    {groceryItems.filter(item => item && (item.id || item._id) && item.name).map((item) => (
                       <InteractiveCard
-                        key={item.id}
-                        style={Platform.OS === 'web' ? styles.webGroceryCard : {
-                          marginRight: 16,
-                          width: 140,
-                          backgroundColor: '#fff',
-                          borderRadius: 12,
-                          overflow: 'hidden',
-                          shadowColor: "#000",
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.1,
-                          shadowRadius: 4,
-                          elevation: 3,
-                          marginBottom: 8,
-                        }}
+                        key={item.id || item._id}
+                        style={Platform.OS === 'web' ? styles.webGroceryCard : styles.groceryCard}
                         onPress={() => router.push({
                           pathname: "/grocery/[id]",
                           params: {
-                            id: item.id,
+                            id: item.id || item._id,
                             name: item.name,
                             address: item.address,
                             rating: item.rating,
@@ -1023,26 +1011,13 @@ export default function HomeScreen() {
                       >
                         <Image
                           source={{ uri: item.image }}
-                          style={Platform.OS === 'web' ? styles.webGroceryImage : {
-                            width: '100%',
-                            height: 100,
-                            resizeMode: 'cover',
-                            backgroundColor: '#f8f8f8'
-                          }}
+                          style={Platform.OS === 'web' ? styles.webGroceryImage : styles.groceryImage}
                         />
-                        <View style={Platform.OS === 'web' ? styles.webRestInfo : { padding: 8 }}>
-                          <Text style={Platform.OS === 'web' ? styles.webRestName : {
-                            fontSize: 14,
-                            fontWeight: '700',
-                            color: '#1f2937',
-                            marginBottom: 2
-                          }} numberOfLines={1}>
+                        <View style={Platform.OS === 'web' ? styles.webRestInfo : styles.groceryInfo}>
+                          <Text style={Platform.OS === 'web' ? styles.webRestName : styles.groceryName} numberOfLines={1}>
                             {item.name}
                           </Text>
-                          <Text style={Platform.OS === 'web' ? styles.webRestMeta : {
-                            fontSize: 12,
-                            color: '#6b7280'
-                          }}>
+                          <Text style={Platform.OS === 'web' ? styles.webRestMeta : styles.groceryMeta}>
                             {item.time || "20-30 min"}
                           </Text>
                         </View>
@@ -2077,15 +2052,15 @@ const styles = StyleSheet.create({
 
   // Web Grocery Card
   webGroceryCard: {
-    width: 250,
+    width: 200, // Reduced from 250
     backgroundColor: "#fff",
-    borderRadius: 16,
-    marginBottom: 20,
-    marginRight: 24,
+    borderRadius: 12,
+    marginBottom: 10,
+    marginRight: 16,
     overflow: 'hidden',
     ...Platform.select({
       web: {
-        boxShadow: "0px 4px 15px rgba(0,0,0,0.08)",
+        boxShadow: "0px 2px 10px rgba(0,0,0,0.06)",
         transition: "transform 0.2s ease-in-out"
       }
     }),
@@ -2093,7 +2068,41 @@ const styles = StyleSheet.create({
   },
   webGroceryImage: {
     width: "100%",
-    height: 180,
+    height: 130, // Reduced from 180
+  },
+
+  // Mobile Grocery Card
+  groceryCard: {
+    marginRight: 12,
+    width: 120, // Reduced from 140
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 4,
+  },
+  groceryImage: {
+    width: '100%',
+    height: 80, // Reduced from 100
+    resizeMode: 'cover',
+    backgroundColor: '#f8f8f8'
+  },
+  groceryInfo: {
+    padding: 6,
+  },
+  groceryName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 0
+  },
+  groceryMeta: {
+    fontSize: 10,
+    color: '#6b7280'
   },
 
   // Web Product Card

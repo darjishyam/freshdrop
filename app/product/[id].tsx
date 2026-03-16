@@ -25,6 +25,7 @@ import { selectStock } from "../../store/slices/stockSlice";
 import { selectUser } from "../../store/slices/userSlice";
 import { API_BASE_URL, SOCKET_URL } from "../../constants/api";
 import { loadReviews, selectProductReviews } from "../../store/slices/reviewsSlice";
+import { selectRestaurantItems } from "../../store/slices/dataSlice";
 
 const { width, height } = Dimensions.get("window");
 const IS_WEB = Platform.OS === "web";
@@ -41,6 +42,7 @@ export default function ProductDetailsScreen() {
   const [quantity, setQuantity] = useState(1);
   const [showWebLogin, setShowWebLogin] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+  const allRealRestaurantItems = useSelector(selectRestaurantItems);
 
   // Find product in all lists
   let product = null;
@@ -174,14 +176,39 @@ export default function ProductDetailsScreen() {
   // Related Items Logic
   const relatedItems = useMemo(() => {
     if (!product) return [];
-    // Combine mock sources to find matches
-    const allItems = [...products, ...Object.values(restaurantItems).flat(), ...groceryItems];
-    return allItems.filter(
+
+    // 1. Prioritize Real Items from the SAME Restaurant (from Redux)
+    let realRecommendations = [];
+    const targetRestId = product.restaurantId;
+
+    if (targetRestId && allRealRestaurantItems && allRealRestaurantItems[targetRestId]) {
+      const restItems = allRealRestaurantItems[targetRestId];
+      if (Array.isArray(restItems)) {
+        realRecommendations = restItems.filter(
+          (item) => (item._id || item.id) !== (product._id || product.id)
+        );
+      }
+    }
+
+    // 2. Fallback: Category/Cuisine matches from Global Mock Data
+    const mockSources = [...products, ...Object.values(restaurantItems).flat(), ...groceryItems];
+    const categoryMatches = mockSources.filter(
       (p) =>
         (p.category === product.category || p.cuisine === product.cuisine) &&
         (p.id !== product.id && p.name !== product.name)
-    ).slice(0, 5);
-  }, [product]);
+    );
+
+    // Combine: Real first, then mocks
+    const combined = [...realRecommendations, ...categoryMatches];
+
+    // Deduplicate by name just in case
+    const seen = new Set();
+    return combined.filter(item => {
+      const duplicate = seen.has(item.name);
+      seen.add(item.name);
+      return !duplicate;
+    }).slice(0, 6);
+  }, [product, allRealRestaurantItems]);
 
   // ...
 
@@ -548,7 +575,19 @@ export default function ProductDetailsScreen() {
                     onPress={() =>
                       router.push({
                         pathname: "/product/[id]",
-                        params: { id: item.name },
+                        params: {
+                          id: item._id || item.id || item.name,
+                          name: item.name,
+                          price: item.price,
+                          image: item.image,
+                          description: item.description || "",
+                          category: item.category || "",
+                          isVeg: (item.isVeg === true || item.veg === true).toString(),
+                          restaurantName: item.restaurantName || product.restaurantName || "",
+                          restaurantId: item.restaurantId || product.restaurantId || "",
+                          inStock: (item.inStock !== false).toString(),
+                          restaurantIsOpen: (restaurantIsOpenParam !== "false").toString(),
+                        },
                       })
                     }
                   >

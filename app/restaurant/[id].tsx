@@ -158,13 +158,13 @@ export default function RestaurantScreen() {
   const filteredItems = useMemo(() => {
     let items = menuItems;
 
-    // Apply veg/non-veg filter
+    // Apply veg/non-veg filter (handle both veg and isVeg fields)
     switch (filterMode) {
       case "VEG":
-        items = items.filter((item) => item.veg === true);
+        items = items.filter((item) => item.veg === true || item.isVeg === true);
         break;
       case "NON_VEG":
-        items = items.filter((item) => item.veg === false);
+        items = items.filter((item) => item.veg === false || item.isVeg === false);
         break;
       default:
         items = menuItems;
@@ -240,7 +240,7 @@ export default function RestaurantScreen() {
       >
         <View style={styles.itemInfo}>
           <View style={styles.classifierRow}>
-            <VegNonVegIcon veg={item.veg} size={16} />
+            <VegNonVegIcon veg={item.veg ?? item.isVeg} size={16} />
             {item.bestSeller && (
               <Text style={styles.bestSellerTag}>Bestseller</Text>
             )}
@@ -400,19 +400,23 @@ export default function RestaurantScreen() {
         )}
 
         <View style={styles.restHeaderContainer}>
-          <Text style={styles.restName}>{restaurant.name}</Text>
+          <Text style={styles.restName}>{restaurant.name || restaurant.restaurantName}</Text>
           <View style={styles.restMeta}>
             <View style={styles.ratingPill}>
               <Ionicons name="star" size={12} color="#fff" />
               <Text style={styles.ratingTextWhite}>{calculatedRating}</Text>
             </View>
             <Text style={styles.metaText}>
-              {reviews.length > 0 && `(${reviews.length} ${reviews.length === 1 ? 'review' : 'reviews'})`}
-              {" "}• {restaurant.time} • {restaurant.priceForTwo}
+              {reviews.length > 0 && `(${reviews.length} ${reviews.length === 1 ? 'review' : 'reviews'}) `}
+              • {restaurant.time || restaurant.deliveryTime || '30 min'} • {restaurant.priceForTwo || restaurant.priceRange || '₹300 for two'}
             </Text>
           </View>
-          <Text style={styles.cuisineText}>{restaurant.cuisine}</Text>
-          <Text style={styles.locationText}>{restaurant.location}</Text>
+          <Text style={styles.cuisineText}>
+            {restaurant.cuisine || (Array.isArray(restaurant.cuisines) ? restaurant.cuisines.join(', ') : 'Multi-cuisine')}
+          </Text>
+          <Text style={styles.locationText}>
+            {restaurant.location || restaurant.address?.street ? `${restaurant.address?.street}, ${restaurant.address?.city}` : restaurant.address?.city || ''}
+          </Text>
           {/* Closed Banner */}
           {restaurant.isOpen === false && (
             <View style={styles.closedBanner}>
@@ -433,7 +437,7 @@ export default function RestaurantScreen() {
             <Text style={styles.offerText}>
               {restaurant.discountPercent > 0
                 ? `${restaurant.discountPercent}% OFF up to ₹${restaurant.maxDiscount}${restaurant.minOrderValue > 0 ? ` on orders above ₹${restaurant.minOrderValue}` : ''}`
-                : restaurant.discount || 'No offers available'}
+                : restaurant.discount || 'Free delivery on first order'}
             </Text>
           </View>
 
@@ -539,7 +543,7 @@ const styles = StyleSheet.create({
   },
   heroImage: {
     width: "100%",
-    height: 250,
+    height: 220,
   },
   center: {
     flex: 1,
@@ -587,6 +591,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomWidth: 8,
     borderBottomColor: "#f3f4f6",
+    ...(Platform.OS === 'web' ? { maxWidth: 800, width: '100%', alignSelf: 'center' as const } : {}),
   },
   restName: {
     fontSize: 24,
@@ -655,6 +660,7 @@ const styles = StyleSheet.create({
   menuList: {
     padding: 16,
     paddingHorizontal: Platform.OS === "android" ? 20 : 16,
+    ...(Platform.OS === 'web' ? { maxWidth: 800, width: '100%', alignSelf: 'center' as const } : {}),
   },
   // Item Card (Reused styles roughly)
   itemCard: {
@@ -698,13 +704,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   itemName: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
     color: "#1f2937",
     marginBottom: 4,
   },
   itemPrice: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
     color: "#374151",
     marginBottom: 6,
@@ -734,8 +740,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   itemImageContainer: {
-    width: 140,
-    height: 140,
+    width: 120,
+    height: 120,
     position: "relative",
     borderRadius: 16,
   },

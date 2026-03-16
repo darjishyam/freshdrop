@@ -4,6 +4,7 @@ const Restaurant = require("../models/Restaurant");
 const Grocery = require("../models/Grocery");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const sendEmail = require("../utils/emailSender");
 
 // @desc    Get all users
 // @route   GET /api/admin/users
@@ -136,6 +137,42 @@ const updateRestaurantStatus = async (req, res) => {
             }
         }
 
+        // Send Email Notification if Approved
+        if (status === 'APPROVED' && restaurant.email) {
+            const brandingColor = restaurant.storeType === 'GROCERY' ? "#16a34a" : "#FC8019";
+            const appName = restaurant.storeType === 'GROCERY' ? "Instamart" : "FreshDrop";
+
+            const htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                    <div style="background-color: ${brandingColor}; padding: 20px; text-align: center;">
+                        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${appName} Partner</h1>
+                    </div>
+                    <div style="padding: 30px; background-color: #ffffff;">
+                        <p style="font-size: 16px; color: #333;">Hello <strong>${restaurant.name}</strong>! 🎉</p>
+                        <p style="font-size: 16px; color: #555;">Congratulations! Your application to join ${appName} has been <strong>APPROVED</strong> by the administrator.</p>
+                        <p style="font-size: 16px; color: #555; margin-top: 15px;">You can now log in to your Partner Portal, manage your menu, and start receiving orders immediately.</p>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="#" style="background-color: ${brandingColor}; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">Go to Partner Dashboard</a>
+                        </div>
+                        
+                        <p style="font-size: 14px; color: #777; margin-top: 30px;">Happy Selling!<br>The ${appName} Administrator Team</p>
+                    </div>
+                    <div style="background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #999;">
+                        &copy; ${new Date().getFullYear()} ${appName}. All rights reserved.
+                    </div>
+                </div>
+            `;
+
+            sendEmail({
+                email: restaurant.email,
+                subject: `Your ${appName} Partner Account is Approved! 🎉`,
+                message: `Congratulations! Your application has been approved. You can now log into your partner dashboard.`,
+                html: htmlContent,
+            }).then(() => console.log(`[Email] Approval sent to ${restaurant.email}`))
+                .catch(err => console.error(`[Email] Failed to send approval to ${restaurant.email}:`, err));
+        }
+
         res.json({ message: `Restaurant status updated to ${status}`, restaurant });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -207,6 +244,37 @@ const updateAdminDriverStatus = async (req, res) => {
                 });
                 console.log(`[Socket] RESTORED driver: ${req.params.id}`);
             }
+
+            // Send Email Notification if Approved and has email
+            if (driver.email) {
+                const brandingColor = "#fc8019";
+                const appName = "FreshDrop";
+                const htmlContent = `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+                        <div style="background-color: ${brandingColor}; padding: 20px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${appName} Partner</h1>
+                        </div>
+                        <div style="padding: 30px; background-color: #ffffff;">
+                            <p style="font-size: 16px; color: #333;">Hello <strong>${driver.name || 'Driver'}</strong>! 🎉</p>
+                            <p style="font-size: 16px; color: #555;">Congratulations! Your application to join ${appName} as a delivery partner has been <strong>APPROVED</strong> by the administrator.</p>
+                            <p style="font-size: 16px; color: #555; margin-top: 15px;">You can now log in to the Driver App and start receiving orders immediately.</p>
+                            
+                            <p style="font-size: 14px; color: #777; margin-top: 30px;">Happy Delivering!<br>The ${appName} Administrator Team</p>
+                        </div>
+                        <div style="background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 12px; color: #999;">
+                            &copy; ${new Date().getFullYear()} ${appName}. All rights reserved.
+                        </div>
+                    </div>
+                `;
+
+                sendEmail({
+                    email: driver.email,
+                    subject: `Your ${appName} Driver Account is Approved! 🎉`,
+                    message: `Congratulations! Your driver application has been approved. You can now log into your driver app and start delivering.`,
+                    html: htmlContent,
+                }).then(() => console.log(`[Email] Approval sent to driver ${driver.email}`))
+                    .catch(err => console.error(`[Email] Failed to send approval to driver ${driver.email}:`, err));
+            }
         }
 
         res.json({ message: `Driver status updated to ${status}`, driver });
@@ -270,11 +338,19 @@ const getDriverStats = async (req, res) => {
         res.json({
             driver: {
                 name: driver.name,
+                email: driver.email,
+                phone: driver.phone,
+                city: driver.city,
+                status: driver.status,
                 rating: driver.rating,
                 totalOrders: driver.totalOrders,
                 lifetimeEarnings: driver.lifetimeEarnings,
                 walletBalance: driver.walletBalance,
-                todayOnline: driver.todayOnlineDuration
+                todayOnline: driver.todayOnlineDuration,
+                profilePhoto: driver.profilePhoto,
+                vehicleType: driver.vehicleType,
+                vehicleNumber: driver.vehicleNumber,
+                vehicleModel: driver.vehicleModel,
             },
             stats: {
                 totalAssigned,

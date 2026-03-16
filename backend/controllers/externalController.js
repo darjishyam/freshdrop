@@ -220,34 +220,7 @@ const getGroceries = async (req, res) => {
     }
 
     // 2. Mock Prominent Brands (as requested by user)
-    const mockGroceries = [
-      {
-        // id: "mock_bb_1",
-        // name: "Big Basket",
-        // type: "Supermarket",
-        // lat: parseFloat(lat), // Place near user
-        // lon: parseFloat(lon),
-        // address: "Near You",
-        // distance: "0.5 km",
-        // rating: "4.8",
-        // time: "15-25 min",
-        // image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80",
-        // isMock: true
-      },
-      {
-        // id: "mock_dmart_1",
-        // name: "D Mart Ready",
-        // type: "Department Store",
-        // lat: parseFloat(lat) + 0.005,
-        // lon: parseFloat(lon) + 0.005,
-        // address: "City Center",
-        // distance: "1.2 km",
-        // rating: "4.6",
-        // time: "20-30 min",
-        // image: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500&q=80",
-        // isMock: true
-      }
-    ];
+    const mockGroceries = [];
 
     // 3. Combine Local + Mock
     const combinedGroceries = [...localGroceries, ...mockGroceries];

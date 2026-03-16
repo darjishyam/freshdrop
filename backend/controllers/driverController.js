@@ -17,17 +17,17 @@ const generateToken = (id) => {
     });
 };
 
-// @desc    Initiate Login/Signup with Phone
+// @desc    Initiate Login with Email
 // @route   POST /api/driver/login-otp
 const loginDriverOtp = async (req, res) => {
     try {
-        const { phone } = req.body;
-        if (!phone) return res.status(400).json({ message: "Phone number required" });
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ message: "Email required" });
 
-        const driver = await Driver.findOne({ phone });
+        const driver = await Driver.findOne({ email });
 
         if (!driver) {
-            return res.status(400).json({ message: "Driver not found. Please Join Us first." });
+            return res.status(400).json({ message: "Driver with this email not found. Please Join Us first." });
         }
 
         if (driver.status === "BLOCKED") {
@@ -44,7 +44,7 @@ const loginDriverOtp = async (req, res) => {
 // @route   POST /api/driver/signup-otp
 const initiateSignupOtp = async (req, res) => {
     try {
-        const { phone, city, name } = req.body;
+        const { phone, city, name, email } = req.body;
         if (!phone || !name) return res.status(400).json({ message: "Phone and Name required" });
 
         if (/\d/.test(name)) {
@@ -59,6 +59,7 @@ const initiateSignupOtp = async (req, res) => {
             driver = await Driver.create({
                 name,
                 phone,
+                email,
                 city,
                 status: "onboarding",
                 isVerified: false
@@ -84,17 +85,42 @@ const sendOtpInternal = async (driver, res, type) => {
     driver.otpExpires = Date.now() + 10 * 60 * 1000;
     await driver.save();
 
+    let sentType = "SMS";
+
     try {
         await sendSms(driver.phone, otp);
     } catch (e) {
         // console.error("SMS Send Failed", e);
     }
 
+    // Send Email if email exists
+    if (driver.email) {
+        try {
+            await sendEmail({
+                email: driver.email,
+                name: driver.name,
+                subject: `Your FreshDrop OTP`,
+                message: `Your OTP for FreshDrop is: ${otp}. It will expire in 10 minutes.`,
+                html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <h2 style="color: #fc8019; text-align: center;">FreshDrop</h2>
+                    <p>Hello ${driver.name || "Driver"},</p>
+                    <p>Your One-Time Password (OTP) to ${type === "signup" ? "register" : "login"} is:</p>
+                    <h1 style="text-align: center; color: #333; letter-spacing: 5px;">${otp}</h1>
+                    <p>This OTP is valid for 10 minutes. Do not share it with anyone.</p>
+                </div>
+                `
+            });
+            sentType += " and Email";
+        } catch (e) {
+            console.error("Email send failed:", e);
+        }
+    }
+
     res.json({
-        message: `OTP sent via SMS`,
+        message: `OTP sent via ${sentType}`,
         phone: driver.phone,
-        isNewUser: type === "signup",
-        devOtp: otp, // Forced for testing
+        isNewUser: type === "signup"
     });
 };
 
@@ -102,9 +128,14 @@ const sendOtpInternal = async (driver, res, type) => {
 // @route   POST /api/driver/verify-otp
 const verifyDriverOtp = async (req, res) => {
     try {
-        const { phone, otp } = req.body;
+        const { phone, email, otp } = req.body;
 
-        const driver = await Driver.findOne({ phone });
+        let query = {};
+        if (email) query.email = email;
+        else if (phone) query.phone = phone;
+        else return res.status(400).json({ message: "Identifier (phone or email) required" });
+
+        const driver = await Driver.findOne(query);
 
         if (!driver) {
             return res.status(404).json({ message: "Driver not found" });
@@ -140,6 +171,7 @@ const verifyDriverOtp = async (req, res) => {
                 phone: driver.phone,
                 email: driver.email,
                 city: driver.city,
+                exactAddress: driver.location?.address || driver.city,
                 status: driver.status,
                 profilePhoto: driver.profilePhoto,
                 language: driver.language,
@@ -240,7 +272,7 @@ const updateDriverDetails = async (req, res) => {
 // @route   PUT /api/driver/location
 const updateDriverLocation = async (req, res) => {
     try {
-        const { latitude, longitude, address } = req.body;
+        const { latitude, longitude, address, exactAddress } = req.body;
 
         if (!latitude || !longitude) {
             return res.status(400).json({ message: "Latitude and Longitude required" });
@@ -251,7 +283,7 @@ const updateDriverLocation = async (req, res) => {
             location: {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)],
-                address: address || ""
+                address: exactAddress || address || ""
             }
         };
 
@@ -494,6 +526,7 @@ const getDriverProfile = async (req, res) => {
                 isDetailsComplete: !!driver.name && driver.name !== "New Driver" && !!driver.city && !!driver.vehicleNumber,
                 isDocsComplete: !!driver.documents && !!driver.documents.drivingLicenseUrl,
                 documents: driver.documents,
+                exactAddress: driver.location?.address || driver.city,
 
                 // New Stats Object
                 stats: {

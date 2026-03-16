@@ -1,0 +1,4 @@
+ID | Name | ExternalID | Status | StoreType
+69b7c22588ffa1ac3200dbc9 | Pratibha Restaurant | undefined | APPROVED | RESTAURANT
+69b7c22588ffa1ac3200dbca | Sampatti Restaurant | undefined | APPROVED | RESTAURANT
+69b7c22588ffa1ac3200dbcb | New Restaurant | undefined | APPROVED | RESTAURANT

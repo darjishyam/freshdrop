@@ -122,10 +122,10 @@ const sampleRestaurants = [
 
 const seedDatabase = async () => {
   try {
-    // Clear existing data
-    console.log("🗑️  Clearing existing restaurants and products...");
-    await Restaurant.deleteMany({});
-    await Product.deleteMany({});
+    // Clear existing data (DISABLED FOR SAFETY)
+    // console.log("🗑️  Clearing existing restaurants and products...");
+    // await Restaurant.deleteMany({});
+    // await Product.deleteMany({});
 
     // Insert restaurants
     console.log("🏪 Creating restaurants...");

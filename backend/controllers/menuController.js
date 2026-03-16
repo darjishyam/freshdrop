@@ -126,14 +126,18 @@ const toggleStock = async (req, res) => {
 // @desc    Delete a menu item
 // @route   DELETE /api/menu/:id
 const deleteMenuItem = async (req, res) => {
+    console.log(`[DELETE] Request for item ID: ${req.params.id} from user: ${req.user._id}`);
     try {
         const item = await Product.findByIdAndDelete(req.params.id);
         if (item) {
+            console.log(`[DELETE] Success for item: ${item.name}`);
             res.json({ message: 'Item deleted successfully' });
         } else {
+            console.log(`[DELETE] Failed - Item not found: ${req.params.id}`);
             res.status(404).json({ message: 'Item not found' });
         }
     } catch (error) {
+        console.error(`[DELETE] Server Error:`, error.message);
         res.status(500).json({ message: error.message });
     }
 };
