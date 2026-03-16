@@ -170,7 +170,7 @@ export default function CollectionScreen() {
               typeof item.image === "string" ? { uri: item.image } : item.image
             }
             style={styles.itemImage}
-            resizeMode="contain"
+            resizeMode="cover"
           />
           <TouchableOpacity
             style={[styles.addButton, item.inStock === false && styles.outOfStockButton]}
@@ -274,7 +274,23 @@ const styles = StyleSheet.create({
   itemCard: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 16,
+    padding: 16,
+    marginVertical: 8,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    ...Platform.select({
+      web: {
+        boxShadow: "0px 4px 12px rgba(0,0,0,0.06)",
+        border: "1px solid #f3f4f6",
+      },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+    }),
   },
   itemInfo: {
     flex: 1,
@@ -339,10 +355,10 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_600SemiBold",
   },
   itemImageContainer: {
-    width: 130,
-    height: 130, // Square image
+    width: 140,
+    height: 140,
     position: "relative",
-    borderRadius: 12,
+    borderRadius: 16,
   },
   itemImage: {
     width: "100%",
@@ -352,26 +368,30 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: "absolute",
-    bottom: -10, // Hanging off the bottom
+    bottom: -15,
     left: "15%",
     width: "70%",
     backgroundColor: "#fff",
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      web: { boxShadow: "0px 4px 6px rgba(0,0,0,0.1)" },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 4,
+      }
+    }),
   },
   addButtonText: {
     color: "#22c55e",
     fontWeight: "800",
-    fontSize: 14,
-    fontFamily: "Poppins_700Bold",
+    fontSize: 15,
   },
   outOfStockButton: {
     backgroundColor: "#f3f4f6",
@@ -383,11 +403,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   separator: {
-    height: 1,
-    backgroundColor: "#e5e7eb",
-    marginVertical: 12,
-    borderStyle: "dashed", // Dashed line separator
-    borderWidth: 0.5, // Simulate via standard if needed, but solid is fine
+    display: "none",
   },
   emptyContainer: {
     flex: 1,

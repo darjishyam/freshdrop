@@ -290,7 +290,7 @@ export default function ProductDetailsScreen() {
                   : product.image
               }
               style={styles.productImage}
-              resizeMode="contain"
+              resizeMode="cover"
             />
           </View>
 
@@ -573,9 +573,9 @@ export default function ProductDetailsScreen() {
                         {item.name}
                       </Text>
                     </View>
-                    {item.restaurantName && (
+                    {(item as any).restaurantName && (
                       <Text style={styles.relatedRestaurant} numberOfLines={1}>
-                        {item.restaurantName}
+                        {(item as any).restaurantName}
                       </Text>
                     )}
                     <Text style={styles.relatedPrice}>

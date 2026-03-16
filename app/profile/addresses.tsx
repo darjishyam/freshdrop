@@ -1,5 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+
+declare var window: any;
+
 import { Stack, useRouter, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import MapPicker from "../../components/MapPicker";
@@ -364,7 +367,7 @@ export default function ManageAddressScreen() {
     };
 
     if (Platform.OS === 'web') {
-      if (window.confirm("Are you sure you want to remove this address?")) {
+      if (typeof window !== 'undefined' && (window as any).confirm("Are you sure you want to remove this address?")) {
         performDelete();
       }
       return;

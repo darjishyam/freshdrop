@@ -9,7 +9,7 @@ const getBaseUrl = () => {
     if (Constants.expoConfig?.hostUri) {
         return `http://${Constants.expoConfig.hostUri.split(':')[0]}:5000`;
     }
-    return 'http://10.31.255.131:5000'; // Default for real device APK
+    return 'https://freshdrop-backend.onrender.com'; // Default for real device APK
 };
 
 export const SOCKET_URL = getBaseUrl();

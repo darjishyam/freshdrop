@@ -1,6 +1,7 @@
 const Product = require('../models/Product');
 const Restaurant = require('../models/Restaurant');
 const Grocery = require('../models/Grocery');
+const mongoose = require('mongoose');
 
 // @desc    Get all menu items for a restaurant
 // @route   GET /api/menu/:restaurantId
@@ -23,6 +24,9 @@ const addMenuItem = async (req, res) => {
     } = req.body;
 
     try {
+        if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+            return res.status(400).json({ message: "Invalid Restaurant ID format" });
+        }
         console.log("Adding item for merchant:", restaurantId);
 
         let merchantType = 'Restaurant';
@@ -36,18 +40,39 @@ const addMenuItem = async (req, res) => {
             return res.status(404).json({ message: "Merchant not found" });
         }
 
+        let menuItemImage = image;
+        if (req.file) {
+            menuItemImage = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+        }
+
+        // Cast boolean strings and numbers from FormData
+        const castedIsVeg = isVeg === 'true' || isVeg === true;
+        const castedIsBestSeller = isBestSeller === 'true' || isBestSeller === true;
+        const castedIsMustTry = isMustTry === 'true' || isMustTry === true;
+        const castedPrice = parseFloat(price);
+
+        // Parse quantityDetails if it comes as a string from FormData
+        let parsedQuantityDetails = quantityDetails;
+        if (typeof quantityDetails === 'string') {
+            try {
+                parsedQuantityDetails = JSON.parse(quantityDetails);
+            } catch (e) {
+                console.error("Error parsing quantityDetails:", e);
+            }
+        }
+
         const item = await Product.create({
             merchantType: merchantType,
             restaurant: restaurantId,
             name,
-            price,
+            price: castedPrice,
             category,
-            isVeg,
+            isVeg: castedIsVeg,
             description,
-            image,
-            isBestSeller,
-            isMustTry,
-            quantityDetails,
+            image: menuItemImage,
+            isBestSeller: castedIsBestSeller,
+            isMustTry: castedIsMustTry,
+            quantityDetails: parsedQuantityDetails,
             brandName,
             weight,
             unit,
@@ -109,9 +134,34 @@ const deleteMenuItem = async (req, res) => {
 // @route   PUT /api/menu/:id
 const updateMenuItem = async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: "Invalid Item ID format" });
+        }
+
+        const updateData = { ...req.body };
+
+        if (req.file) {
+            updateData.image = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+        }
+
+        // Cast boolean strings and numbers from FormData for updates
+        if (updateData.isVeg !== undefined) updateData.isVeg = updateData.isVeg === 'true' || updateData.isVeg === true;
+        if (updateData.isBestSeller !== undefined) updateData.isBestSeller = updateData.isBestSeller === 'true' || updateData.isBestSeller === true;
+        if (updateData.isMustTry !== undefined) updateData.isMustTry = updateData.isMustTry === 'true' || updateData.isMustTry === true;
+        if (updateData.price !== undefined) updateData.price = parseFloat(updateData.price);
+
+        // Parse quantityDetails if it comes as a string from FormData in updates
+        if (updateData.quantityDetails && typeof updateData.quantityDetails === 'string') {
+            try {
+                updateData.quantityDetails = JSON.parse(updateData.quantityDetails);
+            } catch (e) {
+                console.error("Error parsing quantityDetails in update:", e);
+            }
+        }
+
         const item = await Product.findByIdAndUpdate(
             req.params.id,
-            { $set: req.body },
+            { $set: updateData },
             { new: true, runValidators: true }
         );
 

@@ -1,9 +1,12 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 
+declare var window: any;
+declare var document: any;
+
 // Web Client ID from google-services.json
-// This is required for the ID token to be generated correctly for the backend
 const WEB_CLIENT_ID = '620352640426-g4tviqolht9lc0tkcebnf5t5kp2coffm.apps.googleusercontent.com';
+const IOS_CLIENT_ID = '620352640426-d34oicgcej1mh7qik31bphk6gfvh06e0.apps.googleusercontent.com';
 
 export const configureGoogleSignIn = () => {
     if (Platform.OS === 'web') {
@@ -13,9 +16,10 @@ export const configureGoogleSignIn = () => {
     } else {
         GoogleSignin.configure({
             webClientId: WEB_CLIENT_ID,
-            offlineAccess: true, // if you want to access Google API on behalf of the user FROM YOUR SERVER
-            forceCodeForRefreshToken: true, // [Android] related to offlineAccess
-            profileImageSize: 120, // [iOS] The desired height (and width) of the profile image. Defaults to 120px
+            iosClientId: IOS_CLIENT_ID,
+            offlineAccess: true,
+            forceCodeForRefreshToken: true,
+            profileImageSize: 120,
         });
     }
 };
@@ -97,6 +101,15 @@ export const signInWithGoogle = async () => {
             } catch (e) {
                 // Ignore if already signed out
             }
+
+            const userInfo = await GoogleSignin.signIn();
+            const { idToken } = userInfo.data || {};
+            return idToken;
+
+        } else if (Platform.OS === 'ios') {
+            try {
+                await GoogleSignin.signOut();
+            } catch (e) { }
 
             const userInfo = await GoogleSignin.signIn();
             const { idToken } = userInfo.data || {};

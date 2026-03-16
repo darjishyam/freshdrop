@@ -17,8 +17,8 @@ export default function ProductCard({ product, onPress, onAddPress, style }) {
 
   const discountPercent = product.discountPrice
     ? Math.round(
-        ((product.discountPrice - product.price) / product.discountPrice) * 100
-      )
+      ((product.discountPrice - product.price) / product.discountPrice) * 100
+    )
     : 0;
 
   return (
@@ -33,7 +33,7 @@ export default function ProductCard({ product, onPress, onAddPress, style }) {
         <Image
           source={getImageSource(product.image)}
           style={styles.image}
-          resizeMode="contain"
+          resizeMode="cover"
         />
         {onAddPress && (
           <TouchableOpacity
@@ -93,6 +93,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
     position: "relative",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    overflow: "hidden", // Keep the image strictly within these bounds
   },
   image: {
     width: "100%",

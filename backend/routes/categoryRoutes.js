@@ -7,13 +7,14 @@ const {
     deleteCategory,
 } = require("../controllers/categoryController");
 
+const upload = require("../middleware/uploadMiddleware");
+
 // Public route to get all categories
 router.get("/", getCategories);
 
 // Admin routes for managing categories
-// In a full implementation, these should be protected by auth middleware
-router.post("/", createCategory);
-router.put("/:id", updateCategory);
+router.post("/", upload.single("image"), createCategory);
+router.put("/:id", upload.single("image"), updateCategory);
 router.delete("/:id", deleteCategory);
 
 module.exports = router;

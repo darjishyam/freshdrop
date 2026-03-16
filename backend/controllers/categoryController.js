@@ -24,9 +24,14 @@ const createCategory = async (req, res) => {
             return res.status(400).json({ message: "Category already exists" });
         }
 
+        let categoryImage = image;
+        if (req.file) {
+            categoryImage = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+        }
+
         const category = await Category.create({
             name,
-            image,
+            image: categoryImage,
             type,
             description,
         });
@@ -46,8 +51,13 @@ const updateCategory = async (req, res) => {
         const category = await Category.findById(req.params.id);
 
         if (category) {
+            let categoryImage = image || category.image;
+            if (req.file) {
+                categoryImage = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+            }
+
             category.name = name || category.name;
-            category.image = image || category.image;
+            category.image = categoryImage;
             category.type = type || category.type;
             category.description = description || category.description;
 

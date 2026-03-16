@@ -9,7 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bytesved.freshdrop",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "com.bytesved.freshdrop",
@@ -44,7 +46,13 @@
           }
         }
       ],
-      "@react-native-google-signin/google-signin"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosClientId": "620352640426-d34oicgcej1mh7qik31bphk6gfvh06e0.apps.googleusercontent.com",
+          "iosUrlScheme": "com.googleusercontent.apps.620352640426-d34oicgcej1mh7qik31bphk6gfvh06e0"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

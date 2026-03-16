@@ -17,10 +17,8 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import { useToast } from "../../context/ToastContext";
 import {
-  products,
   categories,
   foodOptions,
-  groceryStores,
   restaurants, // [NEW] Mock Data
 } from "../../data/mockData";
 import { API_BASE_URL, SOCKET_URL } from "../../constants/api";
@@ -175,7 +173,15 @@ export default function HomeScreen() {
   }, [nearbyRestaurants, filterType, priceRange, ratingFilter]);
 
   const filteredProductsDisplay = useMemo(() => {
-    let result = featuredProducts || [];
+    let rawResult = featuredProducts || [];
+    let result = [];
+    const seenNames = new Set();
+    for (const p of rawResult) {
+      if (!seenNames.has(p.name)) {
+        seenNames.add(p.name);
+        result.push(p);
+      }
+    }
 
     // Filter by Type
     if (filterType === "Veg") {
@@ -839,7 +845,7 @@ export default function HomeScreen() {
                           <Image
                             source={getImageSource(item.image)}
                             style={styles.categoryImage}
-                            resizeMode="contain"
+                            resizeMode="cover"
                           />
                         </View>
                         <Text style={styles.categoryLabel} numberOfLines={2}>
@@ -956,8 +962,8 @@ export default function HomeScreen() {
                 </View>
               )}
 
-              {/* Near By Grocery - Hidden when Non-Veg filter is active (grocery is veg/daily needs only) */}
-              {filterType !== "Non-Veg" && (
+              {/* Near By Grocery - Hidden when Non-Veg filter is active or grocery items are empty */}
+              {filterType !== "Non-Veg" && groceryItems && groceryItems.length > 0 && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Near By Grocery</Text>
@@ -1138,9 +1144,9 @@ export default function HomeScreen() {
                           style={
                             Platform.OS === "web"
                               ? styles.webProductImage
-                              : styles.productImage
+                              : [styles.productImage, { resizeMode: 'cover' }]
                           }
-                          resizeMode="contain"
+                          resizeMode="cover"
                         />
                         {Platform.OS === "web" && (
                           <TouchableOpacity
@@ -1637,8 +1643,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     // Remove Border for cleaner look if images are transparent
     borderWidth: 0,
+    overflow: "hidden", // NEW: ensure cover images don't leak
   },
-  foodOptionImage: { width: "100%", height: "100%", borderRadius: 50 },
+  foodOptionImage: { width: "100%", height: "100%", borderRadius: 50, resizeMode: "cover" },
   itemLabel: {
     fontSize: 14,
     fontWeight: "700",
@@ -1748,7 +1755,7 @@ const styles = StyleSheet.create({
   // UPDATED CATEGORY STYLES
   categoryItem: {
     alignItems: "center",
-    width: Platform.OS === "web" ? 180 : 85,
+    width: Platform.OS === "web" ? 250 : 110,
     marginRight: Platform.OS === "web" ? 24 : 0,
     ...Platform.select({
       web: {
@@ -1758,9 +1765,9 @@ const styles = StyleSheet.create({
     }),
   },
   categoryImageContainer: {
-    width: Platform.OS === "web" ? 150 : 80,
-    height: Platform.OS === "web" ? 150 : 80,
-    borderRadius: Platform.OS === "web" ? 24 : 16,
+    width: Platform.OS === "web" ? 250 : 100,
+    height: Platform.OS === "web" ? 180 : 100,
+    borderRadius: Platform.OS === "web" ? 16 : 50,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
@@ -1818,7 +1825,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   discountText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
-  productImage: { width: "100%", height: 100, marginBottom: 8 },
+  productImage: {
+    width: "100%",
+    height: 100,
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
   productInfo: { alignItems: "flex-start" },
   productName: {
     fontSize: 13,
