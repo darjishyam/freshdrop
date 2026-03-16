@@ -9,6 +9,7 @@ const path = require("path"); // Import path module
 dotenv.config();
 
 const app = express();
+app.enable('trust proxy'); // For Render/Proxies
 const server = http.createServer(app); // Create HTTP server
 
 // Initialize Socket.io
