@@ -160,9 +160,9 @@ export default function CartScreen() {
     }
 
     // Debug: Log what we're sending
-    console.log("First cart item:", firstItem);
-    console.log("Restaurant ID being sent:", restaurantId);
-    console.log("Restaurant ID type:", typeof restaurantId);
+    
+    
+    
 
     // Create order object matching Backend Schema
     const newOrder = {

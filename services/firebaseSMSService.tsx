@@ -33,7 +33,7 @@ class FirebaseSMSService {
         ? phoneNumber
         : `+91${phoneNumber}`;
 
-      console.log("📱 Sending OTP to:", formattedPhone);
+      
 
       if (this.isWeb) {
         // Web support requires reCAPTCHA verifier implementation
@@ -54,7 +54,7 @@ class FirebaseSMSService {
       this.confirmation =
         await nativeAuth().signInWithPhoneNumber(formattedPhone);
 
-      console.log("✅ OTP sent successfully");
+      
 
       return {
         success: true,
@@ -83,12 +83,12 @@ class FirebaseSMSService {
         throw new Error("No OTP request found. Please send OTP first.");
       }
 
-      console.log("🔐 Verifying OTP...");
+      
 
       // Verify OTP
       const userCredential = await this.confirmation.confirm(otp);
 
-      console.log("✅ OTP verified successfully");
+      
 
       return {
         success: true,

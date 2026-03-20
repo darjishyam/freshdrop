@@ -189,7 +189,7 @@ function _UnifiedAuthScreenContent() {
     const lat = coords?.latitude || 23.5880;
     const lon = coords?.longitude || 72.3693;
 
-    console.log("Landing Page: Fetching data for:", { lat, lon });
+    
     dispatch(fetchGroceries({ lat, lon }));
     dispatch(fetchRestaurants({ lat, lon }));
     dispatch(fetchCategories()); // [NEW] Fetch dynamic categories

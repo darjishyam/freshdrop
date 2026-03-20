@@ -171,10 +171,10 @@ export default function OrderDetailsScreen() {
       await SocketService.connect();
 
       const eventName = `order_${id}`;
-      console.log("Listening for updates on:", eventName);
+      
 
       SocketService.on(eventName, (updatedOrder) => {
-        console.log("Received update for order:", updatedOrder._id, updatedOrder.status);
+        
         dispatch(orderUpdated(updatedOrder));
         setOrder(updatedOrder); // Update local state immediately for smoother UX
       });

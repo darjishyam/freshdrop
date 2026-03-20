@@ -11,7 +11,7 @@ const seedMenu = async () => {
 
         const r = await Restaurant.findOne({ email: 'Sampat@gmail.com' });
         if (!r) {
-            console.log("Restaurant not found");
+            
             process.exit(1);
         }
 
@@ -59,10 +59,10 @@ const seedMenu = async () => {
                 restaurant: r._id,
                 ...item
             });
-            console.log(`Added: ${item.name}`);
+            
         }
 
-        console.log("Menu seeding complete!");
+        
         process.exit(0);
     } catch (error) {
         console.error(error);

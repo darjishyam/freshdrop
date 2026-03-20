@@ -176,7 +176,7 @@ export default function HomeScreen() {
     fetchBanners();
 
     if (!coords?.latitude || !coords?.longitude) return;
-    console.log("Fetching home data for:", coords);
+    
     const doFetch = () => {
       (dispatch as any)(
         fetchRestaurants({
@@ -211,7 +211,7 @@ export default function HomeScreen() {
     const socket = io(RESTAURANT_SOCKET_URL);
 
     socket.on("connect", () => {
-      console.log("🔌 Connected to Restaurant socket for real-time status");
+      
     });
 
     socket.on("connect_error", (err) => {
@@ -219,7 +219,7 @@ export default function HomeScreen() {
     });
 
     socket.on("restaurantStatusChanged", ({ restaurantId, isOpen }) => {
-      console.log(`📡 Restaurant ${restaurantId} isOpen=${isOpen}`);
+      
       dispatch(updateRestaurantStatus({ restaurantId, isOpen }));
     });
 
@@ -380,7 +380,7 @@ export default function HomeScreen() {
 
   // Banner Click Handler
   const handleBannerClick = async (banner) => {
-    console.log("Banner clicked:", banner.title, "LinkType:", banner.linkType, "LinkId:", banner.linkId);
+    
 
     // Record click for analytics
     try {
@@ -412,7 +412,7 @@ export default function HomeScreen() {
       });
     } else if (type === "web") {
       // In a real app, use Linking.openURL
-      console.log("Opening web link:", id);
+      
     }
   };
 

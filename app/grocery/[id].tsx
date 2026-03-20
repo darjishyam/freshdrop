@@ -52,18 +52,18 @@ export default function GroceryStoreScreen() {
         const socket = io(RESTAURANT_SOCKET_URL, { transports: ["websocket"] });
 
         socket.on("connect", () => {
-            console.log("[UserApp] Connected to Store socket for live status updates");
+            
         });
 
         socket.on("restaurantStatusChanged", ({ restaurantId: updatedRestId, isOpen }) => {
             if (updatedRestId !== id) return;
-            console.log(`[UserApp] groceryStatusChanged: ${updatedRestId} isOpen=${isOpen}`);
+            
             setStore((prev) => (prev ? { ...prev, isOpen } : prev));
         });
 
         socket.on("stockUpdate", ({ itemId, restaurantId: updatedRestId, inStock }) => {
             if (updatedRestId !== id) return;
-            console.log(`[UserApp] groceryStockUpdate: item ${itemId} inStock=${inStock}`);
+            
             setInventory((prev) =>
                 prev.map((item) =>
                     item.id === itemId ? { ...item, inStock } : item
@@ -82,7 +82,7 @@ export default function GroceryStoreScreen() {
             setLoading(true);
             try {
                 if (isLocal === "true" || id.length === 24) {
-                    console.log("Fetching real grocery data for store:", id);
+                    
                     const response = await fetch(`${API_BASE_URL}/restaurants/${id}`);
                     if (!response.ok) throw new Error("Failed to fetch store data");
                     const data = await response.json() as any;

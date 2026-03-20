@@ -202,7 +202,7 @@ export default function SignupScreen() {
     try {
       const response = await dispatch(signup({ phone: phoneNumber, name, email })).unwrap();
 
-      console.log("📥 Signup Response Received:", response);
+      
 
       // Navigate to OTP screen
       router.push({
@@ -228,9 +228,9 @@ export default function SignupScreen() {
 
   const handleGoogleSignup = async (token, source) => {
     try {
-      console.log(`Calling googleSignIn with token (${source}):`, token?.substring(0, 20) + "...");
+      
       const result = await dispatch(googleSignIn({ token, action: 'signup' })).unwrap();
-      console.log("Google Sign-In Success - User:", result);
+      
 
       // CRITICAL: Always clear location data on Google Sign-In
       // to force new users to select address
@@ -239,11 +239,11 @@ export default function SignupScreen() {
 
       // Check if user has phone number (new user might not)
       if (!result.phone || result.phone === "") {
-        console.log("User missing phone, redirecting to add-phone");
+        
         router.replace("/auth/add-phone");
       } else {
         // Just in case, if they have phone but no address
-        console.log("User has phone, checking location...");
+        
         router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
       }
     } catch (err) {

@@ -12,11 +12,11 @@ const IDS_TO_KEEP = [
 
 mongoose.connect(MONGO_URI)
     .then(async () => {
-        console.log("Connected. Starting cleanup...");
+        
         try {
             const result = await Restaurant.deleteMany({ _id: { $nin: IDS_TO_KEEP } });
-            console.log(`Deleted ${result.deletedCount} restaurants.`);
-            console.log("Kept: Heer, Sampati, McDonald's, Domino's Pizza.");
+            
+            
         } catch (e) {
             console.error(e);
         } finally {

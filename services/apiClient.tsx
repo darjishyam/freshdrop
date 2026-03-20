@@ -16,7 +16,7 @@ export const setSuspensionHandler = (handler) => {
  * - Automatically attaching auth tokens
  * - Intercepting 403 Suspended errors
  */
-const request = async (endpoint, options = {}) => {
+const request = async (endpoint: string, options: any = {}) => {
     const token = await AsyncStorage.getItem("auth_token");
 
     const headers = {
@@ -42,10 +42,10 @@ const request = async (endpoint, options = {}) => {
             const clonedResponse = response.clone();
             const data = await clonedResponse.json();
 
-            if (data.message && data.message.toLowerCase().includes("suspended")) {
-                console.log("[apiClient] 403 Suspended detected!");
+            if ((data as any).message && (data as any).message.toLowerCase().includes("suspended")) {
+                
                 if (suspensionHandler) {
-                    suspensionHandler(data.message);
+                    suspensionHandler((data as any).message);
                 }
                 // Stop further execution for this request
                 throw new Error("ACCOUNT_SUSPENDED");

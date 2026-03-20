@@ -59,7 +59,7 @@ export const createNewOrder = async (orderData) => {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || "Failed to create order");
+            throw new Error((data as any).message || "Failed to create order");
         }
 
         return data;
@@ -88,10 +88,10 @@ export const cancelOrderAPI = async (orderId) => {
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.message || "Failed to cancel order");
+            throw new Error((data as any).message || "Failed to cancel order");
         }
 
-        return data.order;
+        return (data as any).order;
     } catch (error) {
         console.error("Error cancelling order:", error);
         throw error;
@@ -116,7 +116,7 @@ export const validateCouponAPI = async (code, cartTotal) => {
 
         const data = await response.json();
         if (!response.ok) {
-            throw new Error(data.message || "Failed to validate coupon");
+            throw new Error((data as any).message || "Failed to validate coupon");
         }
         return data; // { success, message, discountAmount, code }
     } catch (error) {

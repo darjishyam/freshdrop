@@ -24,7 +24,7 @@ export const fetchRestaurants = createAsyncThunk(
       }
 
       const data = await response.json();
-      console.log("✅ Restaurants fetched:", (data as any[]).length);
+      
       return data;
     } catch (error: any) {
       console.error("❌ Restaurant fetch error:", error.message);
@@ -54,7 +54,7 @@ export const fetchGroceries = createAsyncThunk(
       }
 
       const data = await response.json();
-      console.log("✅ Groceries fetched:", (data as any[]).length);
+      
       return data;
     } catch (error: any) {
       console.error("❌ Groceries fetch error:", error.message);

@@ -59,9 +59,9 @@ const registerUser = async (req, res) => {
     if (user) {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       if (shouldLogOtp()) {
-        console.log("--------------------------------");
-        console.log("DEV OTP (SIGNUP):", otp);
-        console.log("--------------------------------");
+        
+        
+        
       }
       user.otp = otp;
       user.otpExpires = Date.now() + 30 * 1000; // 30 seconds
@@ -114,19 +114,19 @@ const registerUser = async (req, res) => {
         try {
           // TEMPORARILY DISABLED FOR SPEED
           // await sendSms(user.phone, otp);
-          console.log("⚠️ SMS sending disabled for speed in signup.");
+          
           sentType = sentType ? "email_and_sms" : "sms";
         } catch (smsError) {
           console.error("Failed to send SMS:", smsError);
         }
       }
 
-      console.log("🔍 DEBUG - NODE_ENV:", process.env.NODE_ENV);
-      console.log("🔍 DEBUG - LOG_OTPS:", process.env.LOG_OTPS);
-      console.log("🔍 DEBUG - OTP value:", otp);
+      
+      
+      
 
       const shouldIncludeOtp = process.env.LOG_OTPS === "true" || process.env.NODE_ENV === "development";
-      console.log("🔍 DEBUG - shouldIncludeOtp:", shouldIncludeOtp);
+      
 
       const response = {
         message: sentType ? `OTP sent to ${sentType}` : "OTP generated",
@@ -135,7 +135,7 @@ const registerUser = async (req, res) => {
         devOtp: otp, // ALWAYS INCLUDE - FORCED FOR DEBUGGING
       };
 
-      console.log("📤 Signup Response:", JSON.stringify(response, null, 2));
+      
       res.status(201).json(response);
     } else {
       res.status(400).json({ message: "Invalid user data" });
@@ -171,9 +171,9 @@ const loginUser = async (req, res) => {
     if (await bcrypt.compare(password, user.password)) {
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
       if (shouldLogOtp()) {
-        console.log("--------------------------------");
-        console.log("DEV OTP (LOGIN):", otp);
-        console.log("--------------------------------");
+        
+        
+        
       }
       user.otp = otp;
       user.otpExpires = Date.now() + 30 * 1000; // 30 seconds
@@ -256,9 +256,9 @@ const sendOtp = async (req, res) => {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     if (shouldLogOtp()) {
-      console.log("--------------------------------");
-      console.log("DEV OTP (RESEND):", otp);
-      console.log("--------------------------------");
+      
+      
+      
     }
     user.otp = otp;
     user.otpExpires = Date.now() + 30 * 1000; // 30 seconds
@@ -328,7 +328,7 @@ const sendOtp = async (req, res) => {
       try {
         // TEMPORARILY DISABLED FOR SPEED
         // await sendSms(user.phone, otp);
-        console.log("⚠️ SMS sending disabled for speed.");
+        
         sentType = sentType ? "email_and_sms" : "sms";
       } catch (smsError) {
         console.error("Failed to send SMS:", smsError);
@@ -496,7 +496,7 @@ const googleLogin = async (req, res) => {
         googleUser = data;
       }
     } catch (e) {
-      console.log("ID Token verification failed, checking Access Token...");
+      
     }
 
     // If ID Token failed, try verifying as Access Token (Web)
@@ -510,11 +510,11 @@ const googleLogin = async (req, res) => {
           googleUser = data;
         }
       } catch (e) {
-        console.log("Access Token verification failed.");
+        
       }
     }
 
-    console.log("Google Token Verification Response:", googleUser);
+    
 
     if (!googleUser || !googleUser.email) {
       return res.status(400).json({ message: "Google authentication failed", details: googleUser });
@@ -966,7 +966,7 @@ const updatePushToken = async (req, res) => {
 
       user.pushToken = pushToken;
       await user.save();
-      console.log(`[PUSH] Updated push token for user: ${user.email || user.phone}`);
+      
       res.json({ message: "Push token updated" });
     } else {
       res.status(404).json({ message: "User not found" });
@@ -1031,7 +1031,7 @@ const addAddress = async (req, res) => {
         lon: lon !== undefined ? lon : user.savedAddresses[existingIndex].lon,
         type: typeToSave
       };
-      console.log(`[ADDRESS] Updated existing ${typeToSave} address`);
+      
     } else {
       // Add new
       user.savedAddresses.push({
@@ -1041,7 +1041,7 @@ const addAddress = async (req, res) => {
         lat,
         lon
       });
-      console.log(`[ADDRESS] Added new ${typeToSave} address`);
+      
     }
 
     await user.save();
@@ -1064,7 +1064,7 @@ const deleteAddress = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    console.log(`[ADDRESS] Attempting to delete address: ${addressId} for user: ${user._id}`);
+    
     const initialCount = user.savedAddresses.length;
 
     // Filter out the requested address
@@ -1075,7 +1075,7 @@ const deleteAddress = async (req, res) => {
     if (user.savedAddresses.length === initialCount) {
       console.warn(`[ADDRESS] No address found with ID ${addressId} to delete`);
     } else {
-      console.log(`[ADDRESS] Successfully deleted address ${addressId}`);
+      
       await user.save();
     }
 

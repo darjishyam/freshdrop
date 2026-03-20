@@ -13,11 +13,11 @@ const debugGroceryImages = async (query = 'grocery', number = 10) => {
             },
         });
 
-        console.log(`Fetched ${response.data.products.length} products.`);
+        
         response.data.products.forEach((p, i) => {
-            console.log(`[${i}] ID: ${p.id} | Title: ${p.title}`);
-            console.log(`    Image: ${p.image}`);
-            console.log('---');
+            
+            
+            
         });
 
     } catch (error) {

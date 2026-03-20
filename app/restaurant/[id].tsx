@@ -63,13 +63,13 @@ export default function RestaurantScreen() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("[UserApp] Connected to Restaurant socket for live stock updates");
+      
     });
 
     socket.on("stockUpdate", ({ itemId, restaurantId: updatedRestId, inStock }) => {
       // Only update if the event is for this restaurant
       if (updatedRestId !== restaurantId) return;
-      console.log(`[UserApp] stockUpdate: item ${itemId} inStock=${inStock}`);
+      
       setMenuItems((prev) =>
         prev.map((m) =>
           m._id === itemId ? { ...m, inStock } : m
@@ -79,7 +79,7 @@ export default function RestaurantScreen() {
 
     socket.on("restaurantStatusChanged", ({ restaurantId: updatedRestId, isOpen }) => {
       if (updatedRestId !== restaurantId) return;
-      console.log(`[UserApp] restaurantStatusChanged: ${updatedRestId} isOpen=${isOpen}`);
+      
       setRestaurant((prev) => (prev ? { ...prev, isOpen } : prev));
     });
 
@@ -95,7 +95,7 @@ export default function RestaurantScreen() {
 
       try {
         setLoading(true);
-        console.log("Fetching restaurant details for ID:", restaurantId);
+        
 
         // Check if it's a valid MongoDB ObjectId (24 hex chars)
         const isMongoId = /^[0-9a-fA-F]{24}$/.test(restaurantId);
@@ -115,7 +115,7 @@ export default function RestaurantScreen() {
           }
         } else {
           // Fallback for Mock IDs
-          console.log("Using Mock Data for ID:", restaurantId);
+          
           let mockRestaurant = restaurants.find(r => r.id === restaurantId);
           if (!mockRestaurant) mockRestaurant = restaurants[0];
 

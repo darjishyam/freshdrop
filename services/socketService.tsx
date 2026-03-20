@@ -9,9 +9,10 @@ const SOCKET_URL = API_BASE_URL.replace("/api", "");
 class SocketService {
     listeners = []; // Queue for listeners before connection
     pendingRooms = []; // Rooms to join once connected
+    socket: any = null;
 
     constructor() {
-        console.log("User App SocketService Initialized");
+        
     }
 
     connect = async () => {
@@ -20,7 +21,7 @@ class SocketService {
 
             // If already connected, don't reconnect
             if (this.socket?.connected) {
-                console.log("[Socket] Already connected:", this.socket.id);
+                
                 return;
             }
 
@@ -39,7 +40,7 @@ class SocketService {
             });
 
             this.socket.on("connect", () => {
-                console.log("[Socket] User connected:", this.socket.id);
+                
 
                 // Re-attach all queued event listeners
                 this.listeners.forEach(({ event, callback }) => {
@@ -49,12 +50,12 @@ class SocketService {
                 // Emit all pending room joins
                 this.pendingRooms.forEach((roomId) => {
                     this.socket.emit("joinUserRoom", roomId);
-                    console.log("[Socket] Joined pending room: user_" + roomId);
+                    
                 });
             });
 
             this.socket.on("disconnect", (reason) => {
-                console.log("[Socket] User disconnected:", reason);
+                
             });
 
             this.socket.on("connect_error", (err) => {
@@ -78,9 +79,9 @@ class SocketService {
         // If already connected, emit immediately
         if (this.socket?.connected) {
             this.socket.emit("joinUserRoom", userId);
-            console.log("[Socket] Immediately joined room: user_" + userId);
+            
         } else {
-            console.log("[Socket] Room queued for when connected: user_" + userId);
+            
         }
     };
 

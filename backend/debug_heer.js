@@ -25,16 +25,16 @@ async function viewHeer() {
 
         const heer = await Restaurant.findOne({ name: /Heer/i });
         if (heer) {
-            console.log('--- HEER RESTAURANT STATE ---');
-            console.log('Name:', heer.name);
-            console.log('Status:', heer.status);
-            console.log('Overall isOpen:', heer.isOpen);
-            console.log('Coords:', heer.address?.coordinates);
-            console.log('Monday Hours:', JSON.stringify(heer.operatingHours?.monday, null, 2));
-            console.log('Full Operating Hours:', JSON.stringify(heer.operatingHours, null, 2));
-            console.log('------------------------------');
+            
+            
+            
+            
+            
+            
+            
+            
         } else {
-            console.log('Heer Restaurant not found');
+            
         }
 
         await mongoose.disconnect();

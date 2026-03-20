@@ -35,7 +35,7 @@ try {
 
   auth = getAuth(app);
 
-  console.log("🔥 Firebase Web SDK Configured");
+  
 } catch (e) {
   console.error("Firebase Web Config Error:", e);
 }

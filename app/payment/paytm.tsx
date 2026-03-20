@@ -86,10 +86,10 @@ export default function PaytmPaymentScreen() {
   const startProcessing = useCallback(async () => {
     // STRICT GUARD: If already processing, bail out immediately
     if (isProcessingOrder.current) {
-      console.log("[PAYTM] startProcessing called but already locked. Ignoring.");
+      
       return;
     }
-    console.log("PIN Verified! Starting Paytm Payment...");
+    
 
     // Set lock BEFORE any async work
     isProcessingOrder.current = true;
@@ -192,7 +192,7 @@ export default function PaytmPaymentScreen() {
 
   // Handle cancel payment - returns to cart
   const handleCancelPayment = useCallback(() => {
-    console.log("Cancel button clicked!");
+    
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;

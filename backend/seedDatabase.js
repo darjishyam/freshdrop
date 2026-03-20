@@ -6,7 +6,7 @@ require("dotenv").config();
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
+  .then(() => { })
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const sampleRestaurants = [
@@ -123,17 +123,17 @@ const sampleRestaurants = [
 const seedDatabase = async () => {
   try {
     // Clear existing data (DISABLED FOR SAFETY)
-    // console.log("🗑️  Clearing existing restaurants and products...");
+    // 
     // await Restaurant.deleteMany({});
     // await Product.deleteMany({});
 
     // Insert restaurants
-    console.log("🏪 Creating restaurants...");
+
     const restaurants = await Restaurant.insertMany(sampleRestaurants);
-    console.log(`✅ Created ${restaurants.length} restaurants`);
+
 
     // Create products for each restaurant
-    console.log("🍕 Creating products...");
+
     const products = [];
 
     // Pizza Hut Products
@@ -309,12 +309,12 @@ const seedDatabase = async () => {
     }
 
     await Product.insertMany(products);
-    console.log(`✅ Created ${products.length} products`);
 
-    console.log("\n🎉 Database seeded successfully!");
-    console.log("\n📊 Summary:");
-    console.log(`   Restaurants: ${restaurants.length}`);
-    console.log(`   Products: ${products.length}`);
+
+
+
+
+
 
     process.exit(0);
   } catch (error) {

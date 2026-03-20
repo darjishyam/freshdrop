@@ -20,7 +20,7 @@ router.post("/status-update", async (req, res) => {
         const io = req.app.get("io");
         if (io) {
             io.emit("restaurantStatusChanged", { restaurantId, isOpen });
-            console.log(`📡 [UserBackend] Emitted restaurantStatusChanged: ${restaurantId} isOpen=${isOpen}`);
+            
         }
         res.json({ success: true });
     } catch (err) {

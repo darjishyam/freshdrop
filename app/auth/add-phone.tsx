@@ -67,7 +67,7 @@ export default function AddPhoneScreen() {
             const savedCoords = await AsyncStorage.getItem("user_location_coords");
 
             if (!savedCoords || savedCoords === "null") {
-                console.log("User missing location, redirecting to addresses");
+                
                 router.replace("/profile/addresses");
             } else {
                 router.replace("/home");

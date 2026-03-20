@@ -15,7 +15,7 @@ export const CartProvider = ({ children }) => {
   // Sync pending items after login
   useEffect(() => {
     if (user.phone && pendingItems.length > 0) {
-      console.log("Syncing pending items to cart...");
+      
       setCartItems((prev) => {
         // Merge pending items
         const newCart = [...prev];
@@ -36,7 +36,7 @@ export const CartProvider = ({ children }) => {
   const addToCart = (item) => {
     // If not logged in, add to pending and redirect
     if (!user.phone) {
-      console.log("User not logged in. Adding to pending and redirecting...");
+      
       setPendingItems((prev) => {
         const existing = prev.find((i) => i.id === item.id);
         if (existing) {

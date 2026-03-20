@@ -6,7 +6,7 @@ require("dotenv").config();
 const clean = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log("✅ DB Connected");
+        
 
         // 1. Find 'Unknown' or 'Default' restaurants
         const badRestaurants = await Restaurant.find({
@@ -17,14 +17,14 @@ const clean = async () => {
             ]
         });
 
-        console.log(`Found ${badRestaurants.length} bad restaurants.`);
+        
 
         for (const r of badRestaurants) {
-            console.log(`Deleting Restaurant: ${r.name} (${r._id})`);
+            
 
             // Delete associated orders
             const orders = await Order.deleteMany({ restaurant: r._id });
-            console.log(`- Deleted ${orders.deletedCount} orders linked to this restaurant.`);
+            
 
             await Restaurant.findByIdAndDelete(r._id);
         }
@@ -34,7 +34,7 @@ const clean = async () => {
         // actually if schema requires restaurant, it might be there but null? 
         // We'll skip this for now safely.
 
-        console.log("✅ Cleanup Complete.");
+        
 
     } catch (e) {
         console.error(e);

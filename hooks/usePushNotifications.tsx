@@ -38,7 +38,7 @@ export const sendPushTokenToBackend = async (token) => {
             },
             body: JSON.stringify({ pushToken: token }),
         });
-        console.log('✅ Push token sent to backend successfully');
+        
     } catch (error) {
         console.error('❌ Failed to send push token to backend:', error);
     }
@@ -58,7 +58,7 @@ export const removePushTokenFromBackend = async () => {
                 'Authorization': `Bearer ${authToken}`,
             },
         });
-        console.log('🔕 Push token removed from backend');
+        
     } catch (error) {
         console.error('Failed to remove push token from backend:', error);
     }
@@ -100,12 +100,12 @@ export const usePushNotifications = () => {
             try {
                 const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
                 token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-                console.log("Expo Push Token:", token);
+                
             } catch (e) {
                 console.error("Error getting push token:", e);
             }
         } else {
-            console.log('Must use physical device for Push Notifications');
+            
         }
 
         return token;
@@ -120,13 +120,13 @@ export const usePushNotifications = () => {
             if (isEnabled) {
                 const token = await registerForPushNotificationsAsync();
                 if (token) {
-                    console.log('📱 Push Token Registered:', token);
+                    
                     setExpoPushToken(token);
                     // Automatically send token to backend
                     await sendPushTokenToBackend(token);
                 }
             } else {
-                console.log('🔕 Notifications are disabled by user preference.');
+                
             }
         });
 
@@ -135,7 +135,7 @@ export const usePushNotifications = () => {
         });
 
         responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-            console.log("Notification Tapped:", response);
+            
             setNotificationResponse(response);
         });
 

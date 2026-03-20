@@ -92,10 +92,10 @@ export default function PhonePePaymentScreen() {
   const startProcessing = useCallback(async () => {
     // STRICT GUARD: If already processing, bail out immediately
     if (isProcessingOrder.current) {
-      console.log("[PHONEPE] startProcessing called but already locked. Ignoring.");
+      
       return;
     }
-    console.log("PIN Verified! Starting Payment...");
+    
 
     // Set lock BEFORE any async work
     isProcessingOrder.current = true;

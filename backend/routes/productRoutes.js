@@ -46,7 +46,7 @@ router.get("/featured", async (req, res) => {
                 return distance <= parseFloat(radius);
             });
 
-            console.log(`📍 Found ${featuredProducts.length} featured products near ${lat}, ${lon}`);
+            
         }
 
         res.json(featuredProducts.slice(0, 10)); // Return top 10

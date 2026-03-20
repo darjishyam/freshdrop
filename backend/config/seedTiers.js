@@ -34,7 +34,7 @@ const seedBannerTiers = async () => {
                 }
             ];
             await BannerTier.insertMany(tiers);
-            console.log('✅ Default Banner Tiers seeded');
+            
         }
     } catch (error) {
         console.error('❌ Error seeding Banner Tiers:', error);

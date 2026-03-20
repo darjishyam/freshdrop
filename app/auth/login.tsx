@@ -213,11 +213,11 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async (token, source) => {
     try {
-      console.log(`Calling googleSignIn with token (${source}):`, token?.substring(0, 20) + "...");
+      
       // Backend should handle both Access Token (Web) and ID Token (Native)
       // Or we standardize interaction. Usually, ID Token is preferred for Native.
       const result = await dispatch(googleSignIn({ token, action: 'login' })).unwrap();
-      console.log("Google Sign-In Success - User:", result);
+      
 
       // Reload user data from AsyncStorage (userSlice)
       const { loadUserData } = require("../../store/slices/userSlice");
@@ -225,7 +225,7 @@ export default function LoginScreen() {
 
       // LOGIC: Existing users go Home. New users go to complete profile.
       if (result.isNewUser) {
-        console.log("New Google User, redirecting to address setup");
+        
         router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
         return;
       }
@@ -233,7 +233,7 @@ export default function LoginScreen() {
       // EXISTING USER:
       // Even if existing, check if critical info is missing (like phone)
       if (!result.phone || result.phone === "") {
-        console.log("User missing phone, redirecting to add-phone");
+        
         router.replace("/auth/add-phone");
         return;
       }
@@ -243,7 +243,7 @@ export default function LoginScreen() {
       const savedCoords = await AsyncStorage.getItem("user_location_coords");
 
       if (!savedCoords || savedCoords === "null") {
-        console.log("User missing location, redirecting to addresses");
+        
         router.replace({ pathname: "/profile/addresses", params: { isOnboarding: "true" } });
       } else {
         // Everything set, go home

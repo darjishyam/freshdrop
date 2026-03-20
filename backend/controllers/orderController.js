@@ -34,7 +34,7 @@ const createOrder = async (req, res) => {
 
         // Log ALL incoming order requests with a counter to distinguish duplicates
         const logLine = `[${timestamp}] [ORDER #${reqNum}] restaurantId="${restaurantId}" type=${typeof restaurantId} len=${restaurantId?.length} items=${items?.length} user=${req.user?._id}\n`;
-        console.log(logLine.trim());
+        
         fs.appendFileSync(logFile, logLine);
 
         // FINAL SAFETY CHECK: Ensure user is not suspended
@@ -58,18 +58,18 @@ const createOrder = async (req, res) => {
 
         if (!restaurant) {
             const errLine = `[${timestamp}] [ORDER #${reqNum}] ❌ NOT FOUND: restaurantId="${restaurantId}"\n`;
-            console.log(errLine.trim());
+            
             fs.appendFileSync(logFile, errLine);
             return res.status(404).json({ message: "Restaurant or Grocery Store not found" });
         }
         const okLine = `[${timestamp}] [ORDER #${reqNum}] ✅ Found ${merchantType}: ${restaurant.name}\n`;
-        console.log(okLine.trim());
+        
         fs.appendFileSync(logFile, okLine);
 
         // Check if store is open
         if (restaurant.isOpen === false) {
             const closedLine = `[${timestamp}] [ORDER #${reqNum}] ❌ CLOSED: ${merchantType} is closed\n`;
-            console.log(closedLine.trim());
+            
             fs.appendFileSync(logFile, closedLine);
             return res.status(400).json({
                 message: `${merchantType} is currently closed. Please order from another store.`,
@@ -216,7 +216,7 @@ const createOrder = async (req, res) => {
 
         // Find Nearby Drivers (Logic Moved to updateRestaurantOrderStatus on Ready)
         // Order is now silent until marked Ready by restaurant
-        console.log(`[ORDER_CREATE] Order ${createdOrder._id} placed. Waiting for restaurant to Mark Ready.`);
+        
 
         // --- NEW: Notify Restaurant (Real-Time & Push) ---
         const io = req.app.get('io');
@@ -224,7 +224,7 @@ const createOrder = async (req, res) => {
             const restaurantRoom = `restaurant_${restaurantId}`;
             io.to(restaurantRoom).emit('restaurantNewOrder', populatedOrder);
             io.to("admin_room").emit('adminNewOrder', populatedOrder); // NOTIFY ADMIN
-            console.log(`📡 Emitted 'restaurantNewOrder' to ${restaurantRoom} and 'adminNewOrder' to admin_room`);
+            
         }
 
         // Fetch Restaurant details for Push Token
@@ -234,18 +234,18 @@ const createOrder = async (req, res) => {
             if (!restaurantDoc) restaurantDoc = await Grocery.findById(restaurantId);
 
             if (restaurantDoc && restaurantDoc.pushToken) {
-                console.log(`[PUSH] Notifying Restaurant: ${restaurantDoc.name}`);
+                
                 await sendPushNotification(
                     [restaurantDoc.pushToken],
                     "🍔 New Order Received",
                     `${itemCount} items • Tap to review and accept`,
                     { orderId: createdOrder._id, type: 'NEW_ORDER', restaurantId: restaurantId }
                 );
-                console.log(`[PUSH] Restaurant notification sent.`);
+                
             }
 
             if (req.user.pushToken) {
-                console.log(`[PUSH] Notifying User of success: ${req.user.email}`);
+                
                 await sendPushNotification(
                     [{ userId: req.user._id, pushToken: req.user.pushToken }],
                     "✅ Order Placed Successfully",
@@ -266,7 +266,7 @@ const createOrder = async (req, res) => {
             try {
                 const checkOrder = await Order.findById(createdOrder._id).populate("user").populate("restaurant");
                 if (checkOrder && checkOrder.status === "Order Placed") {
-                    console.log(`[SLA TIMEOUT] Order ${checkOrder._id} was not accepted in time. Cancelling...`);
+                    
 
                     checkOrder.status = "Cancelled";
                     checkOrder.timeline.push({
@@ -432,18 +432,18 @@ const acceptOrder = async (req, res) => {
         const orderId = req.params.id;
         const driverId = req.user.id;
 
-        console.log(`[RACE_DEBUG] Driver ${driverId} attempting to accept Order ${orderId}`);
+        
 
         // 1. Initial State Check (Optional, for debugging)
         const initialCheck = await Order.findById(orderId);
         if (!initialCheck) {
-            console.log(`[RACE_DEBUG] Order ${orderId} NOT FOUND`);
+            
             return res.status(404).json({ message: "Order not found" });
         }
-        console.log(`[RACE_DEBUG] Order ${orderId} current driver: ${initialCheck.driver}`);
+        
 
         if (initialCheck.driver) {
-            console.log(`[RACE_DEBUG] REJECTING: Order ${orderId} already has driver ${initialCheck.driver}`);
+            
             return res.status(400).json({
                 message: "Order already accepted by another driver",
                 code: "ORDER_ALREADY_TAKEN",
@@ -486,11 +486,11 @@ const acceptOrder = async (req, res) => {
         if (!order) {
             // If order is null, it means the query { _id: orderId, driver: null } failed to find a match.
             // Since we know the order exists (from initialCheck), it means 'driver' was NOT null.
-            console.log(`[RACE_DEBUG] FAILED: Driver ${driverId} failed to acquire lock on Order ${orderId}`);
+            
 
             // Fetch checks to see who got it
             const finalCheck = await Order.findById(orderId);
-            console.log(`[RACE_DEBUG] Order ${orderId} was taken by Driver ${finalCheck?.driver}`);
+            
 
             return res.status(400).json({
                 message: "Order already accepted by another driver",
@@ -498,7 +498,7 @@ const acceptOrder = async (req, res) => {
             });
         }
 
-        console.log(`[RACE_DEBUG] SUCCESS: Driver ${driverId} successfully accepted Order ${orderId}`);
+        
 
         const updatedOrder = await Order.findById(orderId)
             .populate("restaurant")
@@ -515,7 +515,7 @@ const acceptOrder = async (req, res) => {
                 const userDoc = await User.findById(updatedOrder.user);
                 if (userDoc && userDoc.pushToken) {
                     const driverFirstName = req.user.name ? req.user.name.split(' ')[0] : 'Delivery partner';
-                    console.log(`[PUSH] Notifying User of Driver Assignment: ${userDoc.email}`);
+                    
                     await sendPushNotification(
                         [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
                         "🚚 Delivery partner assigned",
@@ -523,17 +523,17 @@ const acceptOrder = async (req, res) => {
                         { type: 'DRIVER_ASSIGNED', orderId: orderId },
                         'User'
                     );
-                    console.log(`[PUSH] User assignment notification sent.`);
+                    
                 }
             } catch (uPushErr) {
-                console.log("User push notification (Driver Assigned) err:", uPushErr.message);
+                
             }
 
             // Notify Admin
             io.to("admin_room").emit('adminOrderUpdate', updatedOrder);
 
             // Remove from other drivers' lists
-            console.log(`[RACE_DEBUG] Emitting orderTaken for ${orderId}`);
+            
             io.emit('orderTaken', orderId);
         }
 
@@ -568,7 +568,7 @@ const updateOrderStatus = async (req, res) => {
                 driver.lifetimeEarnings = (driver.lifetimeEarnings || 0) + earnings;
                 driver.totalOrders = (driver.totalOrders || 0) + 1;
                 await driver.save();
-                console.log(`Driver ${driver.name} earned ₹${earnings}`);
+                
             }
         }
 
@@ -610,7 +610,7 @@ const updateOrderStatus = async (req, res) => {
                         body = `Your order from ${updatedOrder.restaurant?.name || 'the restaurant'} has been delivered. Bon appétit!`;
                     }
 
-                    console.log(`[PUSH] Identified User: ${userDoc.email || userDoc.phone}, Token: ${userDoc.pushToken ? 'YES' : 'NO'}`);
+                    
                     await sendPushNotification(
                         [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
                         title,
@@ -618,12 +618,12 @@ const updateOrderStatus = async (req, res) => {
                         { type: 'ORDER_UPDATE', orderId: orderId },
                         'User'
                     );
-                    console.log(`[PUSH] Order Update notification sent to user for status: ${status}`);
+                    
                 } else {
-                    console.log(`[PUSH] Skip: User doc not found or missing token for ID: ${updatedOrder.user}`);
+                    
                 }
             } catch (uPushErr) {
-                console.log("User push notification err:", uPushErr.message);
+                
             }
 
             // NOTIFY ADMIN
@@ -889,7 +889,7 @@ const updateRestaurantOrderStatus = async (req, res) => {
                         }
 
                         if (title) {
-                            console.log(`[PUSH] Notifying User of Restaurant Milestone: ${status} -> ${title}`);
+                            
                             await sendPushNotification(
                                 [{ userId: userDoc._id, pushToken: userDoc.pushToken }],
                                 title,
@@ -897,12 +897,12 @@ const updateRestaurantOrderStatus = async (req, res) => {
                                 { type: 'ORDER_UPDATE', orderId: order._id, status: status },
                                 'User'
                             );
-                            console.log(`[PUSH] Notification sent successfully.`);
+                            
                         } else {
-                            console.log(`[PUSH] Skip: No notification title mapped for status ${status}`);
+                            
                         }
                     } else {
-                        console.log(`[PUSH] Skip: User doc not found or missing token for ID: ${order.user}`);
+                        
                     }
                 } catch (userPushErr) {
                     console.error("Failed to send user push notification:", userPushErr);
@@ -912,19 +912,19 @@ const updateRestaurantOrderStatus = async (req, res) => {
             io.to("admin_room").emit('adminOrderUpdate', order);
 
             // DRIVER NOTIFICATION (READY only)
-            console.log(`[DEBUG] Checking condition: status '${status}' === 'Ready'`);
+            
             if (status === 'Ready') {
                 log(`STATUS READY: Notifying Drivers...`);
-                console.log(`[DEBUG] Status IS Ready. Proceeding to find drivers...`);
+                
 
                 const populatedOrder = await Order.findById(order._id).populate("restaurant");
                 const restaurant = populatedOrder.restaurant; // This will now correctly populate from Groceries if it's a grocery store
-                console.log(`[DEBUG] Store found: ${restaurant ? restaurant.name : 'NULL'}`);
-                console.log(`[DEBUG] Restaurant Coordinates: ${JSON.stringify(restaurant?.address?.coordinates)}`);
+                
+                
 
                 if (restaurant?.address?.coordinates) {
                     const { lat, lon } = restaurant.address.coordinates;
-                    console.log(`[DEBUG] Searching drivers near ${lat}, ${lon}`);
+                    
 
                     let nearbyDrivers = await Driver.find({
                         location: { $near: { $geometry: { type: "Point", coordinates: [lon, lat] }, $maxDistance: 10000 } },
@@ -933,12 +933,12 @@ const updateRestaurantOrderStatus = async (req, res) => {
 
                     if (nearbyDrivers.length === 0) {
                         log("No drivers found via GeoQuery. Falling back to ALL online drivers.");
-                        // console.log("[DEBUG] GeoSearch found 0. Fallback to ALL.");
+                        // 
                         nearbyDrivers = await Driver.find({ isOnline: true, status: { $in: ["ACTIVE", "onboarding", "PENDING"] } });
                     }
 
                     log(`Found ${nearbyDrivers.length} drivers to notify.`);
-                    // console.log(`[DEBUG] Total Drivers Found: ${nearbyDrivers.length}`);
+                    // 
 
                     // Collect tokens for Push Notification
                     const pushCandidates = nearbyDrivers
@@ -958,25 +958,25 @@ const updateRestaurantOrderStatus = async (req, res) => {
 
                     nearbyDrivers.forEach(driver => {
                         log(`Targeting Driver: ${driver._id} (${driver.name})`);
-                        // console.log(`[DEBUG] Emitting newOrder to driver_${driver._id}`);
+                        // 
                         io.to(`driver_${driver._id}`).emit('newOrder', populatedOrder);
                         log(`Notified: ${driver._id}`);
                     });
                     // City Room
                     if (restaurant.address.city) {
                         const cityRoom = `city_${restaurant.address.city.toLowerCase().replace(/\s+/g, '_')}`;
-                        // console.log(`[DEBUG] Emitting to city room: ${cityRoom}`);
+                        // 
                         io.to(cityRoom).emit('newOrder', populatedOrder);
                     }
                 } else {
-                    // console.log("[DEBUG] Restaurant has no coordinates!");
+                    // 
                 }
             } else {
-                // console.log(`[DEBUG] Status is NOT Ready (it is '${status}')`);
+                // 
                 // log(`Status is NOT Ready: ${status}`);
             }
         } else {
-            // console.log("[DEBUG] IO Object IS MISSING!");
+            // 
         }
         res.json(order);
     } catch (error) {

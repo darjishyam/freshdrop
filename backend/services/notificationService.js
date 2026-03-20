@@ -61,7 +61,7 @@ const sendPushNotification = async (recipients, title, body, data = {}, recipien
             }));
 
             await Notification.insertMany(notifications);
-            console.log(`Persisted ${notifications.length} notifications to DB`);
+            
         } catch (dbError) {
             console.error("Failed to persist notifications:", dbError);
         }
@@ -76,9 +76,9 @@ const sendPushNotification = async (recipients, title, body, data = {}, recipien
 
     for (let chunk of chunks) {
         try {
-            console.log(`[PUSH] Sending chunk of ${chunk.length} messages`);
+            
             let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-            console.log("[PUSH] Ticket Chunk Response:", JSON.stringify(ticketChunk));
+            
             tickets.push(...ticketChunk);
         } catch (error) {
             console.error("[PUSH] Error sending notification chunk:", error);

@@ -6,7 +6,7 @@ require('dotenv').config();
 async function populateMenus() {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+
 
         // Get the 3 restaurants
         const pratibha = await Restaurant.findOne({ name: 'Pratibha Restaurant' });
@@ -14,13 +14,13 @@ async function populateMenus() {
         const newRest = await Restaurant.findOne({ name: 'New Restaurant' });
 
         if (!pratibha || !sampatti || !newRest) {
-            console.log('❌ Could not find all 3 restaurants');
+
             process.exit(1);
         }
 
         // Delete old Thali + Paneer Tikka products from these 3
         await Product.deleteMany({ restaurant: { $in: [pratibha._id, sampatti._id, newRest._id] } });
-        console.log('🗑️ Removed old placeholder products');
+
 
         // ===== PRATIBHA RESTAURANT — North Indian, Gujarati, Punjabi =====
         const pratibhaItems = [
@@ -352,15 +352,15 @@ async function populateMenus() {
         const allProducts = [...pratibhaItems, ...sampattiItems, ...newRestItems];
         const created = await Product.insertMany(allProducts);
 
-        console.log(`\n✅ Created ${created.length} products total:`);
-        console.log(`\n📍 Pratibha Restaurant (${pratibhaItems.length} items):`);
-        pratibhaItems.forEach(p => console.log(`   - ${p.name} (${p.category}) ₹${p.price}`));
-        console.log(`\n📍 Sampatti Restaurant (${sampattiItems.length} items):`);
-        sampattiItems.forEach(p => console.log(`   - ${p.name} (${p.category}) ₹${p.price}`));
-        console.log(`\n📍 New Restaurant (${newRestItems.length} items):`);
-        newRestItems.forEach(p => console.log(`   - ${p.name} (${p.category}) ₹${p.price}`));
 
-        console.log('\n🎉 All restaurants populated with diverse menu items!');
+
+        pratibhaItems.forEach(p => { });
+
+        sampattiItems.forEach(p => { });
+
+        newRestItems.forEach(p => { });
+
+
         process.exit(0);
     } catch (err) {
         console.error('❌ Error:', err.message);

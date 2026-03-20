@@ -29,15 +29,15 @@ export const registerUser = async (userData) => {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || "Registration failed");
+      throw new Error((data as any).message || "Registration failed");
     }
 
     return {
       success: true,
-      message: data.message,
+      message: (data as any).message,
       // In a real app, we don't return OTP here unless for dev testing
       // The backend returns { message, email, phone, devOtp: '...' }
-      devOtp: data.devOtp
+      devOtp: (data as any).devOtp
     };
   } catch (error) {
     console.error("Error registering user:", error);
@@ -71,13 +71,13 @@ export const sendOTP = async (phone) => {
 
     if (!response.ok) {
       // Handle specific "User not found" messages if needed
-      throw new Error(data.message || "Failed to send OTP");
+      throw new Error((data as any).message || "Failed to send OTP");
     }
 
     return {
       success: true,
-      message: data.message,
-      otp: data.devOtp
+      message: (data as any).message,
+      otp: (data as any).devOtp
     };
   } catch (error) {
     console.error("Error sending OTP:", error);
@@ -106,31 +106,31 @@ export const verifyOTP = async (phone, otp) => {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || "Invalid OTP");
+      throw new Error((data as any).message || "Invalid OTP");
     }
 
     // Backend returns: { _id, name, email, phone, token, message, isNewUser }
 
     const user = {
-      _id: data._id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      token: data.token,
-      address: data.address, // Include address
-      isNewUser: data.isNewUser
+      _id: (data as any)._id,
+      name: (data as any).name,
+      email: (data as any).email,
+      phone: (data as any).phone,
+      token: (data as any).token,
+      address: (data as any).address, // Include address
+      isNewUser: (data as any).isNewUser
     };
 
     // Save session
     await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
-    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, (data as any).token);
 
     // Save Address Data for UserSlice
-    if (data.address) {
-      await AsyncStorage.setItem("user_location", data.address.street || "");
-      await AsyncStorage.setItem("user_location_type", data.address.type || "Home");
-      if (data.address.coordinates) {
-        await AsyncStorage.setItem("user_location_coords", JSON.stringify(data.address.coordinates));
+    if ((data as any).address) {
+      await AsyncStorage.setItem("user_location", (data as any).address.street || "");
+      await AsyncStorage.setItem("user_location_type", (data as any).address.type || "Home");
+      if ((data as any).address.coordinates) {
+        await AsyncStorage.setItem("user_location_coords", JSON.stringify((data as any).address.coordinates));
       }
     }
 
@@ -201,17 +201,17 @@ export const updateUserProfile = async (phone, updates) => {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.message || "Update failed");
+      throw new Error((data as any).message || "Update failed");
     }
 
     // Update local storage
     const updatedUser = {
-      _id: data._id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      image: data.image,
-      token: data.token
+      _id: (data as any)._id,
+      name: (data as any).name,
+      email: (data as any).email,
+      phone: (data as any).phone,
+      image: (data as any).image,
+      token: (data as any).token
     };
 
     await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
@@ -232,57 +232,56 @@ export const updateUserProfile = async (phone, updates) => {
  */
 export const googleAuth = async (token, action = 'signup') => {
   try {
-    console.log(`[authService] Calling /auth/google with action: ${action}`);
     const response = await apiClient.request(`${API_URL}/auth/google`, {
       method: "POST",
       body: JSON.stringify({ token, action }),
     });
 
     const data = await response.json();
-    console.log("[authService] Backend response:", data);
+    
 
     if (!response.ok) {
       console.error("[authService] Backend Error Details:", JSON.stringify(data, null, 2));
-      throw new Error(data.message || "Google authentication failed");
+      throw new Error((data as any).message || "Google authentication failed");
     }
 
     // Backend returns: { _id, name, email, phone, image, token, isNewUser }
     const user = {
-      _id: data._id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      image: data.image,
-      token: data.token
+      _id: (data as any)._id,
+      name: (data as any).name,
+      email: (data as any).email,
+      phone: (data as any).phone,
+      image: (data as any).image,
+      token: (data as any).token
     };
 
     // Save session to BOTH auth and user_profile keys
     await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
-    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, data.token);
+    await AsyncStorage.setItem(STORAGE_KEYS.TOKEN, (data as any).token);
 
     // CRITICAL: Also save to user_profile for userSlice compatibility
     await AsyncStorage.setItem("user_profile", JSON.stringify({
-      name: data.name,
-      email: data.email,
-      phone: data.phone || "",
-      image: data.image
+      name: (data as any).name,
+      email: (data as any).email,
+      phone: (data as any).phone || "",
+      image: (data as any).image
     }));
 
     // Save Address Data for UserSlice (Google Login)
-    if (data.address) {
-      await AsyncStorage.setItem("user_location", data.address.street || "");
-      await AsyncStorage.setItem("user_location_type", data.address.type || "Home");
-      if (data.address.coordinates) {
-        await AsyncStorage.setItem("user_location_coords", JSON.stringify(data.address.coordinates));
+    if ((data as any).address) {
+      await AsyncStorage.setItem("user_location", (data as any).address.street || "");
+      await AsyncStorage.setItem("user_location_type", (data as any).address.type || "Home");
+      if ((data as any).address.coordinates) {
+        await AsyncStorage.setItem("user_location_coords", JSON.stringify((data as any).address.coordinates));
       }
     }
 
-    console.log("[authService] User saved to AsyncStorage (both keys):", user.email);
+    
 
     return {
       success: true,
       user: user,
-      isNewUser: data.isNewUser
+      isNewUser: (data as any).isNewUser
     };
   } catch (error) {
     console.error("[authService] Error with Google authentication:", error);
@@ -306,7 +305,7 @@ export const updatePushToken = async (pushToken) => {
 
     const data = await response.json();
     if (!response.ok) {
-      console.warn("Failed to update push token", data.message);
+      console.warn("Failed to update push token", (data as any).message);
     }
     return data;
   } catch (error) {
@@ -324,7 +323,7 @@ export const saveAddress = async (addressData) => {
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Failed to save address");
+    if (!response.ok) throw new Error((data as any).message || "Failed to save address");
     return data;
   } catch (error) {
     throw error;

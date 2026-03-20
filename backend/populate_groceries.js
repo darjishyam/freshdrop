@@ -23,13 +23,13 @@ const Grocery = require('./models/Grocery');
 async function populateGroceries() {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+        
 
         // Find the empty stores
         const stores = await Grocery.find({ name: { $in: ['Basket Mart', 'Kariyana Store'] } });
 
         if (stores.length === 0) {
-            console.log('❌ Target stores not found');
+            
             return;
         }
 
@@ -54,7 +54,7 @@ async function populateGroceries() {
         ];
 
         for (const store of stores) {
-            console.log(`🛒 Populating ${store.name}...`);
+            
 
             // Set categories for store
             store.menuCategories = ["Dairy", "Bakery", "Staples", "Vegetables", "Snacks"];
@@ -70,10 +70,10 @@ async function populateGroceries() {
             }));
 
             await GroceryProduct.insertMany(storeItems);
-            console.log(`✅ Added ${storeItems.length} items to ${store.name}`);
+            
         }
 
-        console.log('🎉 All done!');
+        
         await mongoose.disconnect();
     } catch (err) {
         console.error(err);

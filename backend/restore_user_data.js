@@ -6,19 +6,19 @@ require("dotenv").config();
 const restoreData = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log("✅ Connected to MongoDB");
+        
 
         // 1. Remove ONLY the seeded restaurants we created earlier
         // We'll filter by name or specific criteria to avoid touching anything else
         const seedNames = ["Pizza Hut", "McDonald's", "Domino's Pizza", "Fresh Mart Grocery", "KFC", "Swiggy Test - Mehsana"];
-        console.log("🗑️ Removing seed data...");
+        
         await Restaurant.deleteMany({ name: { $in: seedNames } });
 
         // Also remove products belonging to these (or dangling ones)
         // For simplicity in this restoration, we'll clear products to re-link correctly
         await Product.deleteMany({});
 
-        console.log("🏪 Restoring user restaurants...");
+        
         const mehsanaCoords = { lat: 23.5880, lon: 72.3693 };
 
         const userRestaurants = [
@@ -79,9 +79,9 @@ const restoreData = async () => {
         ];
 
         const restaurants = await Restaurant.insertMany(userRestaurants);
-        console.log(`✅ Restored ${restaurants.length} restaurants`);
+        
 
-        console.log("🍕 Creating products for restored restaurants...");
+        
         const products = [];
 
         // Add some products for each to make Home sections look good
@@ -116,9 +116,9 @@ const restoreData = async () => {
         });
 
         await Product.insertMany(products);
-        console.log(`✅ Created ${products.length} products`);
+        
 
-        console.log("\n🎉 Restoration complete!");
+        
         process.exit(0);
     } catch (err) {
         console.error("❌ Error during restoration:", err);

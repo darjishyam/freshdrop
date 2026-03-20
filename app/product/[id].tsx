@@ -89,7 +89,7 @@ export default function ProductDetailsScreen() {
       description: description,
       category: category || cuisine,
       // Backend uses `isVeg`, frontend uses `veg`
-      veg: isVeg === "true" || isVeg === true,
+      veg: String(isVeg) === "true",
       restaurantName: restaurantName,
       restaurantId: restaurantIdParam,
     };
@@ -98,7 +98,7 @@ export default function ProductDetailsScreen() {
   // Debug: Check product data
   // useEffect(() => {
   //   if (product) {
-  //     console.log("[DEBUG ProductPage] Product:", JSON.stringify({ id: product.id, name: product.name, restaurantId: product.restaurantId }));
+  //     
   //   }
   // }, [product]);
 
@@ -126,7 +126,7 @@ export default function ProductDetailsScreen() {
       ? generateObjectId(product.restaurantId)
       : "000000000000000000000001";
 
-    dispatch(loadReviews(targetRestaurantId));
+    dispatch(loadReviews(targetRestaurantId) as any);
   }, [dispatch, product?.restaurantId]);
 
   // Stock Management — prefer backend param, fallback to local stockSlice
@@ -156,14 +156,14 @@ export default function ProductDetailsScreen() {
     socket.on("stockUpdate", ({ itemId: updatedItemId, inStock }) => {
       // Logic: if the socket event matches this item, update state
       if (updatedItemId === product.id || updatedItemId === product._id) {
-        console.log(`[ProductPage] stockUpdate: ${product.name} inStock=${inStock}`);
+        
         setIsOutOfStock(!inStock);
       }
     });
 
     socket.on("restaurantStatusChanged", ({ restaurantId: updatedRestId, isOpen }) => {
       if (updatedRestId === targetRestId) {
-        console.log(`[ProductPage] restaurantStatusChanged: ${targetRestId} isOpen=${isOpen}`);
+        
         setRestaurantClosed(!isOpen);
       }
     });
@@ -194,7 +194,7 @@ export default function ProductDetailsScreen() {
     const mockSources = [...products, ...Object.values(restaurantItems).flat(), ...groceryItems];
     const categoryMatches = mockSources.filter(
       (p) =>
-        (p.category === product.category || p.cuisine === product.cuisine) &&
+        (p.category === product.category || (p as any).cuisine === product.cuisine) &&
         (p.id !== product.id && p.name !== product.name)
     );
 
@@ -248,7 +248,8 @@ export default function ProductDetailsScreen() {
       const msg = `Your cart contains items from ${cartRestaurant.name || 'another restaurant'}. Do you want to discard the selection and add this item?`;
 
       if (Platform.OS === 'web') {
-        if (window.confirm(msg)) {
+        const win = (globalThis as any).window;
+        if (win && win.confirm && win.confirm(msg)) {
           dispatch(clearCart());
           handleAddToCartAction();
         }
@@ -971,11 +972,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 12,
   },
-  disabledBtn: {
-    backgroundColor: "#9ca3af",
-    elevation: 0,
-    shadowOpacity: 0,
-  },
+
   ratingContainer: {
     flexDirection: "row",
     alignItems: "center",

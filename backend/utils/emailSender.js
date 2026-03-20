@@ -25,7 +25,7 @@ const sendEmail = async (options) => {
     htmlContent: options.html || `<p>${options.message}</p>`,
   };
 
-  console.log('Sending Email Payload:', JSON.stringify(data, null, 2));
+  
 
   try {
     const response = await axios.post('https://api.brevo.com/v3/smtp/email', data, {
@@ -37,7 +37,7 @@ const sendEmail = async (options) => {
       timeout: 10000 // 10s timeout
     });
 
-    console.log('✅ Email sent via Brevo API. MessageId:', response.data.messageId);
+    
     return response.data;
   } catch (error) {
     if (error.response) {

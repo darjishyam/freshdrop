@@ -13,7 +13,7 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/food_deliv
 const setupTest = async () => {
     try {
         await mongoose.connect(MONGO_URI);
-        console.log("Connected to DB");
+        
 
         // 1. Find REAL User and update their Push Token
         // Using the actual user who is logged in on the phone
@@ -24,7 +24,7 @@ const setupTest = async () => {
         }
         user.pushToken = "ExponentPushToken[cjh2_PD440U2vEd1mghkS7]"; // Real token from your phone
         await user.save();
-        console.log("Updated Real User Push Token:", user.email);
+        
 
         // 2. Find or Create Driver
         let driver = await Driver.findOne({ email: "driver_test@example.com" });
@@ -37,7 +37,7 @@ const setupTest = async () => {
                 isOnline: true,
                 status: "ACTIVE"
             });
-            console.log("Created Test Driver");
+            
         }
 
         // 3. Find a Restaurant
@@ -50,7 +50,7 @@ const setupTest = async () => {
         // 4. Create Active Order
         // First, cleanup old orders for this driver to avoid ambiguity
         await Order.deleteMany({ driver: driver._id, status: "Out for Delivery" });
-        console.log("Cleaned up old test orders");
+        
 
         const order = await Order.create({
             user: user._id,
@@ -76,7 +76,7 @@ const setupTest = async () => {
             CUSTOMER_LON: order.deliveryAddress.lon
         };
         fs.writeFileSync('test_config.json', JSON.stringify(config, null, 2));
-        console.log("Config written to test_config.json");
+        
 
         await mongoose.disconnect();
     } catch (error) {

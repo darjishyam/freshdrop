@@ -43,10 +43,10 @@ const fixDatabase = async () => {
             process.exit(1);
         }
         await mongoose.connect(process.env.MONGO_URI);
-        console.log("✅ Connected to MongoDB");
+        
 
         // 1. Create or update Categories
-        console.log("📂 Creating/Updating Categories...");
+        
         for (const [name, image] of Object.entries(categoryImages)) {
             await Category.findOneAndUpdate(
                 { name: name },
@@ -54,10 +54,10 @@ const fixDatabase = async () => {
                 { upsert: true, returnDocument: 'after' }
             );
         }
-        console.log("✅ Categories prepared successfully.");
+        
 
         // 2. Fix Product Images
-        console.log("🖼️ Fixing Product images...");
+        
         // Use .lean() to avoid casting errors on mismatched legacy DB data (e.g. quantityDetails mismatch)
         const products = await Product.find({}).lean();
         let updatedCount = 0;
@@ -71,9 +71,9 @@ const fixDatabase = async () => {
                 updatedCount++;
             }
         }
-        console.log(`✅ Fixed images for ${updatedCount} products.`);
+        
 
-        console.log("🎉 Database fixes applied successfully!");
+        
         process.exit(0);
     } catch (err) {
         console.error("❌ Error fixing database:", err);

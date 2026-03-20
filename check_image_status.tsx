@@ -13,9 +13,9 @@ const checkImages = async () => {
     for (const url of imageUrls) {
         try {
             const response = await axios.head(url);
-            console.log(`URL: ${url} - Status: ${response.status}`);
+            
         } catch (error) {
-            console.log(`URL: ${url} - Error: ${error.response ? error.response.status : error.message}`);
+            
         }
     }
 };

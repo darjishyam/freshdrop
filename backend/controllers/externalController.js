@@ -44,20 +44,20 @@ const getRestaurants = async (req, res) => {
         const rLon = r.address?.coordinates?.lon;
 
         if (rLat === undefined || rLon === undefined) {
-          console.log(`⚠️ Restaurant ${r.name} has no coordinates`);
+          
           return null;
         }
 
         const dist = calculateDistance(parseFloat(lat), parseFloat(lon), rLat, rLon);
 
-        console.log(`📍 Restaurant ${r.name}: ${dist.toFixed(2)}km away (at ${rLat}, ${rLon})`);
+        
 
         // Only include if within 50km
         if (dist > 50) return null;
 
         // Also check if status is approved (added for safety)
         if (r.status !== 'APPROVED') {
-          console.log(`⏳ Restaurant ${r.name} is not APPROVED (status: ${r.status})`);
+          
           // For now, let's keep it visible in dev mode, but typically we'd return null
         }
 
@@ -84,7 +84,7 @@ const getRestaurants = async (req, res) => {
         };
       }).filter(Boolean);
 
-      console.log(`🏠 Found ${localRestaurants.length} local restaurants`);
+      
 
     } catch (err) {
       console.error("Local DB Fetch Error:", err);
@@ -178,7 +178,7 @@ const getGroceries = async (req, res) => {
         .json({ message: "Latitude and Longitude are required for Groceries" });
     }
 
-    console.log(`🛒 Groceries Query - Lat: ${lat}, Lon: ${lon}, Radius: ${radius}`);
+    
 
     // 1. Fetch Local Grocery Stores from MongoDB
     let localGroceries = [];
@@ -197,7 +197,7 @@ const getGroceries = async (req, res) => {
         // Filter: Only include if within 10km (matching restaurant logic)
         if (dist > 10) return null;
 
-        console.log(`📍 Local Grocery Store ${r.name} is ${dist.toFixed(2)}km away`);
+        
 
         return {
           id: r._id.toString(),
@@ -214,7 +214,7 @@ const getGroceries = async (req, res) => {
         };
       }).filter(Boolean);
 
-      console.log(`🏠 Found ${localGroceries.length} local grocery stores`);
+      
     } catch (err) {
       console.error("Local Grocery Fetch Error:", err);
     }

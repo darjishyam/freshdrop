@@ -100,9 +100,9 @@ const requestOtp = async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
         if (shouldLogOtp()) {
-            console.log("--------------------------------");
-            console.log("RESTAURANT DEV OTP:", otp);
-            console.log("--------------------------------");
+            
+            
+            
         }
 
         restaurant.otp = otp;
@@ -214,9 +214,9 @@ const requestGroceryOtp = async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
         if (shouldLogOtp()) {
-            console.log("--------------------------------");
-            console.log("GROCERY DEV OTP:", otp);
-            console.log("--------------------------------");
+            
+            
+            
         }
 
         store.otp = otp;
@@ -383,7 +383,7 @@ const logout = async (req, res) => {
                 grocery.pushToken = null;
                 await grocery.save();
             }
-            console.log(`🧹 Cleared Push Token for: ${email}`);
+            
         }
         res.json({ message: 'Logged out successfully' });
     } catch (error) {
@@ -402,7 +402,7 @@ const updateProfile = async (req, res) => {
             let store = await Restaurant.findById(decoded.id);
             if (!store) store = await Grocery.findById(decoded.id);
 
-            console.log("📥 [updateProfile] Request Body:", req.body);
+            
             const { priceRange, deliveryTime, discount, discountPercent, maxDiscount, minOrderValue, image, isOpen, address, operatingHours } = req.body;
 
             if (priceRange !== undefined) store.priceRange = priceRange;
@@ -423,7 +423,7 @@ const updateProfile = async (req, res) => {
 
             if (discountPercent !== undefined) {
                 store.discountPercent = Number(discountPercent) || 0;
-                console.log(`🔢 [updateProfile] Setting discountPercent to: ${store.discountPercent}`);
+                
             }
             if (maxDiscount !== undefined) {
                 store.maxDiscount = Number(maxDiscount) || 0;
@@ -439,7 +439,7 @@ const updateProfile = async (req, res) => {
                 store.discount = "";
             }
 
-            console.log(`📝 [updateProfile] Final discount string: "${store.discount}"`);
+            
 
             if (image !== undefined) store.image = image;
             if (isOpen !== undefined) store.isOpen = isOpen;
@@ -449,7 +449,7 @@ const updateProfile = async (req, res) => {
             }
 
             await store.save();
-            console.log("✅ [updateProfile] Store saved successfully:", store._id);
+            
 
             if (isOpen !== undefined) {
                 const io = req.app.get("io");
@@ -458,7 +458,7 @@ const updateProfile = async (req, res) => {
                         restaurantId: store._id,
                         isOpen: store.isOpen
                     });
-                    console.log(`📡 Emitted 'restaurantStatusChanged' for ${store._id} (isOpen: ${store.isOpen})`);
+                    
                 }
             }
 

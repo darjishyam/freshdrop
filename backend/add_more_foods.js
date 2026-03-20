@@ -129,17 +129,17 @@ const addMoreFoods = async () => {
 
         // Connect to MongoDB
         await mongoose.connect(process.env.MONGO_URI);
-        console.log("✅ Connected to MongoDB");
+        
 
         // Fetch all restaurants
         const restaurants = await Restaurant.find({});
 
         if (restaurants.length === 0) {
-            console.log("⚠️ No restaurants found. Please run seedDatabase.js first.");
+            
             process.exit(0);
         }
 
-        console.log(`🏪 Found ${restaurants.length} restaurants. Generating new foods...`);
+        
 
         let totalAdded = 0;
         const newProducts = [];
@@ -168,16 +168,16 @@ const addMoreFoods = async () => {
             });
 
             totalAdded += numFoodsToAdd;
-            console.log(`  -> Prepared ${numFoodsToAdd} new items for '${restaurant.name}'`);
+            
         }
 
         // Insert all new products into database
         if (newProducts.length > 0) {
-            console.log(`⏳ Inserting ${totalAdded} products into database...`);
+            
             await Product.insertMany(newProducts);
-            console.log(`✅ Successfully added ${totalAdded} new food items across all restaurants!`);
+            
         } else {
-            console.log("⚠️ No products were added.");
+            
         }
 
         process.exit(0);

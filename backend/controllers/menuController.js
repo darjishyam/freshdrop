@@ -17,13 +17,9 @@ const getMenu = async (req, res) => {
 // @desc    Add a menu item
 // @route   POST /api/menu
 const addMenuItem = async (req, res) => {
-    console.log("Adding new menu item");
-    console.log("Request Body:", req.body);
-    console.log("Request File:", req.file ? {
-        filename: req.file.filename,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-    } : "No file received");
+    
+    
+    
 
     const {
         restaurantId, name, price, category, isVeg,
@@ -35,7 +31,7 @@ const addMenuItem = async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
             return res.status(400).json({ message: "Invalid Restaurant ID format" });
         }
-        console.log("Adding item for merchant:", restaurantId);
+        
 
         let merchantType = 'Restaurant';
         let merchant = await Restaurant.findById(restaurantId);
@@ -86,7 +82,7 @@ const addMenuItem = async (req, res) => {
             unit,
             stockQuantity
         });
-        console.log("Item added:", item._id);
+        
         res.status(201).json(item);
     } catch (error) {
         console.error("Error adding item:", error);
@@ -111,7 +107,7 @@ const toggleStock = async (req, res) => {
                     restaurantId: item.restaurant.toString(),
                     inStock: item.inStock,
                 });
-                console.log(`📡 stockUpdate emitted: item=${item.name}, inStock=${item.inStock}`);
+                
             }
 
             res.json(item);
@@ -126,14 +122,14 @@ const toggleStock = async (req, res) => {
 // @desc    Delete a menu item
 // @route   DELETE /api/menu/:id
 const deleteMenuItem = async (req, res) => {
-    console.log(`[DELETE] Request for item ID: ${req.params.id} from user: ${req.user._id}`);
+    
     try {
         const item = await Product.findByIdAndDelete(req.params.id);
         if (item) {
-            console.log(`[DELETE] Success for item: ${item.name}`);
+            
             res.json({ message: 'Item deleted successfully' });
         } else {
-            console.log(`[DELETE] Failed - Item not found: ${req.params.id}`);
+            
             res.status(404).json({ message: 'Item not found' });
         }
     } catch (error) {
@@ -146,13 +142,9 @@ const deleteMenuItem = async (req, res) => {
 // @route   PUT /api/menu/:id
 const updateMenuItem = async (req, res) => {
     try {
-        console.log("Updating menu item:", req.params.id);
-        console.log("Request Body:", req.body);
-        console.log("Request File:", req.file ? {
-            filename: req.file.filename,
-            mimetype: req.file.mimetype,
-            size: req.file.size
-        } : "No file received");
+        
+        
+        
 
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({ message: "Invalid Item ID format" });
@@ -162,7 +154,7 @@ const updateMenuItem = async (req, res) => {
 
         if (req.file) {
             updateData.image = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-            console.log("Generated Image URL:", updateData.image);
+            
         }
 
         // Cast boolean strings and numbers from FormData for updates

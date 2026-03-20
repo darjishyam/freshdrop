@@ -37,11 +37,11 @@ export const fetchSavedAddresses = createAsyncThunk(
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to fetch profile");
+        throw new Error((data as any).message || "Failed to fetch profile");
       }
 
       // The profile returns the full user document. We want savedAddresses if exists.
-      const addresses = data.savedAddresses || [];
+      const addresses = (data as any).savedAddresses || [];
       await AsyncStorage.setItem("user_saved_addresses", JSON.stringify(addresses));
       return addresses;
     } catch (error) {
@@ -63,7 +63,7 @@ export const saveUserAddress = createAsyncThunk(
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to save address");
+        throw new Error((data as any).message || "Failed to save address");
       }
 
       const updatedAddresses = data;
@@ -72,9 +72,9 @@ export const saveUserAddress = createAsyncThunk(
       await AsyncStorage.setItem("user_saved_addresses", JSON.stringify(updatedAddresses));
 
       // 2. Update local state (Redux + AsyncStorage) for the "active" selected address
-      if (addressData.street) dispatch(updateLocation(addressData.street));
-      if (addressData.type) dispatch(updateLocationType(addressData.type));
-      if (addressData.coordinates) dispatch(updateLocationCoords(addressData.coordinates));
+      if ((addressData as any).street) dispatch(updateLocation((addressData as any).street));
+      if ((addressData as any).type) dispatch(updateLocationType((addressData as any).type));
+      if ((addressData as any).coordinates) dispatch(updateLocationCoords((addressData as any).coordinates));
 
       return updatedAddresses;
     } catch (error) {
@@ -92,7 +92,7 @@ export const deleteUserAddress = createAsyncThunk(
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to delete address");
+        throw new Error((data as any).message || "Failed to delete address");
       }
 
       const updatedAddresses = data;
@@ -123,7 +123,7 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     updateUser: (state, action) => {
-      console.log("🔄 Updating User Store:", action.payload); // DEBUG LOG
+       // DEBUG LOG
       state.user = { ...state.user, ...action.payload };
       try {
         AsyncStorage.setItem("user_profile", JSON.stringify(state.user));
@@ -178,13 +178,13 @@ const userSlice = createSlice({
       })
       .addCase(saveUserAddress.fulfilled, (state, action) => {
         // Update the array with backend response
-        state.savedAddresses = action.payload;
+        state.savedAddresses = action.payload as any[];
       })
       .addCase(fetchSavedAddresses.fulfilled, (state, action) => {
-        state.savedAddresses = action.payload;
+        state.savedAddresses = action.payload as any[];
       })
       .addCase(deleteUserAddress.fulfilled, (state, action) => {
-        state.savedAddresses = action.payload;
+        state.savedAddresses = action.payload as any[];
       });
   },
 });

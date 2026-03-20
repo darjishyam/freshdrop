@@ -123,7 +123,7 @@ export default function OTPScreen() {
 
   // Debug: Log route params
   useEffect(() => {
-    console.log("🔍 OTP Screen Params:", { phone, email, isNewUser });
+    
   }, [phone, email, isNewUser]);
 
   // ... (keeping existing hooks and callbacks)
@@ -239,7 +239,7 @@ export default function OTPScreen() {
     try {
       const result = await dispatch(login({ phone, otp })).unwrap();
 
-      console.log("✅ Login Result Payload:", JSON.stringify(result, null, 2)); // DEBUG LOG
+       // DEBUG LOG
 
       // Update user slice with auth data (for backward compatibility)
       dispatch(

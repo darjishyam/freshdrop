@@ -31,9 +31,9 @@ export default function CompleteProfileScreen() {
   const [phone, setPhone] = useState("");
 
   const handleSave = async () => {
-    console.log("Handle Save Clicked");
-    console.log("Current User:", user);
-    console.log("Phone Input:", phone);
+    
+    
+    
 
     if (!user || !user._id) {
       Alert.alert("Error", "User session not found. Please log in again.");
@@ -47,7 +47,7 @@ export default function CompleteProfileScreen() {
     }
 
     try {
-      console.log("Dispatching updateProfile...");
+      
       // 1. Update Profile with Phone
       const updateResult = await dispatch(
         updateProfile({
@@ -55,12 +55,12 @@ export default function CompleteProfileScreen() {
           phone: phone,
         })
       ).unwrap();
-      console.log("Profile Updated:", updateResult);
+      
 
-      console.log("Requesting OTP...");
+      
       // 2. Send OTP
       await dispatch(requestOTP(phone)).unwrap();
-      console.log("OTP Requested");
+      
 
       // 3. Navigate to OTP Screen
       router.push({

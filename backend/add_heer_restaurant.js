@@ -6,13 +6,13 @@ require('dotenv').config();
 async function addHeerRestaurant() {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+
 
         // Check if Heer Restaurant already exists
         const existing = await Restaurant.findOne({ name: 'Heer Restaurant' });
         if (existing) {
-            console.log('⚠️ Heer Restaurant already exists! Skipping restaurant creation.');
-            console.log(`   ID: ${existing._id}`);
+
+
         }
 
         const restaurant = existing || await Restaurant.create({
@@ -36,7 +36,7 @@ async function addHeerRestaurant() {
         });
 
         if (!existing) {
-            console.log(`✅ Created Heer Restaurant | ID: ${restaurant._id}`);
+
         }
 
         // Add products
@@ -107,10 +107,10 @@ async function addHeerRestaurant() {
         await Product.deleteMany({ restaurant: restaurant._id });
 
         const created = await Product.insertMany(heerProducts);
-        console.log(`✅ Added ${created.length} products to Heer Restaurant:`);
-        created.forEach(p => console.log(`   - ${p.name} | ₹${p.price}`));
 
-        console.log('\n🎉 Heer Restaurant restored successfully!');
+        created.forEach(p => { });
+
+
         process.exit(0);
     } catch (err) {
         console.error('❌ Error:', err);

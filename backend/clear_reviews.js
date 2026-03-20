@@ -7,10 +7,10 @@ dotenv.config();
 const clearReviews = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log("MongoDB Connected");
+        
 
         const result = await Review.deleteMany({});
-        console.log(`Deleted ${result.deletedCount} reviews.`);
+        
 
         process.exit();
     } catch (error) {

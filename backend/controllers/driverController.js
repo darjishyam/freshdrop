@@ -76,9 +76,9 @@ const sendOtpInternal = async (driver, res, type) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     if (shouldLogOtp()) {
-        console.log("--------------------------------");
-        console.log(`DRIVER OTP (${type.toUpperCase()}):`, otp);
-        console.log("--------------------------------");
+        
+        
+        
     }
 
     driver.otp = otp;
@@ -203,7 +203,7 @@ const updateDriverDetails = async (req, res) => {
 
         const { name, city, vehicleType, vehicleNumber, vehicleModel, language, email, address, latitude, longitude, bankDetails } = req.body;
 
-        console.log(`📝 Update details for ${driver._id}:`, req.body);
+        
 
         driver.name = name || driver.name;
 
@@ -230,20 +230,20 @@ const updateDriverDetails = async (req, res) => {
 
         // Update Location if provided AND not zeroed
         if (latitude !== undefined && longitude !== undefined && (latitude !== 0 || longitude !== 0)) {
-            console.log(`📍 Updating driver location to [${longitude}, ${latitude}]`);
+            
             driver.location = {
                 type: 'Point',
                 coordinates: [parseFloat(longitude), parseFloat(latitude)],
                 address: address || driver.location?.address || ""
             };
         } else if (latitude === 0 && longitude === 0) {
-            console.log("🛑 Skipping geospatial location update due to zero coordinates (City updated independently)");
+            
             // Still update the address name if provided
             if (address && driver.location) {
                 driver.location.address = address;
             }
         } else {
-            console.log("⚠️ No location update (lat/lon missing)");
+            
         }
 
         await driver.save();
@@ -255,7 +255,7 @@ const updateDriverDetails = async (req, res) => {
                 type: "PROFILE_UPDATE",
                 data: driver
             });
-            console.log(`📡 Emitted driver:update to driver_${driver._id}`);
+            
         }
 
         res.json({
@@ -306,11 +306,8 @@ const uploadDriverDocuments = async (req, res) => {
         const driver = await Driver.findById(req.user.id);
         if (!driver) return res.status(404).json({ message: "Driver not found" });
 
-        console.log(`📄 Document upload for driver ${driver.name} (${driver._id})`);
-        console.log("Payload:", JSON.stringify(req.body, (key, value) => {
-            if (typeof value === 'string' && value.length > 100) return value.substring(0, 50) + "..."; // Truncate base64
-            return value;
-        }));
+        
+        
 
         const { aadhaarFront, aadhaarBack, drivingLicenseUrl, rcUrl, profilePhoto, bankDetails } = req.body;
 
@@ -343,7 +340,7 @@ const uploadDriverDocuments = async (req, res) => {
         }
 
         await driver.save();
-        console.log("✅ Documents saved successfully");
+        
 
         res.json({
             message: "Documents uploaded, verification pending",
@@ -489,8 +486,8 @@ const getDriverProfile = async (req, res) => {
             const monthHours = await getOnlineHours(startOfMonth, aggr.monthOrders);
             const allHours = await getOnlineHours(new Date(0), aggr.lifetimeOrders);
 
-            console.log(`Stats (Today): ₹${aggr.todayEarnings}, ${aggr.todayOrders} orders, ${todayHours} hrs`);
-            console.log(`Stats (All): ₹${aggr.lifetimeEarnings}, ${aggr.lifetimeOrders} orders, ${allHours} hrs`);
+            
+            
 
             // New Stats Object & Bonus Calculation
             const bonusTiers = [
@@ -613,7 +610,7 @@ const updateDriverStatus = async (req, res) => {
                 driver: driver._id,
                 startTime: new Date()
             });
-            console.log(`Driver ${driver._id} went ONLINE. Session started.`);
+            
 
         } else if (!newIsOnline && driver.isOnline) {
             // Going Offline
@@ -629,7 +626,7 @@ const updateDriverStatus = async (req, res) => {
                 activeSession.endTime = new Date();
                 activeSession.duration = activeSession.endTime - activeSession.startTime;
                 await activeSession.save();
-                console.log(`Driver ${driver._id} went OFFLINE. Session closed. Duration: ${activeSession.duration}ms`);
+                
             }
         }
 
@@ -720,8 +717,8 @@ const updateDriverPushToken = async (req, res) => {
     try {
         const { pushToken } = req.body;
 
-        console.log(`📱 Push token update request from driver ${req.user.id}`);
-        console.log(`📱 Push token: ${pushToken}`);
+        
+        
 
         if (!pushToken) {
             return res.status(400).json({ message: "Push token is required" });
@@ -735,11 +732,11 @@ const updateDriverPushToken = async (req, res) => {
                 { pushToken: pushToken, _id: { $ne: driver._id } },
                 { $set: { pushToken: null } }
             );
-            console.log(`🧹 Cleared stale push token from other drivers`);
+            
 
             driver.pushToken = pushToken;
             await driver.save();
-            console.log(`✅ Push token saved for driver: ${driver.name} (${driver._id})`);
+            
 
             // Send Instant Feedback Notification
             try {
@@ -756,7 +753,7 @@ const updateDriverPushToken = async (req, res) => {
 
             res.json({ message: "Push token updated" });
         } else {
-            console.log(`❌ Driver not found: ${req.user.id}`);
+            
             res.status(404).json({ message: "Driver not found" });
         }
     } catch (error) {

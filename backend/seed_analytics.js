@@ -8,10 +8,10 @@ require("dotenv").config();
 const seedAnalytics = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log("✅ Connected to MongoDB");
+        
 
         // 1. Create Sample Users
-        console.log("👤 Seeding users...");
+        
         const users = await User.insertMany([
             { name: "John Doe", email: "john@example.com", phone: "9876543210", isVerified: true },
             { name: "Jane Smith", email: "jane@example.com", phone: "9876543211", isVerified: true },
@@ -19,7 +19,7 @@ const seedAnalytics = async () => {
         ]);
 
         // 2. Create Sample Online Drivers
-        console.log("🚚 Seeding drivers...");
+        
         await Driver.insertMany([
             { name: "Driver One", phone: "9000000001", isOnline: true, status: "ACTIVE" },
             { name: "Driver Two", phone: "9000000002", isOnline: true, status: "ACTIVE" }
@@ -28,12 +28,12 @@ const seedAnalytics = async () => {
         // 3. Get a Restaurant
         const restaurant = await Restaurant.findOne();
         if (!restaurant) {
-            console.log("⚠️ No restaurant found. Please run seedDatabase.js first.");
+            
             process.exit(1);
         }
 
         // 4. Create Sample Orders
-        console.log("📦 Seeding orders...");
+        
         await Order.insertMany([
             {
                 user: users[0]._id,
@@ -58,7 +58,7 @@ const seedAnalytics = async () => {
             }
         ]);
 
-        console.log("✅ Analytics seeding completed!");
+        
         process.exit(0);
     } catch (error) {
         console.error("❌ Seeding error:", error);

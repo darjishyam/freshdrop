@@ -46,7 +46,7 @@ const addReview = async (req, res) => {
                     ratingCount: reviews.length,
                 });
             } catch (err) {
-                console.log("Skipping restaurant update (likely mock ID):", err.message);
+                
             }
         }
 

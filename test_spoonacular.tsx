@@ -12,10 +12,10 @@ const searchGroceryProducts = async (query = 'grocery', number = 10) => {
                 apiKey: SPOONACULAR_API_KEY,
             },
         });
-        console.log('Response status:', response.status);
-        console.log('Products found:', response.data.products.length);
+        
+        
         if (response.data.products.length > 0) {
-            console.log('First product sample:', JSON.stringify(response.data.products[0], null, 2));
+            
         }
     } catch (error) {
         console.error('Error fetching grocery products:', error.response ? error.response.data : error.message);

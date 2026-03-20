@@ -6,12 +6,12 @@ require('dotenv').config();
 async function fixGroceries() {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('✅ Connected to MongoDB');
+
 
         const stores = await Grocery.find({ name: { $in: ['Basket Mart', 'Kariyana Store'] } });
 
         if (stores.length === 0) {
-            console.log('❌ Target stores not found');
+
             return;
         }
 
@@ -29,7 +29,7 @@ async function fixGroceries() {
         ];
 
         for (const store of stores) {
-            console.log(`🛒 Re-populating ${store.name} (${store._id})...`);
+
 
             // Delete any existing items for this store in the MAIN Product collection
             await Product.deleteMany({ restaurant: store._id });
@@ -43,14 +43,14 @@ async function fixGroceries() {
             }));
 
             await Product.insertMany(storeItems);
-            console.log(`✅ Correctly added ${storeItems.length} items to ${store.name}`);
+
         }
 
         // Cleanup the mistaken collection
-        console.log('🧹 Cleaning up mistaken groceryproducts collection...');
-        await mongoose.connection.db.dropCollection('groceryproducts').catch(() => console.log('Already clean.'));
 
-        console.log('🎉 Fix complete!');
+        await mongoose.connection.db.dropCollection('groceryproducts').catch(() => { });
+
+
         await mongoose.disconnect();
     } catch (err) {
         console.error(err);

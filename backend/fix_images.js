@@ -10,10 +10,10 @@ async function fixImages() {
         { name: { $regex: /vadapav/i } },
         { $set: { image: 'https://images.unsplash.com/photo-1630383249896-424e482df921?w=300' } }
     );
-    console.log(`Updated ${result.modifiedCount} Vadapav items`);
+    
 
     await mongoose.disconnect();
-    console.log('Done!');
+    
 }
 
 fixImages().catch(console.error);

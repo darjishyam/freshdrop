@@ -6,13 +6,13 @@ require('dotenv').config();
 
 async function seedReviews() {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log('✅ Connected to MongoDB');
+    
 
     const restaurants = await Restaurant.find({ name: { $in: ['Heer Restaurant', 'Pratibha Restaurant', 'Sampatti Restaurant'] } });
     const user = await User.findOne({ email: 'shyamdarji1604@gmail.com' }) || await User.findOne();
 
     if (!user) {
-        console.log('❌ No user found to associate reviews with');
+        
         await mongoose.disconnect();
         return;
     }
@@ -46,11 +46,11 @@ async function seedReviews() {
             rating: avg,
             ratingCount: mockReviews.length
         });
-        console.log(`⭐ Seeded 4 reviews for ${rest.name} (Avg: ${avg})`);
+        
     }
 
     await mongoose.disconnect();
-    console.log('🎉 Done!');
+    
 }
 
 seedReviews().catch(console.error);

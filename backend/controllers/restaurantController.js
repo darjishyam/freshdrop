@@ -39,8 +39,8 @@ const getNearbyData = async (req, res) => {
     const allRestaurants = await Restaurant.find({ status: 'APPROVED' });
     const allGroceries = await Grocery.find({ status: 'APPROVED' });
 
-    console.log("Total Approved Restaurants:", allRestaurants.length);
-    console.log("Total Approved Groceries:", allGroceries.length);
+    
+    
 
     // Helper to map items with distance and format for frontend
     const mapWithDistance = (items) =>
@@ -121,12 +121,12 @@ const getNearbyData = async (req, res) => {
 const getRestaurantById = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log("Fetching restaurant with ID:", id);
+    
 
     // Validate ObjectId format
     const mongoose = require("mongoose");
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      console.log("Invalid ObjectId format:", id);
+      
       return res.status(400).json({ message: "Invalid restaurant ID format" });
     }
 
@@ -134,7 +134,7 @@ const getRestaurantById = async (req, res) => {
     let store = await Restaurant.findById(id);
     if (!store) store = await Grocery.findById(id);
 
-    console.log("Store found:", store ? store.name : "Not found");
+    
 
     if (!store) {
       return res.status(404).json({ message: "Store not found" });
@@ -142,7 +142,7 @@ const getRestaurantById = async (req, res) => {
 
     // Fetch products for this store
     const products = await Product.find({ restaurant: new mongoose.Types.ObjectId(id) });
-    console.log(`Products found for ${store.name}:`, products.length);
+    
 
     // Format for Frontend
     const cuisineStr = Array.isArray(store.cuisines)
@@ -186,7 +186,7 @@ const saveExternalRestaurant = async (req, res) => {
   try {
     const { externalId, name, cuisine, address, image, time, price } = req.body;
 
-    console.log("Saving external restaurant:", externalId, name);
+    
 
     // Check if restaurant already exists (by externalId OR Name/Email)
     let restaurant = await Restaurant.findOne({
@@ -197,7 +197,7 @@ const saveExternalRestaurant = async (req, res) => {
     });
 
     if (restaurant) {
-      console.log("Restaurant already exists (Match):", restaurant._id);
+      
       return res.json({
         _id: restaurant._id,
         name: restaurant.name,
@@ -229,7 +229,7 @@ const saveExternalRestaurant = async (req, res) => {
       isOpen: true,
     });
 
-    console.log("Created new restaurant:", restaurant._id);
+    
 
     res.status(201).json({
       _id: restaurant._id,

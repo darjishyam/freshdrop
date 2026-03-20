@@ -49,7 +49,7 @@ function AppContent() {
     if (notificationResponse) {
       const data = notificationResponse.notification.request.content.data;
       if (data && data.orderId) {
-        console.log("Redirecting to Order Tracking:", data.orderId);
+        
         router.push(`/orders/${data.orderId}`);
       }
     }
@@ -58,7 +58,7 @@ function AppContent() {
   // Handle global API suspension errors
   useEffect(() => {
     setSuspensionHandler((message) => {
-      console.log("[apiClient] Intercepted suspension:", message);
+      
       Alert.alert(
         "Account Suspended",
         message || "Your account has been suspended. Please contact support.",
@@ -82,7 +82,7 @@ function AppContent() {
 
       // Step 3: Listen for account suspension ("sessionKicked" from server)
       const handleKick = (data) => {
-        console.log("[Socket] Session kicked:", data?.message);
+        
         Alert.alert(
           "Account Suspended",
           data?.message || "Your account has been suspended. Please contact support.",
@@ -107,7 +107,7 @@ function AppContent() {
   useEffect(() => {
     if (expoPushToken && token) {
       // Send token to backend
-      console.log("Updating Push Token for User App:", expoPushToken);
+      
       updatePushToken(expoPushToken);
     }
   }, [expoPushToken, token, user]);

@@ -83,7 +83,7 @@ const toggleUserStatus = async (req, res) => {
                     io.to(`user_${req.params.id}`).emit("sessionKicked", {
                         message: "Your account has been suspended by the administrator."
                     });
-                    console.log(`[Socket] Kicked suspended user: ${req.params.id}`);
+
                 }
             }
 
@@ -133,7 +133,7 @@ const updateRestaurantStatus = async (req, res) => {
                 io.to(`restaurant_${req.params.id}`).emit('sessionKicked', {
                     message: `Your restaurant account has been ${status.toLowerCase()} by the administrator.`
                 });
-                console.log(`[Socket] Kicked ${status} restaurant: ${req.params.id}`);
+
             }
         }
 
@@ -169,7 +169,7 @@ const updateRestaurantStatus = async (req, res) => {
                 subject: `Your ${appName} Partner Account is Approved! 🎉`,
                 message: `Congratulations! Your application has been approved. You can now log into your partner dashboard.`,
                 html: htmlContent,
-            }).then(() => console.log(`[Email] Approval sent to ${restaurant.email}`))
+            }).then(() => { })
                 .catch(err => console.error(`[Email] Failed to send approval to ${restaurant.email}:`, err));
         }
 
@@ -220,7 +220,7 @@ const updateAdminDriverStatus = async (req, res) => {
                 io.to(`driver_${req.params.id}`).emit('sessionKicked', {
                     message: "Your driver account has been blocked by the administrator."
                 });
-                console.log(`[Socket] BLOCKED driver: ${req.params.id}`);
+
             }
         }
 
@@ -231,7 +231,7 @@ const updateAdminDriverStatus = async (req, res) => {
                 io.to(`driver_${req.params.id}`).emit('accountSuspended', {
                     message: "Your driver account has been suspended by the administrator."
                 });
-                console.log(`[Socket] SUSPENDED driver: ${req.params.id}`);
+
             }
         }
 
@@ -242,7 +242,7 @@ const updateAdminDriverStatus = async (req, res) => {
                 io.to(`driver_${req.params.id}`).emit('accountRestored', {
                     message: 'Your account has been activated!'
                 });
-                console.log(`[Socket] RESTORED driver: ${req.params.id}`);
+
             }
 
             // Send Email Notification if Approved and has email
@@ -272,7 +272,7 @@ const updateAdminDriverStatus = async (req, res) => {
                     subject: `Your ${appName} Driver Account is Approved! 🎉`,
                     message: `Congratulations! Your driver application has been approved. You can now log into your driver app and start delivering.`,
                     html: htmlContent,
-                }).then(() => console.log(`[Email] Approval sent to driver ${driver.email}`))
+                }).then(() => { })
                     .catch(err => console.error(`[Email] Failed to send approval to driver ${driver.email}:`, err));
             }
         }
@@ -558,7 +558,7 @@ const updateOrderStatus = async (req, res) => {
                 }
             }
 
-            console.log(`[Socket] Admin Override: Order ${order._id} -> ${status}`);
+
         }
 
         res.json({ message: `Order status updated to ${status}`, order });

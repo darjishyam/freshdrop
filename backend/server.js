@@ -31,42 +31,42 @@ const { getDistanceFromLatLonInKm } = require("./services/locationService");
 const Order = require("./models/Order");
 
 io.on("connection", (socket) => {
-  console.log("New client connected:", socket.id);
+
 
   socket.on("joinDriverRoom", (driverId) => {
     socket.join(`driver_${driverId}`);
-    console.log(`Driver ${driverId} joined room driver_${driverId}`);
+
   });
 
   socket.on("joinCityRoom", (city) => {
     if (!city) return;
     const normalizedCity = city.toLowerCase().trim().replace(/\s+/g, '_');
     socket.join(`city_${normalizedCity}`);
-    console.log(`Socket ${socket.id} joined city room: city_${normalizedCity}`);
+
   });
 
   // NEW: Restaurant Room
   socket.on("joinRestaurantRoom", (restaurantId) => {
     socket.join(`restaurant_${restaurantId}`);
-    console.log(`Socket ${socket.id} joined restaurant room: restaurant_${restaurantId}`);
+
   });
 
   // NEW: User Room (for notifications and kicks)
   socket.on("joinUserRoom", (userId) => {
     socket.join(`user_${userId}`);
-    console.log(`Socket ${socket.id} joined user room: user_${userId}`);
+
   });
 
   // NEW: Admin Room
   socket.on("joinAdminRoom", () => {
     socket.join("admin_room");
-    console.log(`Socket ${socket.id} joined admin room`);
+
   });
 
   // NEW: Driver Room (for session kicks/suspensions)
   socket.on("joinDriverRoom", (driverId) => {
     socket.join(`driver_${driverId}`);
-    console.log(`Socket ${socket.id} joined driver room: driver_${driverId}`);
+
   });
 
   socket.on("updateDriverLocation", async (data) => {
@@ -100,7 +100,7 @@ io.on("connection", (socket) => {
         const distanceKm = getDistanceFromLatLonInKm(latitude, longitude, customerLat, customerLon);
         const distanceMeters = distanceKm * 1000;
 
-        console.log(`Driver ${driverId} is ${distanceMeters.toFixed(0)}m from Customer for Order ${activeOrder._id}`);
+
 
         // ✅ NEW: Relay live driver location to the USER's socket room so their map updates in real-time
         if (activeOrder.user) {
@@ -155,13 +155,13 @@ io.on("connection", (socket) => {
             activeOrder.proximityAlerts["500m"] = true;
             alertSent = true;
           } else {
-            console.log("User push token not found for geofencing.");
+
           }
         }
 
         if (alertSent) {
           await activeOrder.save();
-          console.log(`[Geofencing] Sent ${alertType} alert for Order ${activeOrder._id}`);
+
         }
       }
 
@@ -172,7 +172,7 @@ io.on("connection", (socket) => {
 
 
   socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+
   });
 });
 
@@ -183,14 +183,14 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Request Logging Middleware
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+
   if (req.method === 'POST' || req.method === 'PUT') {
     const bodyStr = JSON.stringify(req.body);
     if (bodyStr) {
       const logBody = bodyStr.length > 200 ? bodyStr.substring(0, 200) + "..." : bodyStr;
-      console.log(`Payload: ${logBody}`);
+
     } else {
-      console.log(`Payload: (undefined or empty)`);
+
     }
   }
   next();
@@ -239,7 +239,9 @@ const startServer = async () => {
     await seedBannerTiers();
 
     // Use server.listen instead of app.listen for Socket.io
-    server.listen(PORT, "0.0.0.0", () => console.log(`Server started on port ${PORT}`));
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
   } catch (error) {
     console.error(
       "Failed to start server due to DB connection error:",

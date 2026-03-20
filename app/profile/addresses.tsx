@@ -357,7 +357,7 @@ export default function ManageAddressScreen() {
 
     const performDelete = async () => {
       try {
-        console.log(`[ADDRESS] Deleting address with ID: ${id}`);
+        
         await (dispatch(deleteUserAddress(id) as any)).unwrap();
         showToast("Address deleted");
       } catch (err) {

@@ -15,7 +15,7 @@ const debugGroceryImages = async (query = 'grocery', number = 10) => {
         });
 
         fs.writeFileSync('spoonacular_response.json', JSON.stringify(response.data, null, 2));
-        console.log('Response saved to spoonacular_response.json');
+        
 
     } catch (error) {
         console.error('Error fetching grocery products:', error.response ? error.response.data : error.message);

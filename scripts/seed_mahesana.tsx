@@ -67,22 +67,22 @@ const mockRestaurants = [
 const seedRestaurants = async () => {
     try {
         await connectDB();
-        console.log("Connected to MongoDB...");
+        
 
         // Check if they exist to avoid duplicates (by name)
         for (const r of mockRestaurants) {
             const existing = await Restaurant.findOne({ name: r.name });
             if (existing) {
-                console.log(`Updated ${r.name}`);
+                
                 Object.assign(existing, r);
                 await existing.save();
             } else {
                 await Restaurant.create(r);
-                console.log(`Created ${r.name}`);
+                
             }
         }
 
-        console.log("Done! Mahesana Restaurants are active.");
+        
         process.exit();
     } catch (error) {
         console.error("Error seeding:", error);

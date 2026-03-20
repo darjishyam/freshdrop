@@ -52,7 +52,7 @@ const ensureGoogleScriptLoaded = () => {
         script.async = true;
         script.defer = true;
         script.onload = () => {
-            console.log('✅ Google JS SDK loaded successfully');
+            
             resolve(true);
         };
         script.onerror = (error) => {
